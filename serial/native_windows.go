@@ -11,9 +11,53 @@ package serial
 #include <stdlib.h>
 #include <windows.h>
 
+//HANDLE invalid = INVALID_HANDLE_VALUE;
+
+HKEY INVALID_PORT_LIST = 0;
+
+HKEY openPortList() {
+	HKEY handle;
+	LPCSTR lpSubKey = "HARDWARE\\DEVICEMAP\\SERIALCOMM\\";
+	DWORD res = RegOpenKeyExA(HKEY_LOCAL_MACHINE, lpSubKey, 0, KEY_READ, &handle);
+	if (res != ERROR_SUCCESS)
+		return INVALID_PORT_LIST;
+	else
+		return handle;
+}
+
+int countPortList(HKEY handle) {
+	int count = 0;
+	for (;;) {
+		char name[256];
+		DWORD nameSize = 256;
+		DWORD res = RegEnumValueA(handle, count, name, &nameSize, NULL, NULL, NULL, NULL);
+		if (res != ERROR_SUCCESS)
+			return count;
+		count++;
+	}
+}
+
+char *getInPortList(HKEY handle, int i) {
+	byte *data = (byte *) malloc(256);
+	DWORD dataSize = 256;
+	char name[256];
+	DWORD nameSize = 256;
+	DWORD res = RegEnumValueA(handle, i, name, &nameSize, NULL, NULL, data, &dataSize);
+	if (res != ERROR_SUCCESS) {
+		free(data);
+		return NULL;
+	}
+	return data;
+}
+
+void closePortList(HKEY handle) {
+	CloseHandle(handle);
+}
+
 */
 import "C"
 import "syscall"
+import "unsafe"
 
 // OS dependent values
 
@@ -26,22 +70,21 @@ type windowsSerialPort struct {
 }
 
 func GetPortsList() ([]string, error) {
-	return nil, nil
-	/*
-	   private static String[] getWindowsPortNames(Pattern pattern, Comparator<String> comparator) {
-	       String[] portNames = serialInterface.getSerialPortNames();
-	       if(portNames == null){
-	           return new String[]{};
-	       }
-	       TreeSet<String> ports = new TreeSet<String>(comparator);
-	       for(String portName : portNames){
-	           if(pattern.matcher(portName).find()){
-	               ports.add(portName);
-	           }
-	       }
-	       return ports.toArray(new String[ports.size()]);
-	   }
-	*/
+	portList := C.openPortList()
+	if portList == C.INVALID_PORT_LIST {
+		return nil, &SerialPortError{code: ERROR_ENUMERATING_PORTS}
+	}
+	n := C.countPortList(portList)
+
+	list := make([]string, n)
+	for i := range list {
+		portName := C.getInPortList(portList, C.int(i))
+		list[i] = C.GoString(portName)
+		C.free(unsafe.Pointer(portName))
+	}
+
+	C.closePortList(portList)
+	return list, nil
 }
 
 func (port *windowsSerialPort) Close() error {
