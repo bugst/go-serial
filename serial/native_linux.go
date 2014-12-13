@@ -224,25 +224,25 @@ func OpenPort(portName string, exclusive bool) (SerialPort, error) {
 	}
 
 	// Set local mode
-  settings.c_cflag |= C.CREAD | C.CLOCAL
+	settings.c_cflag |= C.CREAD | C.CLOCAL
 
 	// Set raw mode
-  settings.c_lflag &= ^C.tcflag_t(C.ICANON | C.ECHO | C.ECHOE | C.ECHOK | C.ECHONL | C.ECHOCTL | C.ECHOPRT | C.ECHOKE | C.ISIG | C.IEXTEN)
-  settings.c_iflag &= ^C.tcflag_t(C.IXON | C.IXOFF | C.IXANY | C.INPCK | C.IGNPAR | C.PARMRK | C.ISTRIP | C.IGNBRK | C.BRKINT | C.INLCR | C.IGNCR | C.ICRNL | C.IUCLC)
-  settings.c_oflag &= ^C.tcflag_t(C.OPOST)
+	settings.c_lflag &= ^C.tcflag_t(C.ICANON | C.ECHO | C.ECHOE | C.ECHOK | C.ECHONL | C.ECHOCTL | C.ECHOPRT | C.ECHOKE | C.ISIG | C.IEXTEN)
+	settings.c_iflag &= ^C.tcflag_t(C.IXON | C.IXOFF | C.IXANY | C.INPCK | C.IGNPAR | C.PARMRK | C.ISTRIP | C.IGNBRK | C.BRKINT | C.INLCR | C.IGNCR | C.ICRNL | C.IUCLC)
+	settings.c_oflag &= ^C.tcflag_t(C.OPOST)
 
 	// Block reads until at least one char is available (no timeout)
-	settings.c_cc[C.VMIN] = 1;
-	settings.c_cc[C.VTIME] = 0;
+	settings.c_cc[C.VMIN] = 1
+	settings.c_cc[C.VTIME] = 0
 
 	err = setTermSettings(handle, settings)
 	if err != nil {
 		syscall.Close(handle)
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
-/*
-    settings->c_cflag &= ~CRTSCTS;
-*/
+	/*
+	   settings->c_cflag &= ~CRTSCTS;
+	*/
 	syscall.SetNonblock(handle, false)
 
 	if exclusive {
