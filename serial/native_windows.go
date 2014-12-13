@@ -2,6 +2,12 @@ package serial
 
 /*
 
+// MSDN article on Serial Communications:
+// http://msdn.microsoft.com/en-us/library/ff802693.aspx
+
+// Arduino Playground article on serial communication with Windows API:
+// http://playground.arduino.cc/Interfacing/CPPWindows
+
 #include <stdlib.h>
 #include <windows.h>
 
