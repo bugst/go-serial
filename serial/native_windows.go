@@ -178,6 +178,23 @@ const (
 	TWOSTOPBITS  = 2
 )
 
+func (port windowsSerialPort) SetSpeed(baudrate int) error {
+	params := DCB{}
+	if err := GetCommState(port.Handle, &params); err != nil {
+		port.Close()
+		return &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+	}
+	params.BaudRate = uint32(baudrate)
+	params.ByteSize = 8
+	params.StopBits = ONESTOPBIT
+	params.Parity = NOPARITY
+	if err := SetCommState(port.Handle, &params); err != nil {
+		port.Close()
+		return &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+	}
+	return nil
+}
+
 func OpenPort(portName string, useTIOCEXCL bool) (SerialPort, error) {
 	portName = "\\\\.\\" + portName
 
