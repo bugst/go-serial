@@ -1,6 +1,6 @@
 package main
 
-import "github.com/bugst/go-serial/serial"
+import "bug.st/go-serial/serial"
 import "fmt"
 import "log"
 
@@ -9,15 +9,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if len(ports) == 0 {
+		log.Fatal("No serial ports found!")
+	}
+
 	for _, port := range ports {
 		fmt.Printf("Found port: %v\n", port)
 	}
 
-	port, err := serial.OpenPort("/dev/ttyACM0", false)
+	port, err := serial.OpenPort(ports[0], false)
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = port.SetSpeed(115200)
+	err = port.SetSpeed(9600)
 	if err != nil {
 		log.Fatal(err)
 	}
