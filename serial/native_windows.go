@@ -96,6 +96,88 @@ func (port windowsSerialPort) Write(p []byte) (int, error) {
 	return int(writed), err
 }
 
+const (
+	DCB_BINARY                   = 0x00000001
+	DCB_PARITY                   = 0x00000002
+	DCB_OUT_X_CTS_FLOW           = 0x00000004
+	DCB_OUT_X_DSR_FLOW           = 0x00000008
+	DCB_DTR_CONTROL_DISABLE_MASK = ^0x00000030
+	DCB_DTR_CONTROL_ENABLE       = 0x00000010
+	DCB_DTR_CONTROL_HANDSHAKE    = 0x00000020
+	DCB_DSR_SENSITIVITY          = 0x00000040
+	DCB_TX_CONTINUE_ON_XOFF      = 0x00000080
+	DCB_OUT_X                    = 0x00000100
+	DCB_IN_X                     = 0x00000200
+	DCB_ERROR_CHAR               = 0x00000400
+	DCB_NULL                     = 0x00000800
+	DCB_RTS_CONTROL_DISABLE_MASK = ^0x00003000
+	DCB_RTS_CONTROL_ENABLE       = 0x00001000
+	DCB_RTS_CONTROL_HANDSHAKE    = 0x00002000
+	DCB_RTS_CONTROL_TOGGLE       = 0x00003000
+	DCB_ABORT_ON_ERROR           = 0x00004000
+)
+
+type DCB struct {
+	DCBlength uint32
+	BaudRate  uint32
+
+	// Flags field is a bitfield
+	//  fBinary            :1
+	//  fParity            :1
+	//  fOutxCtsFlow       :1
+	//  fOutxDsrFlow       :1
+	//  fDtrControl        :2
+	//  fDsrSensitivity    :1
+	//  fTXContinueOnXoff  :1
+	//  fOutX              :1
+	//  fInX               :1
+	//  fErrorChar         :1
+	//  fNull              :1
+	//  fRtsControl        :2
+	//  fAbortOnError      :1
+	//  fDummy2            :17
+	Flags uint32
+
+	wReserved  uint16
+	XonLim     uint16
+	XoffLim    uint16
+	ByteSize   byte
+	Parity     byte
+	StopBits   byte
+	XonChar    byte
+	XoffChar   byte
+	ErrorChar  byte
+	EofChar    byte
+	EvtChar    byte
+	wReserved1 uint16
+}
+
+type COMMTIMEOUTS struct {
+	ReadIntervalTimeout         uint32
+	ReadTotalTimeoutMultiplier  uint32
+	ReadTotalTimeoutConstant    uint32
+	WriteTotalTimeoutMultiplier uint32
+	WriteTotalTimeoutConstant   uint32
+}
+
+//sys GetCommState(handle syscall.Handle, dcb *DCB) (err error)
+//sys SetCommState(handle syscall.Handle, dcb *DCB) (err error)
+//sys SetCommTimeouts(handle syscall.Handle, timeouts *COMMTIMEOUTS) (err error)
+
+const (
+	NOPARITY    = 0
+	ODDPARITY   = 1
+	EVENPARITY  = 2
+	MARKPARITY  = 3
+	SPACEPARITY = 4
+)
+
+const (
+	ONESTOPBIT   = 0
+	ONE5STOPBITS = 1
+	TWOSTOPBITS  = 2
+)
+
 func OpenPort(portName string, useTIOCEXCL bool) (SerialPort, error) {
 	portName = "\\\\.\\" + portName
 

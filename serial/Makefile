@@ -2,7 +2,7 @@ include $(GOROOT)/src/Make.inc
 
 TARG=github.com/bugst/go-serial/serial
 
-GOFILES=serial.go native_$(GOOS).go
+GOFILES=serial.go native_$(GOOS).go native_z$(GOOS).go
 
 include $(GOROOT)/src/Make.pkg
 
