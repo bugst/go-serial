@@ -59,14 +59,9 @@ import "C"
 import "syscall"
 import "unsafe"
 
-// OS dependent values
-
-const devFolder = ""
-const regexFilter = "(ttyS|ttyUSB|ttyACM|ttyAMA|rfcomm|ttyO)[0-9]{1,3}"
-
-// opaque type that implements SerialPort interface for linux
+// opaque type that implements SerialPort interface for Windows
 type windowsSerialPort struct {
-	Handle int
+	Handle syscall.Handle
 }
 
 func GetPortsList() ([]string, error) {
@@ -87,16 +82,18 @@ func GetPortsList() ([]string, error) {
 	return list, nil
 }
 
-func (port *windowsSerialPort) Close() error {
-	return nil
+func (port windowsSerialPort) Close() error {
+	return syscall.CloseHandle(port.Handle)
 }
 
 func (port *windowsSerialPort) Read(p []byte) (n int, err error) {
 	return syscall.Read(port.Handle, p)
 }
 
-func (port *windowsSerialPort) Write(p []byte) (n int, err error) {
-	return syscall.Write(port.Handle, p)
+func (port windowsSerialPort) Write(p []byte) (int, error) {
+	var writed uint32
+	err := syscall.WriteFile(port.Handle, p, &writed, nil)
+	return int(writed), err
 }
 
 func OpenPort(portName string, useTIOCEXCL bool) (SerialPort, error) {
