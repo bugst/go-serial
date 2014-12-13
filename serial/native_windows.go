@@ -197,62 +197,69 @@ func (port windowsSerialPort) SetSpeed(baudrate int) error {
 
 func OpenPort(portName string, useTIOCEXCL bool) (SerialPort, error) {
 	portName = "\\\\.\\" + portName
-
-	handle, err := syscall.CreateFile(portName, syscall.GENERIC_READ|syscall.GENERIC_WRITE, 0, nil, syscall.OPEN_EXISTING, syscall.FILE_FLAG_OVERLAPPED, 0)
-	//handle := C.CreateFile(C.CString(portName), C.GENERIC_READ | C.GENERIC_WRITE, 0, 0, C.OPEN_EXISTING, C.FILE_FLAG_OVERLAPPED, 0)
-
-	/*
-	   JNIEXPORT jlong JNICALL Java_jssc_SerialNativeInterface_openPort(JNIEnv *env, jobject object, jstring portName, jboolean useTIOCEXCL){
-	       char prefix[] = "\\\\.\\";
-	       const char* port = env->GetStringUTFChars(portName, JNI_FALSE);
-
-	       //since 2.1.0 -> string concat fix
-	       char portFullName[strlen(prefix) + strlen(port) + 1];
-	       strcpy(portFullName, prefix);
-	       strcat(portFullName, port);
-	       //<- since 2.1.0
-
-	       HANDLE hComm = CreateFile(portFullName,
-	                          	   	  GENERIC_READ | GENERIC_WRITE,
-	                          	   	  0,
-	                          	   	  0,
-	                          	   	  OPEN_EXISTING,
-	                          	   	  FILE_FLAG_OVERLAPPED,
-	                          	   	  0);
-	       env->ReleaseStringUTFChars(portName, port);
-	*/
-	/*
-		if handle != syscall.INVALID_HANDLE_VALUE {
-			var dcb C.DCB
-			if C.GetCommState(handle, &dcb) != 0 {
-				C.CloseHandle(handle)
-				return nil,
-			}
+	path, err := syscall.UTF16PtrFromString(portName)
+	if err != nil {
+		return nil, err
+	}
+	handle, err := syscall.CreateFile(
+		path,
+		syscall.GENERIC_READ|syscall.GENERIC_WRITE,
+		0, nil,
+		syscall.OPEN_EXISTING,
+		0, //syscall.FILE_FLAG_OVERLAPPED,
+		0)
+	if err != nil {
+		switch err {
+		case syscall.ERROR_ACCESS_DENIED:
+			return nil, &SerialPortError{code: ERROR_PORT_BUSY}
+		case syscall.ERROR_FILE_NOT_FOUND:
+			return nil, &SerialPortError{code: ERROR_PORT_NOT_FOUND}
 		}
-	*/
-	/*    //since 2.3.0 ->
-	    if(hComm != INVALID_HANDLE_VALUE){
-	    	DCB *dcb = new DCB();
-	    	if(!GetCommState(hComm, dcb)){
-	    		CloseHandle(hComm);//since 2.7.0
-	    		hComm = (HANDLE)jssc_SerialNativeInterface_ERR_INCORRECT_SERIAL_PORT;//(-4)Incorrect serial port
-	    	}
-	    	delete dcb;
-	    }
-	    else {
-	    	DWORD errorValue = GetLastError();
-	    	if(errorValue == ERROR_ACCESS_DENIED){
-	    		hComm = (HANDLE)jssc_SerialNativeInterface_ERR_PORT_BUSY;//(-1)Port busy
-	    	}
-	    	else if(errorValue == ERROR_FILE_NOT_FOUND){
-	    		hComm = (HANDLE)jssc_SerialNativeInterface_ERR_PORT_NOT_FOUND;//(-2)Port not found
-	    	}
-	    }
-	    //<- since 2.3.0
-	    return (jlong)hComm;//since 2.4.0 changed to jlong
-	};
+		return nil, err
+	}
+	// Create the serial port
+	port := &windowsSerialPort{
+		Handle: handle,
+	}
 
-	*/
+	params := &DCB{}
+	err = GetCommState(port.Handle, params)
+	if err != nil {
+		port.Close()
+		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+	}
+	params.Flags |= DCB_RTS_CONTROL_ENABLE | DCB_DTR_CONTROL_ENABLE
+	params.Flags &= ^uint32(DCB_OUT_X_CTS_FLOW)
+	params.Flags &= ^uint32(DCB_OUT_X_DSR_FLOW)
+	params.Flags &= ^uint32(DCB_DSR_SENSITIVITY)
+	params.Flags |= DCB_TX_CONTINUE_ON_XOFF
+	params.Flags &= ^uint32(DCB_IN_X | DCB_OUT_X)
+	params.Flags &= ^uint32(DCB_ERROR_CHAR)
+	params.Flags &= ^uint32(DCB_NULL)
+	params.Flags &= ^uint32(DCB_ABORT_ON_ERROR)
+	params.XonLim = 2048
+	params.XoffLim = 512
+	params.XonChar = 17  // DC1
+	params.XoffChar = 19 // C3
+	err = SetCommState(port.Handle, params)
+	if err != nil {
+		port.Close()
+		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+	}
+
+	timeouts := &COMMTIMEOUTS{
+		ReadIntervalTimeout:         0xFFFFFFFF,
+		ReadTotalTimeoutMultiplier:  0xFFFFFFFF,
+		ReadTotalTimeoutConstant:    1000, // 1 sec
+		WriteTotalTimeoutConstant:   0,
+		WriteTotalTimeoutMultiplier: 0,
+	}
+	if err := SetCommTimeouts(port.Handle, timeouts); err != nil {
+		port.Close()
+		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+	}
+
+	return port, nil
 }
 
 // vi:ts=2
