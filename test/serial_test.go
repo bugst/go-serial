@@ -36,7 +36,9 @@ func ExampleCommunication() {
 	if err := port.SetDataBits(8); err != nil {
 		log.Fatal(err)
 	}
-
+	if err := port.SetStopBits(serial.STOPBITS_ONE); err != nil {
+		log.Fatal(err)
+	}
 	n, err := port.Write([]byte("10,20,30\n\r"))
 	if err != nil {
 		log.Fatal(err)

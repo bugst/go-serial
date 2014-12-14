@@ -266,6 +266,20 @@ func (port *linuxSerialPort) SetDataBits(bits int) error {
 	return setTermSettings(port.Handle, settings)
 }
 
+func (port *linuxSerialPort) SetStopBits(bits StopBits) error {
+	settings, err := getTermSettings(port.Handle)
+	if err != nil {
+		return err
+	}
+	switch bits {
+	case STOPBITS_ONE:
+		settings.c_cflag &= ^C.tcflag_t(syscall.CSTOPB)
+	case STOPBITS_ONEPOINTFIVE, STOPBITS_TWO:
+		settings.c_cflag |= syscall.CSTOPB
+	}
+	return setTermSettings(port.Handle, settings)
+}
+
 func OpenPort(portName string, exclusive bool) (SerialPort, error) {
 	handle, err := syscall.Open(portName, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NDELAY, 0)
 	if err != nil {

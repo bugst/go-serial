@@ -23,6 +23,9 @@ type SerialPort interface {
 
 	// Set data bits
 	SetDataBits(bits int) error
+
+	// Set stop bits
+	SetStopBits(bits StopBits) error
 }
 
 type Parity int
@@ -33,6 +36,14 @@ const (
 	PARITY_EVEN
 	PARITY_MARK
 	PARITY_SPACE
+)
+
+type StopBits int
+
+const (
+	STOPBITS_ONE StopBits = iota
+	STOPBITS_ONEPOINTFIVE
+	STOPBITS_TWO
 )
 
 // Platform independent error type for serial ports
