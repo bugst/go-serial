@@ -245,6 +245,27 @@ func (port *linuxSerialPort) SetParity(parity Parity) error {
 	return setTermSettings(port.Handle, settings)
 }
 
+var databitsMap = map[int]C.tcflag_t{
+	5: C.CS5,
+	6: C.CS6,
+	7: C.CS7,
+	8: C.CS8,
+}
+
+func (port *linuxSerialPort) SetDataBits(bits int) error {
+	databits, ok := databitsMap[bits]
+	if !ok {
+		return &SerialPortError{code: ERROR_INVALID_PORT_DATA_BITS}
+	}
+	settings, err := getTermSettings(port.Handle)
+	if err != nil {
+		return err
+	}
+	settings.c_cflag &= ^C.tcflag_t(syscall.CSIZE)
+	settings.c_cflag |= databits
+	return setTermSettings(port.Handle, settings)
+}
+
 func OpenPort(portName string, exclusive bool) (SerialPort, error) {
 	handle, err := syscall.Open(portName, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NDELAY, 0)
 	if err != nil {

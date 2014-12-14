@@ -20,6 +20,9 @@ type SerialPort interface {
 
 	// Set port parity
 	SetParity(parity Parity) error
+
+	// Set data bits
+	SetDataBits(bits int) error
 }
 
 type Parity int
@@ -44,6 +47,7 @@ const (
 	ERROR_INVALID_SERIAL_PORT
 	ERROR_PERMISSION_DENIED
 	ERROR_INVALID_PORT_SPEED
+	ERROR_INVALID_PORT_DATA_BITS
 	ERROR_ENUMERATING_PORTS
 	ERROR_OTHER
 )
@@ -60,6 +64,8 @@ func (e SerialPortError) Error() string {
 		return "Permission denied"
 	case ERROR_INVALID_PORT_SPEED:
 		return "Invalid port speed"
+	case ERROR_INVALID_PORT_DATA_BITS:
+		return "Invalid port data bits"
 	case ERROR_ENUMERATING_PORTS:
 		return "Could not enumerate serial ports"
 	}
