@@ -1,10 +1,10 @@
-package main
+package serial
 
-import "bug.st/go-serial/serial"
+import "go.bug.st/serial"
 import "fmt"
 import "log"
 
-func main() {
+func ExampleCommunication() {
 	ports, err := serial.GetPortsList()
 	if err != nil {
 		log.Fatal(err)
