@@ -27,8 +27,10 @@ func ExampleCommunication() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = port.SetSpeed(9600)
-	if err != nil {
+	if err = port.SetSpeed(9600); err != nil {
+		log.Fatal(err)
+	}
+	if err := port.SetParity(serial.PARITY_NONE); err != nil {
 		log.Fatal(err)
 	}
 

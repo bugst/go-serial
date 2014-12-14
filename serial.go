@@ -17,7 +17,20 @@ type SerialPort interface {
 
 	// Set port speed
 	SetSpeed(baudrate int) error
+
+	// Set port parity
+	SetParity(parity Parity) error
 }
+
+type Parity int
+
+const (
+	PARITY_NONE Parity = iota
+	PARITY_ODD
+	PARITY_EVEN
+	PARITY_MARK
+	PARITY_SPACE
+)
 
 // Platform independent error type for serial ports
 type SerialPortError struct {

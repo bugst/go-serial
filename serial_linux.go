@@ -24,6 +24,14 @@ package serial
 	static const tcflag_t IUCLC = 0;
 #endif
 
+#if defined(PAREXT)
+	const tcflag_t FIXED_PAR_FLAG = PAREXT;
+#elif defined(CMSPAR)
+	const tcflag_t FIXED_PAR_FLAG = CMSPAR;
+#else
+	const tcflag_t FIXED_PAR_FLAG = 0;
+#endif
+
 // ioctl call is not available through syscall package
 //int ioctl_wrapper(int d, unsigned long request) {
 //	return ioctl(d, request);
@@ -206,6 +214,34 @@ func (port *linuxSerialPort) SetSpeed(speed int) error {
 	}
 	C.cfsetispeed(settings, baudrate)
 	C.cfsetospeed(settings, baudrate)
+	return setTermSettings(port.Handle, settings)
+}
+
+func (port *linuxSerialPort) SetParity(parity Parity) error {
+	settings, err := getTermSettings(port.Handle)
+	if err != nil {
+		return err
+	}
+	switch parity {
+	case PARITY_NONE:
+		settings.c_cflag &= ^C.tcflag_t(syscall.PARENB | syscall.PARODD | C.FIXED_PAR_FLAG)
+		settings.c_iflag &= ^C.tcflag_t(syscall.INPCK)
+	case PARITY_ODD:
+		settings.c_cflag |= syscall.PARENB | syscall.PARODD
+		settings.c_cflag &= ^C.tcflag_t(C.FIXED_PAR_FLAG)
+		settings.c_iflag |= syscall.INPCK
+	case PARITY_EVEN:
+		settings.c_cflag &= ^C.tcflag_t(syscall.PARODD | C.FIXED_PAR_FLAG)
+		settings.c_cflag |= syscall.PARENB
+		settings.c_iflag |= syscall.INPCK
+	case PARITY_MARK:
+		settings.c_cflag |= syscall.PARENB | syscall.PARODD | C.FIXED_PAR_FLAG
+		settings.c_iflag |= syscall.INPCK
+	case PARITY_SPACE:
+		settings.c_cflag &= ^C.tcflag_t(syscall.PARODD)
+		settings.c_cflag |= syscall.PARENB | C.FIXED_PAR_FLAG
+		settings.c_iflag |= syscall.INPCK
+	}
 	return setTermSettings(port.Handle, settings)
 }
 
