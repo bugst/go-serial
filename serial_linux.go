@@ -21,7 +21,7 @@ package serial
 
 // Define (eventually) missing constants
 #ifndef IUCLC
-	static const tcflag_t IUCLC = 0;
+	const tcflag_t IUCLC = 0;
 #endif
 
 #if defined(PAREXT)
