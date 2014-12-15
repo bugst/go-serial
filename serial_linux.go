@@ -6,39 +6,6 @@
 
 package serial
 
-/*
-
-#include <fcntl.h>
-#include <errno.h>
-#include <stdio.h>
-#include <sys/ioctl.h>
-#include <sys/select.h>
-#include <termios.h>
-#include <time.h>
-#include <unistd.h>
-
-#include <linux/serial.h>
-
-//int fcntl_wrapper(int fd, int cmd, int arg) {
-//	return fcntl(fd, cmd, arg);
-//}
-
-// Gain exclusive access to serial port
-void setTIOCEXCL(int handle) {
-#if defined TIOCEXCL
-	ioctl(handle, TIOCEXCL);
-#endif
-}
-
-// Release exclusive access to serial port
-void setTIOCNXCL(int handle) {
-#if defined TIOCNXCL
-	ioctl(handle, TIOCNXCL);
-#endif
-}
-
-*/
-import "C"
 import "io/ioutil"
 import "regexp"
 import "syscall"
@@ -56,13 +23,11 @@ func ioctl(fd int, req uint64, data uintptr) (err error) {
 // native syscall wrapper functions
 
 func getExclusiveAccess(handle int) error {
-	_, err := C.setTIOCEXCL(C.int(handle))
-	return err
+	return ioctl(handle, syscall.TIOCEXCL, 0)
 }
 
 func releaseExclusiveAccess(handle int) error {
-	_, err := C.setTIOCNXCL(C.int(handle))
-	return err
+	return ioctl(handle, syscall.TIOCNXCL, 0)
 }
 
 func getTermSettings(handle int) (*syscall.Termios, error) {
@@ -290,7 +255,7 @@ func OpenPort(portName string, exclusive bool) (SerialPort, error) {
 	}
 
 	// Set local mode
-	settings.Cflag |= C.CREAD | C.CLOCAL
+	settings.Cflag |= syscall.CREAD | syscall.CLOCAL
 
 	// Set raw mode
 	settings.Lflag &= ^uint32(syscall.ICANON | syscall.ECHO | syscall.ECHOE | syscall.ECHOK | syscall.ECHONL | syscall.ECHOCTL | syscall.ECHOPRT | syscall.ECHOKE | syscall.ISIG | syscall.IEXTEN)
