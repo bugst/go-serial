@@ -32,11 +32,6 @@ package serial
 	const tcflag_t FIXED_PAR_FLAG = 0;
 #endif
 
-// ioctl call is not available through syscall package
-//int ioctl_wrapper(int d, unsigned long request) {
-//	return ioctl(d, request);
-//}
-
 //int fcntl_wrapper(int fd, int cmd, int arg) {
 //	return fcntl(fd, cmd, arg);
 //}
@@ -55,22 +50,21 @@ void setTIOCNXCL(int handle) {
 #endif
 }
 
-//int selectRead(int handle) {
-//	fd_set rfds;
-//	FD_ZERO(&rfds);
-//	FD_SET(handle, &rfds);
-//  int ret = select(handle+1, &rfds, NULL, NULL, NULL);
-//	if (ret==-1)
-//		return -1;
-//	else
-//		return 0;
-//}
-
 */
 import "C"
 import "io/ioutil"
 import "regexp"
 import "syscall"
+import "unsafe"
+
+//sys ioctl(fd int, req uint64, data uintptr) (err error)
+func ioctl(fd int, req uint64, data uintptr) (err error) {
+	_, _, e1 := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(req), uintptr(data))
+	if e1 != 0 {
+		err = e1
+	}
+	return
+}
 
 // native syscall wrapper functions
 
