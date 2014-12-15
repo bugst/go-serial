@@ -191,8 +191,16 @@ func (port *linuxSerialPort) SetSpeed(speed int) error {
 	if err != nil {
 		return err
 	}
-	C.cfsetispeed(settings, baudrate)
-	C.cfsetospeed(settings, baudrate)
+	// revert old baudrate
+	var BAUDMASK uint32 = 0
+	for _, rate := range baudrateMap {
+		BAUDMASK |= rate
+	}
+	settings.Cflag &= ^uint32(BAUDMASK)
+	// set new baudrate
+	settings.Cflag |= baudrate
+	settings.Ispeed = baudrate
+	settings.Ospeed = baudrate
 	return setTermSettings(port.Handle, settings)
 }
 
