@@ -19,19 +19,6 @@ package serial
 
 #include <linux/serial.h>
 
-// Define (eventually) missing constants
-#ifndef IUCLC
-	const tcflag_t IUCLC = 0;
-#endif
-
-#if defined(PAREXT)
-	const tcflag_t FIXED_PAR_FLAG = PAREXT;
-#elif defined(CMSPAR)
-	const tcflag_t FIXED_PAR_FLAG = CMSPAR;
-#else
-	const tcflag_t FIXED_PAR_FLAG = 0;
-#endif
-
 //int fcntl_wrapper(int fd, int cmd, int arg) {
 //	return fcntl(fd, cmd, arg);
 //}
@@ -78,15 +65,14 @@ func releaseExclusiveAccess(handle int) error {
 	return err
 }
 
-func getTermSettings(handle int) (*C.struct_termios, error) {
-	settings := new(C.struct_termios)
-	_, err := C.tcgetattr(C.int(handle), settings)
+func getTermSettings(handle int) (*syscall.Termios, error) {
+	settings := &syscall.Termios{}
+	err := ioctl(handle, syscall.TCGETS, uintptr(unsafe.Pointer(settings)))
 	return settings, err
 }
 
-func setTermSettings(handle int, settings *C.struct_termios) error {
-	_, err := C.tcsetattr(C.int(handle), C.TCSANOW, settings)
-	return err
+func setTermSettings(handle int, settings *syscall.Termios) error {
+	return ioctl(handle, syscall.TCSETS, uintptr(unsafe.Pointer(settings)))
 }
 
 func getErrno(err error) int {
@@ -163,38 +149,37 @@ func (port *linuxSerialPort) Write(p []byte) (n int, err error) {
 	return syscall.Write(port.Handle, p)
 }
 
-var baudrateMap = map[int]C.speed_t{
-	0:       C.B0,
-	50:      C.B50,
-	75:      C.B75,
-	110:     C.B110,
-	134:     C.B134,
-	150:     C.B150,
-	200:     C.B200,
-	300:     C.B300,
-	600:     C.B600,
-	1200:    C.B1200,
-	1800:    C.B1800,
-	2400:    C.B2400,
-	4800:    C.B4800,
-	9600:    C.B9600,
-	19200:   C.B19200,
-	38400:   C.B38400,
-	57600:   C.B57600,
-	115200:  C.B115200,
-	230400:  C.B230400,
-	460800:  C.B460800,
-	500000:  C.B500000,
-	576000:  C.B576000,
-	921600:  C.B921600,
-	1000000: C.B1000000,
-	1152000: C.B1152000,
-	1500000: C.B1500000,
-	2000000: C.B2000000,
-	2500000: C.B2500000,
-	3000000: C.B3000000,
-	3500000: C.B3500000,
-	4000000: C.B4000000,
+var baudrateMap = map[int]uint32{
+	50:      syscall.B50,
+	75:      syscall.B75,
+	110:     syscall.B110,
+	134:     syscall.B134,
+	150:     syscall.B150,
+	200:     syscall.B200,
+	300:     syscall.B300,
+	600:     syscall.B600,
+	1200:    syscall.B1200,
+	1800:    syscall.B1800,
+	2400:    syscall.B2400,
+	4800:    syscall.B4800,
+	9600:    syscall.B9600,
+	19200:   syscall.B19200,
+	38400:   syscall.B38400,
+	57600:   syscall.B57600,
+	115200:  syscall.B115200,
+	230400:  syscall.B230400,
+	460800:  syscall.B460800,
+	500000:  syscall.B500000,
+	576000:  syscall.B576000,
+	921600:  syscall.B921600,
+	1000000: syscall.B1000000,
+	1152000: syscall.B1152000,
+	1500000: syscall.B1500000,
+	2000000: syscall.B2000000,
+	2500000: syscall.B2500000,
+	3000000: syscall.B3000000,
+	3500000: syscall.B3500000,
+	4000000: syscall.B4000000,
 }
 
 func (port *linuxSerialPort) SetSpeed(speed int) error {
@@ -212,38 +197,40 @@ func (port *linuxSerialPort) SetSpeed(speed int) error {
 }
 
 func (port *linuxSerialPort) SetParity(parity Parity) error {
+	const FIXED_PARITY_FLAG uint32 = 0 // may be CMSPAR or PAREXT
+
 	settings, err := getTermSettings(port.Handle)
 	if err != nil {
 		return err
 	}
 	switch parity {
 	case PARITY_NONE:
-		settings.c_cflag &= ^C.tcflag_t(syscall.PARENB | syscall.PARODD | C.FIXED_PAR_FLAG)
-		settings.c_iflag &= ^C.tcflag_t(syscall.INPCK)
+		settings.Cflag &= ^uint32(syscall.PARENB | syscall.PARODD | FIXED_PARITY_FLAG)
+		settings.Iflag &= ^uint32(syscall.INPCK)
 	case PARITY_ODD:
-		settings.c_cflag |= syscall.PARENB | syscall.PARODD
-		settings.c_cflag &= ^C.tcflag_t(C.FIXED_PAR_FLAG)
-		settings.c_iflag |= syscall.INPCK
+		settings.Cflag |= syscall.PARENB | syscall.PARODD
+		settings.Cflag &= ^uint32(FIXED_PARITY_FLAG)
+		settings.Iflag |= syscall.INPCK
 	case PARITY_EVEN:
-		settings.c_cflag &= ^C.tcflag_t(syscall.PARODD | C.FIXED_PAR_FLAG)
-		settings.c_cflag |= syscall.PARENB
-		settings.c_iflag |= syscall.INPCK
+		settings.Cflag &= ^uint32(syscall.PARODD | FIXED_PARITY_FLAG)
+		settings.Cflag |= syscall.PARENB
+		settings.Iflag |= syscall.INPCK
 	case PARITY_MARK:
-		settings.c_cflag |= syscall.PARENB | syscall.PARODD | C.FIXED_PAR_FLAG
-		settings.c_iflag |= syscall.INPCK
+		settings.Cflag |= syscall.PARENB | syscall.PARODD | FIXED_PARITY_FLAG
+		settings.Iflag |= syscall.INPCK
 	case PARITY_SPACE:
-		settings.c_cflag &= ^C.tcflag_t(syscall.PARODD)
-		settings.c_cflag |= syscall.PARENB | C.FIXED_PAR_FLAG
-		settings.c_iflag |= syscall.INPCK
+		settings.Cflag &= ^uint32(syscall.PARODD)
+		settings.Cflag |= syscall.PARENB | FIXED_PARITY_FLAG
+		settings.Iflag |= syscall.INPCK
 	}
 	return setTermSettings(port.Handle, settings)
 }
 
-var databitsMap = map[int]C.tcflag_t{
-	5: C.CS5,
-	6: C.CS6,
-	7: C.CS7,
-	8: C.CS8,
+var databitsMap = map[int]uint32{
+	5: syscall.CS5,
+	6: syscall.CS6,
+	7: syscall.CS7,
+	8: syscall.CS8,
 }
 
 func (port *linuxSerialPort) SetDataBits(bits int) error {
@@ -255,8 +242,8 @@ func (port *linuxSerialPort) SetDataBits(bits int) error {
 	if err != nil {
 		return err
 	}
-	settings.c_cflag &= ^C.tcflag_t(syscall.CSIZE)
-	settings.c_cflag |= databits
+	settings.Cflag &= ^uint32(syscall.CSIZE)
+	settings.Cflag |= databits
 	return setTermSettings(port.Handle, settings)
 }
 
@@ -267,9 +254,9 @@ func (port *linuxSerialPort) SetStopBits(bits StopBits) error {
 	}
 	switch bits {
 	case STOPBITS_ONE:
-		settings.c_cflag &= ^C.tcflag_t(syscall.CSTOPB)
+		settings.Cflag &= ^uint32(syscall.CSTOPB)
 	case STOPBITS_ONEPOINTFIVE, STOPBITS_TWO:
-		settings.c_cflag |= syscall.CSTOPB
+		settings.Cflag |= syscall.CSTOPB
 	}
 	return setTermSettings(port.Handle, settings)
 }
@@ -295,16 +282,16 @@ func OpenPort(portName string, exclusive bool) (SerialPort, error) {
 	}
 
 	// Set local mode
-	settings.c_cflag |= C.CREAD | C.CLOCAL
+	settings.Cflag |= C.CREAD | C.CLOCAL
 
 	// Set raw mode
-	settings.c_lflag &= ^C.tcflag_t(C.ICANON | C.ECHO | C.ECHOE | C.ECHOK | C.ECHONL | C.ECHOCTL | C.ECHOPRT | C.ECHOKE | C.ISIG | C.IEXTEN)
-	settings.c_iflag &= ^C.tcflag_t(C.IXON | C.IXOFF | C.IXANY | C.INPCK | C.IGNPAR | C.PARMRK | C.ISTRIP | C.IGNBRK | C.BRKINT | C.INLCR | C.IGNCR | C.ICRNL | C.IUCLC)
-	settings.c_oflag &= ^C.tcflag_t(C.OPOST)
+	settings.Lflag &= ^uint32(syscall.ICANON | syscall.ECHO | syscall.ECHOE | syscall.ECHOK | syscall.ECHONL | syscall.ECHOCTL | syscall.ECHOPRT | syscall.ECHOKE | syscall.ISIG | syscall.IEXTEN)
+	settings.Iflag &= ^uint32(syscall.IXON | syscall.IXOFF | syscall.IXANY | syscall.INPCK | syscall.IGNPAR | syscall.PARMRK | syscall.ISTRIP | syscall.IGNBRK | syscall.BRKINT | syscall.INLCR | syscall.IGNCR | syscall.ICRNL | syscall.IUCLC)
+	settings.Oflag &= ^uint32(syscall.OPOST)
 
 	// Block reads until at least one char is available (no timeout)
-	settings.c_cc[C.VMIN] = 1
-	settings.c_cc[C.VTIME] = 0
+	settings.Cc[syscall.VMIN] = 1
+	settings.Cc[syscall.VTIME] = 0
 
 	err = setTermSettings(handle, settings)
 	if err != nil {
