@@ -60,8 +60,7 @@ func GetPortsList() ([]string, error) {
 		return nil, err
 	}
 
-	ports := make([]string, len(files))
-	found := 0
+	ports := make([]string, 0, len(files))
 	for _, f := range files {
 		// Skip folders
 		if f.IsDir() {
@@ -92,12 +91,10 @@ func GetPortsList() ([]string, error) {
 			}
 		}
 
-		// Save found serial port in the resulting list
-		ports[found] = portName
-		found++
+		// Save serial port in the resulting list
+		ports = append(ports, portName)
 	}
 
-	ports = ports[:found]
 	return ports, nil
 }
 
