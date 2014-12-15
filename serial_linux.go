@@ -20,26 +20,6 @@ func ioctl(fd int, req uint64, data uintptr) (err error) {
 	return
 }
 
-// native syscall wrapper functions
-
-func getExclusiveAccess(handle int) error {
-	return ioctl(handle, syscall.TIOCEXCL, 0)
-}
-
-func releaseExclusiveAccess(handle int) error {
-	return ioctl(handle, syscall.TIOCNXCL, 0)
-}
-
-func getTermSettings(handle int) (*syscall.Termios, error) {
-	settings := &syscall.Termios{}
-	err := ioctl(handle, syscall.TCGETS, uintptr(unsafe.Pointer(settings)))
-	return settings, err
-}
-
-func setTermSettings(handle int, settings *syscall.Termios) error {
-	return ioctl(handle, syscall.TCSETS, uintptr(unsafe.Pointer(settings)))
-}
-
 func getErrno(err error) int {
 	return int(err.(syscall.Errno))
 }
@@ -51,7 +31,7 @@ const regexFilter = "(ttyS|ttyUSB|ttyACM|ttyAMA|rfcomm|ttyO)[0-9]{1,3}"
 
 // opaque type that implements SerialPort interface for linux
 type linuxSerialPort struct {
-	Handle int
+	handle int
 }
 
 func GetPortsList() ([]string, error) {
@@ -99,16 +79,16 @@ func GetPortsList() ([]string, error) {
 }
 
 func (port *linuxSerialPort) Close() error {
-	releaseExclusiveAccess(port.Handle)
-	return syscall.Close(port.Handle)
+	port.releaseExclusiveAccess()
+	return syscall.Close(port.handle)
 }
 
 func (port *linuxSerialPort) Read(p []byte) (n int, err error) {
-	return syscall.Read(port.Handle, p)
+	return syscall.Read(port.handle, p)
 }
 
 func (port *linuxSerialPort) Write(p []byte) (n int, err error) {
-	return syscall.Write(port.Handle, p)
+	return syscall.Write(port.handle, p)
 }
 
 var baudrateMap = map[int]uint32{
@@ -149,7 +129,7 @@ func (port *linuxSerialPort) SetSpeed(speed int) error {
 	if !ok {
 		return &SerialPortError{code: ERROR_INVALID_PORT_SPEED}
 	}
-	settings, err := getTermSettings(port.Handle)
+	settings, err := port.getTermSettings()
 	if err != nil {
 		return err
 	}
@@ -163,13 +143,13 @@ func (port *linuxSerialPort) SetSpeed(speed int) error {
 	settings.Cflag |= baudrate
 	settings.Ispeed = baudrate
 	settings.Ospeed = baudrate
-	return setTermSettings(port.Handle, settings)
+	return port.setTermSettings(settings)
 }
 
 func (port *linuxSerialPort) SetParity(parity Parity) error {
 	const FIXED_PARITY_FLAG uint32 = 0 // may be CMSPAR or PAREXT
 
-	settings, err := getTermSettings(port.Handle)
+	settings, err := port.getTermSettings()
 	if err != nil {
 		return err
 	}
@@ -193,7 +173,7 @@ func (port *linuxSerialPort) SetParity(parity Parity) error {
 		settings.Cflag |= syscall.PARENB | FIXED_PARITY_FLAG
 		settings.Iflag |= syscall.INPCK
 	}
-	return setTermSettings(port.Handle, settings)
+	return port.setTermSettings(settings)
 }
 
 var databitsMap = map[int]uint32{
@@ -208,17 +188,17 @@ func (port *linuxSerialPort) SetDataBits(bits int) error {
 	if !ok {
 		return &SerialPortError{code: ERROR_INVALID_PORT_DATA_BITS}
 	}
-	settings, err := getTermSettings(port.Handle)
+	settings, err := port.getTermSettings()
 	if err != nil {
 		return err
 	}
 	settings.Cflag &= ^uint32(syscall.CSIZE)
 	settings.Cflag |= databits
-	return setTermSettings(port.Handle, settings)
+	return port.setTermSettings(settings)
 }
 
 func (port *linuxSerialPort) SetStopBits(bits StopBits) error {
-	settings, err := getTermSettings(port.Handle)
+	settings, err := port.getTermSettings()
 	if err != nil {
 		return err
 	}
@@ -228,11 +208,31 @@ func (port *linuxSerialPort) SetStopBits(bits StopBits) error {
 	case STOPBITS_ONEPOINTFIVE, STOPBITS_TWO:
 		settings.Cflag |= syscall.CSTOPB
 	}
-	return setTermSettings(port.Handle, settings)
+	return port.setTermSettings(settings)
+}
+
+// native syscall wrapper functions
+
+func (port *linuxSerialPort) getExclusiveAccess() error {
+	return ioctl(port.handle, syscall.TIOCEXCL, 0)
+}
+
+func (port *linuxSerialPort) releaseExclusiveAccess() error {
+	return ioctl(port.handle, syscall.TIOCNXCL, 0)
+}
+
+func (port *linuxSerialPort) getTermSettings() (*syscall.Termios, error) {
+	settings := &syscall.Termios{}
+	err := ioctl(port.handle, syscall.TCGETS, uintptr(unsafe.Pointer(settings)))
+	return settings, err
+}
+
+func (port *linuxSerialPort) setTermSettings(settings *syscall.Termios) error {
+	return ioctl(port.handle, syscall.TCSETS, uintptr(unsafe.Pointer(settings)))
 }
 
 func OpenPort(portName string, exclusive bool) (SerialPort, error) {
-	handle, err := syscall.Open(portName, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NDELAY, 0)
+	h, err := syscall.Open(portName, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NDELAY, 0)
 	if err != nil {
 		switch err {
 		case syscall.EBUSY:
@@ -242,12 +242,15 @@ func OpenPort(portName string, exclusive bool) (SerialPort, error) {
 		}
 		return nil, err
 	}
+	port := &linuxSerialPort{
+		handle: h,
+	}
 
 	// Setup serial port with defaults
 
-	settings, err := getTermSettings(handle)
+	settings, err := port.getTermSettings()
 	if err != nil {
-		syscall.Close(handle)
+		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
 
@@ -263,24 +266,21 @@ func OpenPort(portName string, exclusive bool) (SerialPort, error) {
 	settings.Cc[syscall.VMIN] = 1
 	settings.Cc[syscall.VTIME] = 0
 
-	err = setTermSettings(handle, settings)
+	err = port.setTermSettings(settings)
 	if err != nil {
-		syscall.Close(handle)
+		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
 	/*
 	   settings->c_cflag &= ~CRTSCTS;
 	*/
-	syscall.SetNonblock(handle, false)
+	syscall.SetNonblock(h, false)
 
 	if exclusive {
-		getExclusiveAccess(handle)
+		port.getExclusiveAccess()
 	}
 
-	serialPort := &linuxSerialPort{
-		Handle: handle,
-	}
-	return serialPort, nil
+	return port, nil
 }
 
 // vi:ts=2
