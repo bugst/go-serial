@@ -10,9 +10,6 @@ import "io"
 
 // SerialPort object
 type SerialPort interface {
-	// Read(p []byte) (n int, err error)
-	// Write(p []byte) (n int, err error)
-	// Close() error
 	io.ReadWriteCloser
 
 	// Set port speed
@@ -26,6 +23,9 @@ type SerialPort interface {
 
 	// Set stop bits
 	SetStopBits(bits StopBits) error
+
+	// Set all parameters together
+	Set(baudrate int, parity Parity, databits int, stopbits StopBits) error
 }
 
 type Parity int

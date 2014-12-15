@@ -91,6 +91,37 @@ func (port *linuxSerialPort) Write(p []byte) (n int, err error) {
 	return syscall.Write(port.handle, p)
 }
 
+func (port *linuxSerialPort) Set(baudrate int, parity Parity, databits int, stopbits StopBits) error {
+	settings, err := port.getTermSettings()
+	if err != nil {
+		return err
+	}
+	if err := setTermSettingsBaudrate(baudrate, settings); err != nil {
+		return err
+	}
+	if err := setTermSettingsParity(parity, settings); err != nil {
+		return err
+	}
+	if err := setTermSettingsDataBits(databits, settings); err != nil {
+		return err
+	}
+	if err := setTermSettingsStopBits(stopbits, settings); err != nil {
+		return err
+	}
+	return port.setTermSettings(settings)
+}
+
+func (port *linuxSerialPort) SetSpeed(speed int) error {
+	settings, err := port.getTermSettings()
+	if err != nil {
+		return err
+	}
+	if err := setTermSettingsBaudrate(speed, settings); err != nil {
+		return err
+	}
+	return port.setTermSettings(settings)
+}
+
 var baudrateMap = map[int]uint32{
 	50:      syscall.B50,
 	75:      syscall.B75,
@@ -124,14 +155,10 @@ var baudrateMap = map[int]uint32{
 	4000000: syscall.B4000000,
 }
 
-func (port *linuxSerialPort) SetSpeed(speed int) error {
+func setTermSettingsBaudrate(speed int, settings *syscall.Termios) error {
 	baudrate, ok := baudrateMap[speed]
 	if !ok {
 		return &SerialPortError{code: ERROR_INVALID_PORT_SPEED}
-	}
-	settings, err := port.getTermSettings()
-	if err != nil {
-		return err
 	}
 	// revert old baudrate
 	var BAUDMASK uint32 = 0
@@ -143,16 +170,22 @@ func (port *linuxSerialPort) SetSpeed(speed int) error {
 	settings.Cflag |= baudrate
 	settings.Ispeed = baudrate
 	settings.Ospeed = baudrate
-	return port.setTermSettings(settings)
+	return nil
 }
 
 func (port *linuxSerialPort) SetParity(parity Parity) error {
-	const FIXED_PARITY_FLAG uint32 = 0 // may be CMSPAR or PAREXT
-
 	settings, err := port.getTermSettings()
 	if err != nil {
 		return err
 	}
+	if err := setTermSettingsParity(parity, settings); err != nil {
+		return err
+	}
+	return port.setTermSettings(settings)
+}
+
+func setTermSettingsParity(parity Parity, settings *syscall.Termios) error {
+	const FIXED_PARITY_FLAG uint32 = 0 // may be CMSPAR or PAREXT
 	switch parity {
 	case PARITY_NONE:
 		settings.Cflag &= ^uint32(syscall.PARENB | syscall.PARODD | FIXED_PARITY_FLAG)
@@ -173,7 +206,7 @@ func (port *linuxSerialPort) SetParity(parity Parity) error {
 		settings.Cflag |= syscall.PARENB | FIXED_PARITY_FLAG
 		settings.Iflag |= syscall.INPCK
 	}
-	return port.setTermSettings(settings)
+	return nil
 }
 
 var databitsMap = map[int]uint32{
@@ -184,17 +217,24 @@ var databitsMap = map[int]uint32{
 }
 
 func (port *linuxSerialPort) SetDataBits(bits int) error {
-	databits, ok := databitsMap[bits]
-	if !ok {
-		return &SerialPortError{code: ERROR_INVALID_PORT_DATA_BITS}
-	}
 	settings, err := port.getTermSettings()
 	if err != nil {
 		return err
 	}
+	if err := setTermSettingsDataBits(bits, settings); err != nil {
+		return err
+	}
+	return port.setTermSettings(settings)
+}
+
+func setTermSettingsDataBits(bits int, settings *syscall.Termios) error {
+	databits, ok := databitsMap[bits]
+	if !ok {
+		return &SerialPortError{code: ERROR_INVALID_PORT_DATA_BITS}
+	}
 	settings.Cflag &= ^uint32(syscall.CSIZE)
 	settings.Cflag |= databits
-	return port.setTermSettings(settings)
+	return nil
 }
 
 func (port *linuxSerialPort) SetStopBits(bits StopBits) error {
@@ -202,13 +242,20 @@ func (port *linuxSerialPort) SetStopBits(bits StopBits) error {
 	if err != nil {
 		return err
 	}
+	if err := setTermSettingsStopBits(bits, settings); err != nil {
+		return err
+	}
+	return port.setTermSettings(settings)
+}
+
+func setTermSettingsStopBits(bits StopBits, settings *syscall.Termios) error {
 	switch bits {
 	case STOPBITS_ONE:
 		settings.Cflag &= ^uint32(syscall.CSTOPB)
 	case STOPBITS_ONEPOINTFIVE, STOPBITS_TWO:
 		settings.Cflag |= syscall.CSTOPB
 	}
-	return port.setTermSettings(settings)
+	return nil
 }
 
 // native syscall wrapper functions
