@@ -12,20 +12,15 @@ import "io"
 type SerialPort interface {
 	io.ReadWriteCloser
 
-	// Set port speed
-	SetSpeed(baudrate int) error
-
-	// Set port parity
-	SetParity(parity Parity) error
-
-	// Set data bits
-	SetDataBits(bits int) error
-
-	// Set stop bits
-	SetStopBits(bits StopBits) error
-
 	// Set all parameters together
-	Set(baudrate int, parity Parity, databits int, stopbits StopBits) error
+	SetMode(mode *Mode) error
+}
+
+type Mode struct {
+	BaudRate int
+	DataBits int
+	Parity   Parity
+	StopBits StopBits
 }
 
 type Parity int

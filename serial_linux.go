@@ -34,71 +34,27 @@ func (port *linuxSerialPort) Write(p []byte) (n int, err error) {
 	return syscall.Write(port.handle, p)
 }
 
-func (port *linuxSerialPort) Set(baudrate int, parity Parity, databits int, stopbits StopBits) error {
+func (port *linuxSerialPort) SetMode(mode *Mode) error {
 	settings, err := port.getTermSettings()
 	if err != nil {
 		return err
 	}
-	if err := setTermSettingsBaudrate(baudrate, settings); err != nil {
+	if err := setTermSettingsBaudrate(mode.BaudRate, settings); err != nil {
 		return err
 	}
-	if err := setTermSettingsParity(parity, settings); err != nil {
+	if err := setTermSettingsParity(mode.Parity, settings); err != nil {
 		return err
 	}
-	if err := setTermSettingsDataBits(databits, settings); err != nil {
+	if err := setTermSettingsDataBits(mode.DataBits, settings); err != nil {
 		return err
 	}
-	if err := setTermSettingsStopBits(stopbits, settings); err != nil {
+	if err := setTermSettingsStopBits(mode.StopBits, settings); err != nil {
 		return err
 	}
 	return port.setTermSettings(settings)
 }
 
-func (port *linuxSerialPort) SetSpeed(speed int) error {
-	settings, err := port.getTermSettings()
-	if err != nil {
-		return err
-	}
-	if err := setTermSettingsBaudrate(speed, settings); err != nil {
-		return err
-	}
-	return port.setTermSettings(settings)
-}
-
-func (port *linuxSerialPort) SetParity(parity Parity) error {
-	settings, err := port.getTermSettings()
-	if err != nil {
-		return err
-	}
-	if err := setTermSettingsParity(parity, settings); err != nil {
-		return err
-	}
-	return port.setTermSettings(settings)
-}
-
-func (port *linuxSerialPort) SetDataBits(bits int) error {
-	settings, err := port.getTermSettings()
-	if err != nil {
-		return err
-	}
-	if err := setTermSettingsDataBits(bits, settings); err != nil {
-		return err
-	}
-	return port.setTermSettings(settings)
-}
-
-func (port *linuxSerialPort) SetStopBits(bits StopBits) error {
-	settings, err := port.getTermSettings()
-	if err != nil {
-		return err
-	}
-	if err := setTermSettingsStopBits(bits, settings); err != nil {
-		return err
-	}
-	return port.setTermSettings(settings)
-}
-
-func OpenPort(portName string, exclusive bool) (SerialPort, error) {
+func OpenPort(portName string, mode *Mode) (SerialPort, error) {
 	h, err := syscall.Open(portName, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NDELAY, 0)
 	if err != nil {
 		switch err {
@@ -113,7 +69,11 @@ func OpenPort(portName string, exclusive bool) (SerialPort, error) {
 		handle: h,
 	}
 
-	// Setup serial port with defaults
+	// Setup serial port
+	if err := port.SetMode(mode); err != nil {
+		port.Close()
+		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+	}
 
 	settings, err := port.getTermSettings()
 	if err != nil {
@@ -138,14 +98,10 @@ func OpenPort(portName string, exclusive bool) (SerialPort, error) {
 		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
-	/*
-	   settings->c_cflag &= ~CRTSCTS;
-	*/
+
 	syscall.SetNonblock(h, false)
 
-	if exclusive {
-		port.getExclusiveAccess()
-	}
+	port.acquireExclusiveAccess()
 
 	return port, nil
 }
@@ -176,7 +132,7 @@ func GetPortsList() ([]string, error) {
 
 		// Check if serial port is real or is a placeholder serial port "ttySxx"
 		if f.Name()[:4] == "ttyS" {
-			port, err := OpenPort(portName, false)
+			port, err := OpenPort(portName, &Mode{})
 			if err != nil {
 				serr, ok := err.(*SerialPortError)
 				if ok && serr.Code() == ERROR_INVALID_SERIAL_PORT {
@@ -301,7 +257,7 @@ func setTermSettingsStopBits(bits StopBits, settings *syscall.Termios) error {
 
 // native syscall wrapper functions
 
-func (port *linuxSerialPort) getExclusiveAccess() error {
+func (port *linuxSerialPort) acquireExclusiveAccess() error {
 	return ioctl(port.handle, syscall.TIOCEXCL, 0)
 }
 
