@@ -153,6 +153,7 @@ func GetPortsList() ([]string, error) {
 // termios manipulation functions
 
 var baudrateMap = map[int]uint32{
+	0:       syscall.B9600, // Default to 9600
 	50:      syscall.B50,
 	75:      syscall.B75,
 	110:     syscall.B110,
@@ -186,6 +187,7 @@ var baudrateMap = map[int]uint32{
 }
 
 var databitsMap = map[int]uint32{
+	0: syscall.CS8, // Default to 8 bits
 	5: syscall.CS5,
 	6: syscall.CS6,
 	7: syscall.CS7,
