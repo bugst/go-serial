@@ -203,16 +203,24 @@ const (
 	TWOSTOPBITS  = 2
 )
 
-func (port windowsSerialPort) SetSpeed(baudrate int) error {
+func (port windowsSerialPort) SetMode(mode *Mode) error {
 	params := DCB{}
 	if err := GetCommState(port.Handle, &params); err != nil {
 		port.Close()
 		return &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
-	params.BaudRate = uint32(baudrate)
-	params.ByteSize = 8
-	params.StopBits = ONESTOPBIT
-	params.Parity = NOPARITY
+	if mode.Baudrate == 0 {
+		params.BaudRate = 9600 // Default to 9600
+	} else {
+		params.BaudRate = uint32(mode.BaudRate)
+	}
+	if mode.DataBits == 0 {
+		params.ByteSize = 8 // Default to 8 bits
+	} else {
+		params.ByteSize = mode.DataBits
+	}
+	params.StopBits = mode.StopBits
+	params.Parity = mode.Parity
 	if err := SetCommState(port.Handle, &params); err != nil {
 		port.Close()
 		return &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
@@ -220,7 +228,7 @@ func (port windowsSerialPort) SetSpeed(baudrate int) error {
 	return nil
 }
 
-func OpenPort(portName string, useTIOCEXCL bool) (SerialPort, error) {
+func OpenPort(portName string, mode Mode) (SerialPort, error) {
 	portName = "\\\\.\\" + portName
 	path, err := syscall.UTF16PtrFromString(portName)
 	if err != nil {
@@ -245,6 +253,12 @@ func OpenPort(portName string, useTIOCEXCL bool) (SerialPort, error) {
 	// Create the serial port
 	port := &windowsSerialPort{
 		Handle: handle,
+	}
+
+	// Set port parameters
+	if err := port.SetMode(mode); err != nil {
+		port.Close()
+		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
 
 	params := &DCB{}
@@ -272,6 +286,7 @@ func OpenPort(portName string, useTIOCEXCL bool) (SerialPort, error) {
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
 
+	// Set timeouts to 1 second
 	timeouts := &COMMTIMEOUTS{
 		ReadIntervalTimeout:         0xFFFFFFFF,
 		ReadTotalTimeoutMultiplier:  0xFFFFFFFF,
