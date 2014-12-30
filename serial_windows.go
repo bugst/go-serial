@@ -88,11 +88,11 @@ func GetPortsList() ([]string, error) {
 	return list, nil
 }
 
-func (port windowsSerialPort) Close() error {
+func (port *windowsSerialPort) Close() error {
 	return syscall.CloseHandle(port.Handle)
 }
 
-func (port windowsSerialPort) Read(p []byte) (int, error) {
+func (port *windowsSerialPort) Read(p []byte) (int, error) {
 	var readed uint32
 	params := &DCB{}
 	for {
@@ -115,7 +115,7 @@ func (port windowsSerialPort) Read(p []byte) (int, error) {
 	}
 }
 
-func (port windowsSerialPort) Write(p []byte) (int, error) {
+func (port *windowsSerialPort) Write(p []byte) (int, error) {
 	var writed uint32
 	err := syscall.WriteFile(port.Handle, p, &writed, nil)
 	return int(writed), err
@@ -203,7 +203,7 @@ const (
 	TWOSTOPBITS  = 2
 )
 
-func (port windowsSerialPort) SetMode(mode *Mode) error {
+func (port *windowsSerialPort) SetMode(mode *Mode) error {
 	params := DCB{}
 	if err := GetCommState(port.Handle, &params); err != nil {
 		port.Close()
