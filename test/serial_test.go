@@ -23,20 +23,14 @@ func ExampleCommunication() {
 		fmt.Printf("Found port: %v\n", port)
 	}
 
-	port, err := serial.OpenPort(ports[0], false)
+	mode := &serial.Mode{
+		BaudRate: 9600,
+		Parity:   serial.PARITY_NONE,
+		DataBits: 8,
+		StopBits: serial.STOPBITS_ONE,
+	}
+	port, err := serial.OpenPort(ports[0], mode)
 	if err != nil {
-		log.Fatal(err)
-	}
-	if err = port.SetSpeed(9600); err != nil {
-		log.Fatal(err)
-	}
-	if err := port.SetParity(serial.PARITY_NONE); err != nil {
-		log.Fatal(err)
-	}
-	if err := port.SetDataBits(8); err != nil {
-		log.Fatal(err)
-	}
-	if err := port.SetStopBits(serial.STOPBITS_ONE); err != nil {
 		log.Fatal(err)
 	}
 	n, err := port.Write([]byte("10,20,30\n\r"))
