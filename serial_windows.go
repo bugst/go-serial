@@ -190,7 +190,7 @@ type COMMTIMEOUTS struct {
 //sys SetCommTimeouts(handle syscall.Handle, timeouts *COMMTIMEOUTS) (err error)
 
 const (
-	NOPARITY    = 0
+	NOPARITY    = 0 // Default
 	ODDPARITY   = 1
 	EVENPARITY  = 2
 	MARKPARITY  = 3
@@ -198,7 +198,7 @@ const (
 )
 
 const (
-	ONESTOPBIT   = 0
+	ONESTOPBIT   = 0 // Default
 	ONE5STOPBITS = 1
 	TWOSTOPBITS  = 2
 )
@@ -209,7 +209,7 @@ func (port windowsSerialPort) SetMode(mode *Mode) error {
 		port.Close()
 		return &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
-	if mode.Baudrate == 0 {
+	if mode.BaudRate == 0 {
 		params.BaudRate = 9600 // Default to 9600
 	} else {
 		params.BaudRate = uint32(mode.BaudRate)
@@ -217,10 +217,10 @@ func (port windowsSerialPort) SetMode(mode *Mode) error {
 	if mode.DataBits == 0 {
 		params.ByteSize = 8 // Default to 8 bits
 	} else {
-		params.ByteSize = mode.DataBits
+		params.ByteSize = byte(mode.DataBits)
 	}
-	params.StopBits = mode.StopBits
-	params.Parity = mode.Parity
+	params.StopBits = byte(mode.StopBits)
+	params.Parity = byte(mode.Parity)
 	if err := SetCommState(port.Handle, &params); err != nil {
 		port.Close()
 		return &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
@@ -228,7 +228,7 @@ func (port windowsSerialPort) SetMode(mode *Mode) error {
 	return nil
 }
 
-func OpenPort(portName string, mode Mode) (SerialPort, error) {
+func OpenPort(portName string, mode *Mode) (SerialPort, error) {
 	portName = "\\\\.\\" + portName
 	path, err := syscall.UTF16PtrFromString(portName)
 	if err != nil {
