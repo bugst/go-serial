@@ -14,77 +14,45 @@ package serial // import "go.bug.st/serial"
 // Arduino Playground article on serial communication with Windows API:
 // http://playground.arduino.cc/Interfacing/CPPWindows
 
-#include <stdlib.h>
-#include <windows.h>
-
-//HANDLE invalid = INVALID_HANDLE_VALUE;
-
-HKEY INVALID_PORT_LIST = 0;
-
-HKEY openPortList() {
-	HKEY handle;
-	LPCSTR lpSubKey = "HARDWARE\\DEVICEMAP\\SERIALCOMM\\";
-	DWORD res = RegOpenKeyExA(HKEY_LOCAL_MACHINE, lpSubKey, 0, KEY_READ, &handle);
-	if (res != ERROR_SUCCESS)
-		return INVALID_PORT_LIST;
-	else
-		return handle;
-}
-
-int countPortList(HKEY handle) {
-	int count = 0;
-	for (;;) {
-		char name[256];
-		DWORD nameSize = 256;
-		DWORD res = RegEnumValueA(handle, count, name, &nameSize, NULL, NULL, NULL, NULL);
-		if (res != ERROR_SUCCESS)
-			return count;
-		count++;
-	}
-}
-
-char *getInPortList(HKEY handle, int i) {
-	byte *data = (byte *) malloc(256);
-	DWORD dataSize = 256;
-	char name[256];
-	DWORD nameSize = 256;
-	DWORD res = RegEnumValueA(handle, i, name, &nameSize, NULL, NULL, data, &dataSize);
-	if (res != ERROR_SUCCESS) {
-		free(data);
-		return NULL;
-	}
-	return data;
-}
-
-void closePortList(HKEY handle) {
-	CloseHandle(handle);
-}
-
 */
-import "C"
+
 import "syscall"
-import "unsafe"
 
 // opaque type that implements SerialPort interface for Windows
 type windowsSerialPort struct {
 	Handle syscall.Handle
 }
 
+//sys RegEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint32, reserved *uint32, class *uint16, value *uint16, valueLen *uint32) (regerrno error) = advapi32.RegEnumValueW
+
 func GetPortsList() ([]string, error) {
-	portList := C.openPortList()
-	if portList == C.INVALID_PORT_LIST {
+	subKey, err := syscall.UTF16PtrFromString("HARDWARE\\DEVICEMAP\\SERIALCOMM\\")
+	if err != nil {
 		return nil, &SerialPortError{code: ERROR_ENUMERATING_PORTS}
 	}
-	n := C.countPortList(portList)
 
-	list := make([]string, n)
-	for i := range list {
-		portName := C.getInPortList(portList, C.int(i))
-		list[i] = C.GoString(portName)
-		C.free(unsafe.Pointer(portName))
+	var h syscall.Handle
+	if syscall.RegOpenKeyEx(syscall.HKEY_LOCAL_MACHINE, subKey, 0, syscall.KEY_READ, &h) != nil {
+		return nil, &SerialPortError{code: ERROR_ENUMERATING_PORTS}
+	}
+	defer syscall.RegCloseKey(h)
+
+	var valuesCount uint32
+	if syscall.RegQueryInfoKey(h, nil, nil, nil, nil, nil, nil, &valuesCount, nil, nil, nil, nil) != nil {
+		return nil, &SerialPortError{code: ERROR_ENUMERATING_PORTS}
 	}
 
-	C.closePortList(portList)
+	list := make([]string, valuesCount)
+	for i := range list {
+		var data [1024]uint16
+		dataSize := uint32(len(data))
+		var name [1024]uint16
+		nameSize := uint32(len(name))
+		if RegEnumValue(h, uint32(i), &name[0], &nameSize, nil, nil, &data[0], &dataSize) != nil {
+			return nil, &SerialPortError{code: ERROR_ENUMERATING_PORTS}
+		}
+		list[i] = syscall.UTF16ToString(data[:])
+	}
 	return list, nil
 }
 
