@@ -173,7 +173,7 @@ const (
 
 func (port *windowsSerialPort) SetMode(mode *Mode) error {
 	params := DCB{}
-	if err := GetCommState(port.Handle, &params); err != nil {
+	if GetCommState(port.Handle, &params) != nil {
 		port.Close()
 		return &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
@@ -189,7 +189,7 @@ func (port *windowsSerialPort) SetMode(mode *Mode) error {
 	}
 	params.StopBits = byte(mode.StopBits)
 	params.Parity = byte(mode.Parity)
-	if err := SetCommState(port.Handle, &params); err != nil {
+	if SetCommState(port.Handle, &params) != nil {
 		port.Close()
 		return &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
@@ -224,14 +224,13 @@ func OpenPort(portName string, mode *Mode) (SerialPort, error) {
 	}
 
 	// Set port parameters
-	if err := port.SetMode(mode); err != nil {
+	if port.SetMode(mode) != nil {
 		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
 
 	params := &DCB{}
-	err = GetCommState(port.Handle, params)
-	if err != nil {
+	if GetCommState(port.Handle, params) != nil {
 		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
@@ -248,8 +247,7 @@ func OpenPort(portName string, mode *Mode) (SerialPort, error) {
 	params.XoffLim = 512
 	params.XonChar = 17  // DC1
 	params.XoffChar = 19 // C3
-	err = SetCommState(port.Handle, params)
-	if err != nil {
+	if SetCommState(port.Handle, params) != nil {
 		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
@@ -262,7 +260,7 @@ func OpenPort(portName string, mode *Mode) (SerialPort, error) {
 		WriteTotalTimeoutConstant:   0,
 		WriteTotalTimeoutMultiplier: 0,
 	}
-	if err := SetCommTimeouts(port.Handle, timeouts); err != nil {
+	if SetCommTimeouts(port.Handle, timeouts) != nil {
 		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}

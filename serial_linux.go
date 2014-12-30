@@ -70,7 +70,7 @@ func OpenPort(portName string, mode *Mode) (SerialPort, error) {
 	}
 
 	// Setup serial port
-	if err := port.SetMode(mode); err != nil {
+	if port.SetMode(mode) != nil {
 		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
@@ -93,8 +93,7 @@ func OpenPort(portName string, mode *Mode) (SerialPort, error) {
 	settings.Cc[syscall.VMIN] = 1
 	settings.Cc[syscall.VTIME] = 0
 
-	err = port.setTermSettings(settings)
-	if err != nil {
+	if port.setTermSettings(settings) != nil {
 		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
