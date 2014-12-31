@@ -258,6 +258,8 @@ func setTermSettingsStopBits(bits StopBits, settings *syscall.Termios) error {
 
 // native syscall wrapper functions
 
+//sys ioctl(fd int, req uint64, data uintptr) (err error)
+
 func (port *linuxSerialPort) acquireExclusiveAccess() error {
 	return ioctl(port.handle, syscall.TIOCEXCL, 0)
 }
@@ -274,15 +276,6 @@ func (port *linuxSerialPort) getTermSettings() (*syscall.Termios, error) {
 
 func (port *linuxSerialPort) setTermSettings(settings *syscall.Termios) error {
 	return ioctl(port.handle, syscall.TCSETS, uintptr(unsafe.Pointer(settings)))
-}
-
-//sys ioctl(fd int, req uint64, data uintptr) (err error)
-func ioctl(fd int, req uint64, data uintptr) (err error) {
-	_, _, e1 := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(req), uintptr(data))
-	if e1 != 0 {
-		err = e1
-	}
-	return
 }
 
 // vi:ts=2
