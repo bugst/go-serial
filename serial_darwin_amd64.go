@@ -11,4 +11,3 @@ package serial // import "go.bug.st/serial"
 func termiosMask(data int) uint64 {
 	return uint64(data)
 }
-
