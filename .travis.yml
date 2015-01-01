@@ -1,0 +1,11 @@
+language: go
+go:
+  - 1.4
+  - tip
+notifications:
+  email:
+    recipients:
+      - c.maglie@bug.st
+    on_success: change
+    on_failure: always
+
