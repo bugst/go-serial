@@ -13,6 +13,9 @@ before_install:
   - mv $TRAVIS_BUILD_DIR $HOME/gopath/src/go.bug.st/serial
   - export TRAVIS_BUILD_DIR=$HOME/gopath/src/go.bug.st/serial
 
+install:
+  - export PATH="$HOME/gopath/bin:$PATH"
+
 notifications:
   email:
     recipients:
