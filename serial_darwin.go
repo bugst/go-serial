@@ -9,7 +9,7 @@ package serial // import "go.bug.st/serial"
 import "syscall"
 
 const devFolder = "/dev"
-const regexFilter = "tty.(serial|usbserial|usbmodem).*"
+const regexFilter = "^(cu|tty)\\..*"
 
 // termios manipulation functions
 
