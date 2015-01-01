@@ -10,6 +10,7 @@ package serial // import "go.bug.st/serial"
 
 import "io/ioutil"
 import "regexp"
+import "strings"
 import "syscall"
 import "unsafe"
 
@@ -116,7 +117,7 @@ func GetPortsList() ([]string, error) {
 		portName := devFolder + "/" + f.Name()
 
 		// Check if serial port is real or is a placeholder serial port "ttySxx"
-		if f.Name()[:4] == "ttyS" {
+		if strings.HasPrefix(f.Name(), "ttyS") {
 			port, err := OpenPort(portName, &Mode{})
 			if err != nil {
 				serr, ok := err.(*SerialPortError)
