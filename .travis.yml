@@ -1,7 +1,18 @@
 language: go
+
 go:
   - 1.4
   - tip
+
+matrix:
+  allow_failures:
+    - go: tip
+
+before_install:
+  - mkdir -p $HOME/gopath/src/go.bug.st
+  - mv $TRAVIS_BUILD_DIR $HOME/gopath/src/go.bug.st/serial
+  - export TRAVIS_BUILD_DIR=$HOME/gopath/src/go.bug.st/serial
+
 notifications:
   email:
     recipients:
