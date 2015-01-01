@@ -2,19 +2,36 @@ language: go
 
 go:
   - 1.4
-  - tip
+
+env:
+  - TEST_OS=linux TEST_ARCH=386
+  - TEST_OS=linux TEST_ARCH=amd64
+  - TEST_OS=linux TEST_ARCH=arm
+  - TEST_OS=windows TEST_ARCH=386
+  - TEST_OS=windows TEST_ARCH=amd64
+  - TEST_OS=darwin TEST_ARCH=386
+  - TEST_OS=darwin TEST_ARCH=amd64
+  - TEST_OS=freebsd TEST_ARCH=amd64
+  - TEST_OS=dragonfly TEST_ARCH=amd64
 
 matrix:
   allow_failures:
-    - go: tip
+    - env: TEST_OS=freebsd TEST_ARCH=amd64
+    - env: TEST_OS=dragonfly TEST_ARCH=amd64
 
 before_install:
+  - cd $GOROOT/src
+  - GOOS=$TEST_OS GOARCH=$TEST_ARCH ./make.bash
   - mkdir -p $HOME/gopath/src/go.bug.st
   - mv $TRAVIS_BUILD_DIR $HOME/gopath/src/go.bug.st/serial
   - export TRAVIS_BUILD_DIR=$HOME/gopath/src/go.bug.st/serial
+  - cd $TRAVIS_BUILD_DIR
 
 install:
   - export PATH="$HOME/gopath/bin:$PATH"
+
+script:
+  - GOARM=5 GO386=387 GOOS=$TEST_OS GOARCH=$TEST_ARCH go build travis/build_check.go
 
 notifications:
   email:
