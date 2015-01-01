@@ -6,9 +6,7 @@
 
 package serial // import "go.bug.st/serial"
 
-// termios manipulation functions
-
-func termiosMask(data int) uint64 {
-	return uint64(data)
+func termiosMask(data int) uint32 {
+	return uint32(data)
 }
 
