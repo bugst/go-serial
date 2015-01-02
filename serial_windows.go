@@ -20,7 +20,7 @@ import "syscall"
 
 // opaque type that implements SerialPort interface for Windows
 type SerialPort struct {
-	Handle syscall.Handle
+	handle syscall.Handle
 }
 
 //sys RegEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint32, reserved *uint32, class *uint16, value *uint16, valueLen *uint32) (regerrno error) = advapi32.RegEnumValueW
@@ -57,14 +57,14 @@ func GetPortsList() ([]string, error) {
 }
 
 func (port *SerialPort) Close() error {
-	return syscall.CloseHandle(port.Handle)
+	return syscall.CloseHandle(port.handle)
 }
 
 func (port *SerialPort) Read(p []byte) (int, error) {
 	var readed uint32
 	params := &DCB{}
 	for {
-		if err := syscall.ReadFile(port.Handle, p, &readed, nil); err != nil {
+		if err := syscall.ReadFile(port.handle, p, &readed, nil); err != nil {
 			return int(readed), err
 		}
 		if readed > 0 {
@@ -75,8 +75,8 @@ func (port *SerialPort) Read(p []byte) (int, error) {
 		// a serial port is alive in Windows is to check if the SetCommState
 		// function fails.
 
-		GetCommState(port.Handle, params)
-		if err := SetCommState(port.Handle, params); err != nil {
+		GetCommState(port.handle, params)
+		if err := SetCommState(port.handle, params); err != nil {
 			port.Close()
 			return 0, err
 		}
@@ -85,7 +85,7 @@ func (port *SerialPort) Read(p []byte) (int, error) {
 
 func (port *SerialPort) Write(p []byte) (int, error) {
 	var writed uint32
-	err := syscall.WriteFile(port.Handle, p, &writed, nil)
+	err := syscall.WriteFile(port.handle, p, &writed, nil)
 	return int(writed), err
 }
 
@@ -173,7 +173,7 @@ const (
 
 func (port *SerialPort) SetMode(mode *Mode) error {
 	params := DCB{}
-	if GetCommState(port.Handle, &params) != nil {
+	if GetCommState(port.handle, &params) != nil {
 		port.Close()
 		return &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
@@ -189,7 +189,7 @@ func (port *SerialPort) SetMode(mode *Mode) error {
 	}
 	params.StopBits = byte(mode.StopBits)
 	params.Parity = byte(mode.Parity)
-	if SetCommState(port.Handle, &params) != nil {
+	if SetCommState(port.handle, &params) != nil {
 		port.Close()
 		return &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
@@ -220,7 +220,7 @@ func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 	}
 	// Create the serial port
 	port := &SerialPort{
-		Handle: handle,
+		handle: handle,
 	}
 
 	// Set port parameters
@@ -230,7 +230,7 @@ func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 	}
 
 	params := &DCB{}
-	if GetCommState(port.Handle, params) != nil {
+	if GetCommState(port.handle, params) != nil {
 		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
@@ -247,7 +247,7 @@ func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 	params.XoffLim = 512
 	params.XonChar = 17  // DC1
 	params.XoffChar = 19 // C3
-	if SetCommState(port.Handle, params) != nil {
+	if SetCommState(port.handle, params) != nil {
 		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
@@ -260,7 +260,7 @@ func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 		WriteTotalTimeoutConstant:   0,
 		WriteTotalTimeoutMultiplier: 0,
 	}
-	if SetCommTimeouts(port.Handle, timeouts) != nil {
+	if SetCommTimeouts(port.handle, timeouts) != nil {
 		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
