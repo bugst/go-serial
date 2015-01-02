@@ -6,39 +6,30 @@
 
 package serial // import "go.bug.st/serial"
 
-import "io"
-
-// SerialPort object
-type SerialPort interface {
-	io.ReadWriteCloser
-
-	// Set all parameters together
-	SetMode(mode *Mode) error
-}
-
+// This structure describes a serial port configuration.
 type Mode struct {
-	BaudRate int
-	DataBits int
-	Parity   Parity
-	StopBits StopBits
+	BaudRate int      // The serial port bitrate (aka Baudrate)
+	DataBits int      // Size of the character (must be 5, 6, 7 or 8)
+	Parity   Parity   // Parity (see Parity type for more info)
+	StopBits StopBits // Stop bits (see StopBits type for more info)
 }
 
 type Parity int
 
 const (
-	PARITY_NONE Parity = iota
-	PARITY_ODD
-	PARITY_EVEN
-	PARITY_MARK
-	PARITY_SPACE
+	PARITY_NONE  Parity = iota // No parity (default)
+	PARITY_ODD                 // Odd parity
+	PARITY_EVEN                // Even parity
+	PARITY_MARK                // Mark parity (always 1)
+	PARITY_SPACE               // Space parity (always 0)
 )
 
 type StopBits int
 
 const (
-	STOPBITS_ONE StopBits = iota
-	STOPBITS_ONEPOINTFIVE
-	STOPBITS_TWO
+	STOPBITS_ONE          StopBits = iota // 1 Stop bit
+	STOPBITS_ONEPOINTFIVE                 // 1.5 Stop bits
+	STOPBITS_TWO                          // 2 Stop bits
 )
 
 // Platform independent error type for serial ports

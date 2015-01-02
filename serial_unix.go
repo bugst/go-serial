@@ -14,25 +14,35 @@ import "strings"
 import "syscall"
 import "unsafe"
 
-// opaque type that implements SerialPort interface for linux
-type unixSerialPort struct {
+// Opaque type that implements SerialPort interface for linux
+type SerialPort struct {
 	handle int
 }
 
-func (port *unixSerialPort) Close() error {
+// Close the serial port
+func (port *SerialPort) Close() error {
 	port.releaseExclusiveAccess()
 	return syscall.Close(port.handle)
 }
 
-func (port *unixSerialPort) Read(p []byte) (n int, err error) {
+// Stores data received from the serial port into the provided byte array
+// buffer. The function returns the number of bytes read.
+//
+// The Read function blocks until (at least) one byte is received from
+// the serial port or an error occurs.
+func (port *SerialPort) Read(p []byte) (n int, err error) {
 	return syscall.Read(port.handle, p)
 }
 
-func (port *unixSerialPort) Write(p []byte) (n int, err error) {
+// Send the content of the data byte array to the serial port.
+// Returns the number of bytes written.
+func (port *SerialPort) Write(p []byte) (n int, err error) {
 	return syscall.Write(port.handle, p)
 }
 
-func (port *unixSerialPort) SetMode(mode *Mode) error {
+// Set all parameters of the serial port. See the Mode structure for more
+// info.
+func (port *SerialPort) SetMode(mode *Mode) error {
 	settings, err := port.getTermSettings()
 	if err != nil {
 		return err
@@ -52,7 +62,8 @@ func (port *unixSerialPort) SetMode(mode *Mode) error {
 	return port.setTermSettings(settings)
 }
 
-func OpenPort(portName string, mode *Mode) (SerialPort, error) {
+// Open the serial port using the specified modes
+func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 	h, err := syscall.Open(portName, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NDELAY, 0)
 	if err != nil {
 		switch err {
@@ -63,7 +74,7 @@ func OpenPort(portName string, mode *Mode) (SerialPort, error) {
 		}
 		return nil, err
 	}
-	port := &unixSerialPort{
+	port := &SerialPort{
 		handle: h,
 	}
 
@@ -219,20 +230,20 @@ func setRawMode(settings *syscall.Termios) {
 
 // native syscall wrapper functions
 
-func (port *unixSerialPort) getTermSettings() (*syscall.Termios, error) {
+func (port *SerialPort) getTermSettings() (*syscall.Termios, error) {
 	settings := &syscall.Termios{}
 	err := ioctl(port.handle, ioctl_tcgetattr, uintptr(unsafe.Pointer(settings)))
 	return settings, err
 }
 
-func (port *unixSerialPort) setTermSettings(settings *syscall.Termios) error {
+func (port *SerialPort) setTermSettings(settings *syscall.Termios) error {
 	return ioctl(port.handle, ioctl_tcsetattr, uintptr(unsafe.Pointer(settings)))
 }
 
-func (port *unixSerialPort) acquireExclusiveAccess() error {
+func (port *SerialPort) acquireExclusiveAccess() error {
 	return ioctl(port.handle, syscall.TIOCEXCL, 0)
 }
 
-func (port *unixSerialPort) releaseExclusiveAccess() error {
+func (port *SerialPort) releaseExclusiveAccess() error {
 	return ioctl(port.handle, syscall.TIOCNXCL, 0)
 }
