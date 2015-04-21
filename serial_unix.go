@@ -90,7 +90,7 @@ func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
 	}
-	setRawMode(settings)
+	setRawMode(settings, mode)
 	if port.setTermSettings(settings) != nil {
 		port.Close()
 		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
@@ -211,7 +211,7 @@ func setTermSettingsStopBits(bits StopBits, settings *syscall.Termios) error {
 	return nil
 }
 
-func setRawMode(settings *syscall.Termios) {
+func setRawMode(settings *syscall.Termios, mode *Mode) {
 	// Set local mode
 	settings.Cflag |= termiosMask(syscall.CREAD | syscall.CLOCAL)
 
@@ -223,9 +223,14 @@ func setRawMode(settings *syscall.Termios) {
 		syscall.IGNCR | syscall.ICRNL | tc_IUCLC)
 	settings.Oflag &= ^termiosMask(syscall.OPOST)
 
-	// Block reads until at least one char is available (no timeout)
-	settings.Cc[syscall.VMIN] = 1
-	settings.Cc[syscall.VTIME] = 0
+	if mode.Vmin == 0 && mode.Vtimeout == 0 {
+		// Switch to default mode
+		// Block reads until at least one char is available (no timeout)
+		mode.Vmin = 1
+	}
+
+	settings.Cc[syscall.VMIN] = mode.Vmin
+	settings.Cc[syscall.VTIME] = mode.Vtimeout
 }
 
 // native syscall wrapper functions

@@ -12,6 +12,8 @@ type Mode struct {
 	DataBits int      // Size of the character (must be 5, 6, 7 or 8)
 	Parity   Parity   // Parity (see Parity type for more info)
 	StopBits StopBits // Stop bits (see StopBits type for more info)
+	Vmin     uint8    // Vmin (minimum characters to receive before returning)
+	Vtimeout uint8    // VTimeout (minimum time to wait before returning)
 }
 
 type Parity int
