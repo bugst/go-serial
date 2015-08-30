@@ -5,7 +5,7 @@
 //
 
 /*
-This is a cross-platform serial library for go.
+A cross-platform serial library for the go language.
 
 The canonical import for this library is go.bug.st/serial so the import line
 is the following:
