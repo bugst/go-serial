@@ -31,9 +31,9 @@ func Example_sendAndReceive() {
 	// Open the first serial port detected at 9600bps N81
 	mode := &serial.Mode{
 		BaudRate: 9600,
-		Parity:   serial.PARITY_NONE,
+		Parity:   serial.NoParity,
 		DataBits: 8,
-		StopBits: serial.STOPBITS_ONE,
+		StopBits: serial.OneStopBit,
 	}
 	port, err := serial.OpenPort(ports[0], mode)
 	if err != nil {
@@ -63,4 +63,3 @@ func Example_sendAndReceive() {
 		fmt.Printf("%v", string(buff[:n]))
 	}
 }
-

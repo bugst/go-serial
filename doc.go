@@ -5,7 +5,7 @@
 //
 
 /*
-A cross-platform serial library for the go language.
+Package serial is a cross-platform serial library for the go language.
 
 The canonical import for this library is go.bug.st/serial so the import line
 is the following:
@@ -43,9 +43,9 @@ The following snippets shows how to declare a configuration for 57600_E71:
 
 	mode := &serial.Mode{
 		BaudRate: 57600,
-		Parity: serial.PARITY_EVEN,
+		Parity: serial.EvenParity,
 		DataBits: 7,
-		StopBits: serial.STOPBITS_ONE,
+		StopBits: serial.OneStopBit,
 	}
 
 The configuration can be changed at any time with the SetMode function:

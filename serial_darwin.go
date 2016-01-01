@@ -43,12 +43,12 @@ var databitsMap = map[int]int{
 	8: syscall.CS8,
 }
 
-const tc_CMSPAR int = 0 // may be CMSPAR or PAREXT
-const tc_IUCLC int = 0
+const tcCMSPAR int = 0 // may be CMSPAR or PAREXT
+const tcIUCLC int = 0
 
 // syscall wrappers
 
 //sys ioctl(fd int, req uint64, data uintptr) (err error)
 
-const ioctl_tcgetattr = syscall.TIOCGETA
-const ioctl_tcsetattr = syscall.TIOCSETA
+const ioctlTcgetattr = syscall.TIOCGETA
+const ioctlTcsetattr = syscall.TIOCSETA

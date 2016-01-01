@@ -6,7 +6,7 @@
 
 package serial // import "go.bug.st/serial"
 
-// This structure describes a serial port configuration.
+// Mode describes a serial port configuration.
 type Mode struct {
 	BaudRate int      // The serial port bitrate (aka Baudrate)
 	DataBits int      // Size of the character (must be 5, 6, 7 or 8)
@@ -14,62 +14,82 @@ type Mode struct {
 	StopBits StopBits // Stop bits (see StopBits type for more info)
 }
 
+// Parity describes a serial port parity setting
 type Parity int
 
 const (
-	PARITY_NONE  Parity = iota // No parity (default)
-	PARITY_ODD                 // Odd parity
-	PARITY_EVEN                // Even parity
-	PARITY_MARK                // Mark parity (always 1)
-	PARITY_SPACE               // Space parity (always 0)
+	// NoParity disable parity control (default)
+	NoParity Parity = iota
+	// OddParity enable odd-parity check
+	OddParity
+	// EvenParity enable even-parity check
+	EvenParity
+	// MarkParity enable mark-parity (always 1) check
+	MarkParity
+	// SpaceParity enable space-parity (always 0) check
+	SpaceParity
 )
 
+// StopBits describe a serial port stop bits setting
 type StopBits int
 
 const (
-	STOPBITS_ONE          StopBits = iota // 1 Stop bit
-	STOPBITS_ONEPOINTFIVE                 // 1.5 Stop bits
-	STOPBITS_TWO                          // 2 Stop bits
+	// OneStopBit sets 1 stop bit (default)
+	OneStopBit StopBits = iota
+	// OnePointFiveStopBits sets 1.5 stop bits
+	OnePointFiveStopBits
+	// TwoStopBits sets 2 stop bits
+	TwoStopBits
 )
 
-// Platform independent error type for serial ports
-type SerialPortError struct {
+// PortError is a platform independent error type for serial ports
+type PortError struct {
 	err  string
-	code int
+	code PortErrorCode
 }
 
+// PortErrorCode is a code to easily identify the type of error
+type PortErrorCode int
+
 const (
-	ERROR_PORT_BUSY = iota
-	ERROR_PORT_NOT_FOUND
-	ERROR_INVALID_SERIAL_PORT
-	ERROR_PERMISSION_DENIED
-	ERROR_INVALID_PORT_SPEED
-	ERROR_INVALID_PORT_DATA_BITS
-	ERROR_ENUMERATING_PORTS
-	ERROR_OTHER
+	// PortBusy the serial port is already in used by another process
+	PortBusy PortErrorCode = iota
+	// PortNotFound the requested port doesn't exist
+	PortNotFound
+	// InvalidSerialPort the requested port is not a serial port
+	InvalidSerialPort
+	// PermissionDenied the user doesn't have enough priviledges
+	PermissionDenied
+	// InvalidSpeed the requested speed is not valid or not supported
+	InvalidSpeed
+	// InvalidDataBits the number of data bits is not valid or not supported
+	InvalidDataBits
+	// ErrorEnumeratingPorts an error occurred while listing serial port
+	ErrorEnumeratingPorts
 )
 
-func (e SerialPortError) Error() string {
+// Error returns a string explaining the error occurred
+func (e PortError) Error() string {
 	switch e.code {
-	case ERROR_PORT_BUSY:
+	case PortBusy:
 		return "Serial port busy"
-	case ERROR_PORT_NOT_FOUND:
+	case PortNotFound:
 		return "Serial port not found"
-	case ERROR_INVALID_SERIAL_PORT:
+	case InvalidSerialPort:
 		return "Invalid serial port"
-	case ERROR_PERMISSION_DENIED:
+	case PermissionDenied:
 		return "Permission denied"
-	case ERROR_INVALID_PORT_SPEED:
+	case InvalidSpeed:
 		return "Invalid port speed"
-	case ERROR_INVALID_PORT_DATA_BITS:
+	case InvalidDataBits:
 		return "Invalid port data bits"
-	case ERROR_ENUMERATING_PORTS:
+	case ErrorEnumeratingPorts:
 		return "Could not enumerate serial ports"
 	}
 	return e.err
 }
 
-func (e SerialPortError) Code() int {
+// Code returns an identifier for the kind of error occurred
+func (e PortError) Code() PortErrorCode {
 	return e.code
 }
-

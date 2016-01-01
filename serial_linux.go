@@ -55,8 +55,8 @@ var databitsMap = map[int]int{
 	8: syscall.CS8,
 }
 
-const tc_CMSPAR int = 0 // may be CMSPAR or PAREXT
-const tc_IUCLC = syscall.IUCLC
+const tcCMSPAR int = 0 // may be CMSPAR or PAREXT
+const tcIUCLC = syscall.IUCLC
 
 func termiosMask(data int) uint32 {
 	return uint32(data)
@@ -66,5 +66,5 @@ func termiosMask(data int) uint32 {
 
 //sys ioctl(fd int, req uint64, data uintptr) (err error)
 
-const ioctl_tcgetattr = syscall.TCGETS
-const ioctl_tcsetattr = syscall.TCSETS
+const ioctlTcgetattr = syscall.TCGETS
+const ioctlTcsetattr = syscall.TCSETS

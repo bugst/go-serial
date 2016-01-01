@@ -17,13 +17,12 @@ func ExampleSerialPort_SetMode() {
 	}
 	mode := &serial.Mode{
 		BaudRate: 9600,
-		Parity:   serial.PARITY_NONE,
+		Parity:   serial.NoParity,
 		DataBits: 8,
-		StopBits: serial.STOPBITS_ONE,
+		StopBits: serial.OneStopBit,
 	}
 	if err := port.SetMode(mode); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Port set to 9600 N81")
 }
-

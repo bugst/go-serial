@@ -40,8 +40,7 @@ func (port *SerialPort) Write(p []byte) (n int, err error) {
 	return syscall.Write(port.handle, p)
 }
 
-// Set all parameters of the serial port. See the Mode structure for more
-// info.
+// SetMode sets all parameters of the serial port
 func (port *SerialPort) SetMode(mode *Mode) error {
 	settings, err := port.getTermSettings()
 	if err != nil {
@@ -62,15 +61,15 @@ func (port *SerialPort) SetMode(mode *Mode) error {
 	return port.setTermSettings(settings)
 }
 
-// Open the serial port using the specified modes
+// OpenPort opens the serial port using the specified modes
 func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 	h, err := syscall.Open(portName, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NDELAY, 0)
 	if err != nil {
 		switch err {
 		case syscall.EBUSY:
-			return nil, &SerialPortError{code: ERROR_PORT_BUSY}
+			return nil, &PortError{code: PortBusy}
 		case syscall.EACCES:
-			return nil, &SerialPortError{code: ERROR_PERMISSION_DENIED}
+			return nil, &PortError{code: PermissionDenied}
 		}
 		return nil, err
 	}
@@ -81,19 +80,19 @@ func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 	// Setup serial port
 	if port.SetMode(mode) != nil {
 		port.Close()
-		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+		return nil, &PortError{code: InvalidSerialPort}
 	}
 
 	// Set raw mode
 	settings, err := port.getTermSettings()
 	if err != nil {
 		port.Close()
-		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+		return nil, &PortError{code: InvalidSerialPort}
 	}
 	setRawMode(settings)
 	if port.setTermSettings(settings) != nil {
 		port.Close()
-		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+		return nil, &PortError{code: InvalidSerialPort}
 	}
 
 	syscall.SetNonblock(h, false)
@@ -103,6 +102,7 @@ func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 	return port, nil
 }
 
+// GetPortsList retrieve the list of available serial ports
 func GetPortsList() ([]string, error) {
 	files, err := ioutil.ReadDir(devFolder)
 	if err != nil {
@@ -131,8 +131,8 @@ func GetPortsList() ([]string, error) {
 		if strings.HasPrefix(f.Name(), "ttyS") {
 			port, err := OpenPort(portName, &Mode{})
 			if err != nil {
-				serr, ok := err.(*SerialPortError)
-				if ok && serr.Code() == ERROR_INVALID_SERIAL_PORT {
+				serr, ok := err.(*PortError)
+				if ok && serr.Code() == InvalidSerialPort {
 					continue
 				}
 			} else {
@@ -152,7 +152,7 @@ func GetPortsList() ([]string, error) {
 func setTermSettingsBaudrate(speed int, settings *syscall.Termios) error {
 	baudrate, ok := baudrateMap[speed]
 	if !ok {
-		return &SerialPortError{code: ERROR_INVALID_PORT_SPEED}
+		return &PortError{code: InvalidSpeed}
 	}
 	// revert old baudrate
 	BAUDMASK := 0
@@ -169,23 +169,23 @@ func setTermSettingsBaudrate(speed int, settings *syscall.Termios) error {
 
 func setTermSettingsParity(parity Parity, settings *syscall.Termios) error {
 	switch parity {
-	case PARITY_NONE:
-		settings.Cflag &= ^termiosMask(syscall.PARENB | syscall.PARODD | tc_CMSPAR)
+	case NoParity:
+		settings.Cflag &= ^termiosMask(syscall.PARENB | syscall.PARODD | tcCMSPAR)
 		settings.Iflag &= ^termiosMask(syscall.INPCK)
-	case PARITY_ODD:
+	case OddParity:
 		settings.Cflag |= termiosMask(syscall.PARENB | syscall.PARODD)
-		settings.Cflag &= ^termiosMask(tc_CMSPAR)
+		settings.Cflag &= ^termiosMask(tcCMSPAR)
 		settings.Iflag |= termiosMask(syscall.INPCK)
-	case PARITY_EVEN:
-		settings.Cflag &= ^termiosMask(syscall.PARODD | tc_CMSPAR)
+	case EvenParity:
+		settings.Cflag &= ^termiosMask(syscall.PARODD | tcCMSPAR)
 		settings.Cflag |= termiosMask(syscall.PARENB)
 		settings.Iflag |= termiosMask(syscall.INPCK)
-	case PARITY_MARK:
-		settings.Cflag |= termiosMask(syscall.PARENB | syscall.PARODD | tc_CMSPAR)
+	case MarkParity:
+		settings.Cflag |= termiosMask(syscall.PARENB | syscall.PARODD | tcCMSPAR)
 		settings.Iflag |= termiosMask(syscall.INPCK)
-	case PARITY_SPACE:
+	case SpaceParity:
 		settings.Cflag &= ^termiosMask(syscall.PARODD)
-		settings.Cflag |= termiosMask(syscall.PARENB | tc_CMSPAR)
+		settings.Cflag |= termiosMask(syscall.PARENB | tcCMSPAR)
 		settings.Iflag |= termiosMask(syscall.INPCK)
 	}
 	return nil
@@ -194,7 +194,7 @@ func setTermSettingsParity(parity Parity, settings *syscall.Termios) error {
 func setTermSettingsDataBits(bits int, settings *syscall.Termios) error {
 	databits, ok := databitsMap[bits]
 	if !ok {
-		return &SerialPortError{code: ERROR_INVALID_PORT_DATA_BITS}
+		return &PortError{code: InvalidDataBits}
 	}
 	settings.Cflag &= ^termiosMask(syscall.CSIZE)
 	settings.Cflag |= termiosMask(databits)
@@ -203,9 +203,9 @@ func setTermSettingsDataBits(bits int, settings *syscall.Termios) error {
 
 func setTermSettingsStopBits(bits StopBits, settings *syscall.Termios) error {
 	switch bits {
-	case STOPBITS_ONE:
+	case OneStopBit:
 		settings.Cflag &= ^termiosMask(syscall.CSTOPB)
-	case STOPBITS_ONEPOINTFIVE, STOPBITS_TWO:
+	case OnePointFiveStopBits, TwoStopBits:
 		settings.Cflag |= termiosMask(syscall.CSTOPB)
 	}
 	return nil
@@ -220,7 +220,7 @@ func setRawMode(settings *syscall.Termios) {
 		syscall.ECHONL | syscall.ECHOCTL | syscall.ECHOPRT | syscall.ECHOKE | syscall.ISIG | syscall.IEXTEN)
 	settings.Iflag &= ^termiosMask(syscall.IXON | syscall.IXOFF | syscall.IXANY | syscall.INPCK |
 		syscall.IGNPAR | syscall.PARMRK | syscall.ISTRIP | syscall.IGNBRK | syscall.BRKINT | syscall.INLCR |
-		syscall.IGNCR | syscall.ICRNL | tc_IUCLC)
+		syscall.IGNCR | syscall.ICRNL | tcIUCLC)
 	settings.Oflag &= ^termiosMask(syscall.OPOST)
 
 	// Block reads until at least one char is available (no timeout)
@@ -232,12 +232,12 @@ func setRawMode(settings *syscall.Termios) {
 
 func (port *SerialPort) getTermSettings() (*syscall.Termios, error) {
 	settings := &syscall.Termios{}
-	err := ioctl(port.handle, ioctl_tcgetattr, uintptr(unsafe.Pointer(settings)))
+	err := ioctl(port.handle, ioctlTcgetattr, uintptr(unsafe.Pointer(settings)))
 	return settings, err
 }
 
 func (port *SerialPort) setTermSettings(settings *syscall.Termios) error {
-	return ioctl(port.handle, ioctl_tcsetattr, uintptr(unsafe.Pointer(settings)))
+	return ioctl(port.handle, ioctlTcsetattr, uintptr(unsafe.Pointer(settings)))
 }
 
 func (port *SerialPort) acquireExclusiveAccess() error {

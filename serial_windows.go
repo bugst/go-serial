@@ -28,18 +28,18 @@ type SerialPort struct {
 func GetPortsList() ([]string, error) {
 	subKey, err := syscall.UTF16PtrFromString("HARDWARE\\DEVICEMAP\\SERIALCOMM\\")
 	if err != nil {
-		return nil, &SerialPortError{code: ERROR_ENUMERATING_PORTS}
+		return nil, &PortError{code: ErrorEnumeratingPorts}
 	}
 
 	var h syscall.Handle
 	if syscall.RegOpenKeyEx(syscall.HKEY_LOCAL_MACHINE, subKey, 0, syscall.KEY_READ, &h) != nil {
-		return nil, &SerialPortError{code: ERROR_ENUMERATING_PORTS}
+		return nil, &PortError{code: ErrorEnumeratingPorts}
 	}
 	defer syscall.RegCloseKey(h)
 
 	var valuesCount uint32
 	if syscall.RegQueryInfoKey(h, nil, nil, nil, nil, nil, nil, &valuesCount, nil, nil, nil, nil) != nil {
-		return nil, &SerialPortError{code: ERROR_ENUMERATING_PORTS}
+		return nil, &PortError{code: ErrorEnumeratingPorts}
 	}
 
 	list := make([]string, valuesCount)
@@ -49,7 +49,7 @@ func GetPortsList() ([]string, error) {
 		var name [1024]uint16
 		nameSize := uint32(len(name))
 		if RegEnumValue(h, uint32(i), &name[0], &nameSize, nil, nil, &data[0], &dataSize) != nil {
-			return nil, &SerialPortError{code: ERROR_ENUMERATING_PORTS}
+			return nil, &PortError{code: ErrorEnumeratingPorts}
 		}
 		list[i] = syscall.UTF16ToString(data[:])
 	}
@@ -175,7 +175,7 @@ func (port *SerialPort) SetMode(mode *Mode) error {
 	params := DCB{}
 	if GetCommState(port.handle, &params) != nil {
 		port.Close()
-		return &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+		return &PortError{code: InvalidSerialPort}
 	}
 	if mode.BaudRate == 0 {
 		params.BaudRate = 9600 // Default to 9600
@@ -191,7 +191,7 @@ func (port *SerialPort) SetMode(mode *Mode) error {
 	params.Parity = byte(mode.Parity)
 	if SetCommState(port.handle, &params) != nil {
 		port.Close()
-		return &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+		return &PortError{code: InvalidSerialPort}
 	}
 	return nil
 }
@@ -212,9 +212,9 @@ func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 	if err != nil {
 		switch err {
 		case syscall.ERROR_ACCESS_DENIED:
-			return nil, &SerialPortError{code: ERROR_PORT_BUSY}
+			return nil, &PortError{code: PortBusy}
 		case syscall.ERROR_FILE_NOT_FOUND:
-			return nil, &SerialPortError{code: ERROR_PORT_NOT_FOUND}
+			return nil, &PortError{code: PortNotFound}
 		}
 		return nil, err
 	}
@@ -226,13 +226,13 @@ func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 	// Set port parameters
 	if port.SetMode(mode) != nil {
 		port.Close()
-		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+		return nil, &PortError{code: InvalidSerialPort}
 	}
 
 	params := &DCB{}
 	if GetCommState(port.handle, params) != nil {
 		port.Close()
-		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+		return nil, &PortError{code: InvalidSerialPort}
 	}
 	params.Flags |= DCB_RTS_CONTROL_ENABLE | DCB_DTR_CONTROL_ENABLE
 	params.Flags &= ^uint32(DCB_OUT_X_CTS_FLOW)
@@ -249,7 +249,7 @@ func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 	params.XoffChar = 19 // C3
 	if SetCommState(port.handle, params) != nil {
 		port.Close()
-		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+		return nil, &PortError{code: InvalidSerialPort}
 	}
 
 	// Set timeouts to 1 second
@@ -262,9 +262,8 @@ func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 	}
 	if SetCommTimeouts(port.handle, timeouts) != nil {
 		port.Close()
-		return nil, &SerialPortError{code: ERROR_INVALID_SERIAL_PORT}
+		return nil, &PortError{code: InvalidSerialPort}
 	}
 
 	return port, nil
 }
-
