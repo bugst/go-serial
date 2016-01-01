@@ -1,5 +1,5 @@
 //
-// Copyright 2014 Cristian Maglie. All rights reserved.
+// Copyright 2014-2016 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
@@ -73,4 +73,3 @@ func (e SerialPortError) Code() int {
 	return e.code
 }
 
-// vi:ts=2

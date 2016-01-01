@@ -1,5 +1,5 @@
 //
-// Copyright 2015 Cristian Maglie. All rights reserved.
+// Copyright 2014-2016 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
@@ -10,38 +10,11 @@ import "fmt"
 import "log"
 import "go.bug.st/serial"
 
-func ExampleGetPortsList() {
-	ports, err := serial.GetPortsList()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(ports) == 0 {
-		fmt.Println("No serial ports found!")
-	} else {
-		for _, port := range ports {
-			fmt.Printf("Found port: %v\n", port)
-		}
-	}
-}
+// This example prints the list of serial ports and use the first one
+// to send a string "10,20,30" and prints the response on the screen.
+func Example_sendAndReceive() {
 
-func ExampleSetMode() {
-	port, err := serial.OpenPort("/dev/ttyACM0", &serial.Mode{})
-	if err != nil {
-		log.Fatal(err)
-	}
-	mode := &serial.Mode{
-		BaudRate: 9600,
-		Parity:   serial.PARITY_NONE,
-		DataBits: 8,
-		StopBits: serial.STOPBITS_ONE,
-	}
-	if err := port.SetMode(mode); err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Port set to 9600 N81")
-}
-
-func ExampleFullCommunication() {
+	// Retrieve the port list
 	ports, err := serial.GetPortsList()
 	if err != nil {
 		log.Fatal(err)
@@ -50,10 +23,12 @@ func ExampleFullCommunication() {
 		log.Fatal("No serial ports found!")
 	}
 
+	// Print the list of detected ports
 	for _, port := range ports {
 		fmt.Printf("Found port: %v\n", port)
 	}
 
+	// Open the first serial port detected at 9600bps N81
 	mode := &serial.Mode{
 		BaudRate: 9600,
 		Parity:   serial.PARITY_NONE,
@@ -64,12 +39,15 @@ func ExampleFullCommunication() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Send the string "10,20,30\n\r" to the serial port
 	n, err := port.Write([]byte("10,20,30\n\r"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Sent %v bytes\n", n)
 
+	// Read and print the response
 	buff := make([]byte, 100)
 	for {
 		// Reads up to 100 bytes
@@ -86,4 +64,3 @@ func ExampleFullCommunication() {
 	}
 }
 
-// vi:ts=2
