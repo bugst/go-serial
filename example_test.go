@@ -1,16 +1,47 @@
 //
-// Copyright 2014 Cristian Maglie. All rights reserved.
+// Copyright 2015 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
 
-package serial
+package serial_test
 
-import "go.bug.st/serial"
 import "fmt"
 import "log"
+import "go.bug.st/serial"
 
-func ExampleCommunication() {
+func ExampleGetPortsList() {
+	ports, err := serial.GetPortsList()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(ports) == 0 {
+		fmt.Println("No serial ports found!")
+	} else {
+		for _, port := range ports {
+			fmt.Printf("Found port: %v\n", port)
+		}
+	}
+}
+
+func ExampleSetMode() {
+	port, err := serial.OpenPort("/dev/ttyACM0", &serial.Mode{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	mode := &serial.Mode{
+		BaudRate: 9600,
+		Parity:   serial.PARITY_NONE,
+		DataBits: 8,
+		StopBits: serial.STOPBITS_ONE,
+	}
+	if err := port.SetMode(mode); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Port set to 9600 N81")
+}
+
+func ExampleFullCommunication() {
 	ports, err := serial.GetPortsList()
 	if err != nil {
 		log.Fatal(err)
@@ -41,6 +72,7 @@ func ExampleCommunication() {
 
 	buff := make([]byte, 100)
 	for {
+		// Reads up to 100 bytes
 		n, err := port.Read(buff)
 		if err != nil {
 			log.Fatal(err)

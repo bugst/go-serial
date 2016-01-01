@@ -1,7 +1,9 @@
 language: go
 
 go:
-  - 1.4
+  - 1.4.2
+
+go_import_path: go.bug.st/serial
 
 env:
   - TEST_OS=linux TEST_ARCH=386
@@ -20,18 +22,12 @@ matrix:
     - env: TEST_OS=dragonfly TEST_ARCH=amd64
 
 before_install:
-  - cd $GOROOT/src
-  - GOOS=$TEST_OS GOARCH=$TEST_ARCH ./make.bash
-  - mkdir -p $HOME/gopath/src/go.bug.st
-  - mv $TRAVIS_BUILD_DIR $HOME/gopath/src/go.bug.st/serial
-  - export TRAVIS_BUILD_DIR=$HOME/gopath/src/go.bug.st/serial
-  - cd $TRAVIS_BUILD_DIR
-
-install:
-  - export PATH="$HOME/gopath/bin:$PATH"
+# bootstrap go tools for the specific OS/Arch
+  - ( cd $GOROOT/src; GOOS=$TEST_OS GOARCH=$TEST_ARCH ./make.bash )
 
 script:
-  - GOARM=5 GO386=387 GOOS=$TEST_OS GOARCH=$TEST_ARCH go build travis/build_check.go
+  - GOARM=5 GO386=387 GOOS=$TEST_OS GOARCH=$TEST_ARCH go build -v ./...
+  - GOARM=5 GO386=387 GOOS=$TEST_OS GOARCH=$TEST_ARCH go test -c -v ./...
 
 notifications:
   email:
