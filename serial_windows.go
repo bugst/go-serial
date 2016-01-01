@@ -18,8 +18,7 @@ package serial // import "go.bug.st/serial"
 
 import "syscall"
 
-// opaque type that implements SerialPort interface for Windows
-type SerialPort struct {
+type Port struct {
 	handle syscall.Handle
 }
 
@@ -56,11 +55,11 @@ func GetPortsList() ([]string, error) {
 	return list, nil
 }
 
-func (port *SerialPort) Close() error {
+func (port *Port) Close() error {
 	return syscall.CloseHandle(port.handle)
 }
 
-func (port *SerialPort) Read(p []byte) (int, error) {
+func (port *Port) Read(p []byte) (int, error) {
 	var readed uint32
 	params := &DCB{}
 	for {
@@ -83,7 +82,7 @@ func (port *SerialPort) Read(p []byte) (int, error) {
 	}
 }
 
-func (port *SerialPort) Write(p []byte) (int, error) {
+func (port *Port) Write(p []byte) (int, error) {
 	var writed uint32
 	err := syscall.WriteFile(port.handle, p, &writed, nil)
 	return int(writed), err
@@ -171,7 +170,7 @@ const (
 	TWOSTOPBITS  = 2
 )
 
-func (port *SerialPort) SetMode(mode *Mode) error {
+func (port *Port) SetMode(mode *Mode) error {
 	params := DCB{}
 	if GetCommState(port.handle, &params) != nil {
 		port.Close()
@@ -196,7 +195,7 @@ func (port *SerialPort) SetMode(mode *Mode) error {
 	return nil
 }
 
-func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
+func OpenPort(portName string, mode *Mode) (*Port, error) {
 	portName = "\\\\.\\" + portName
 	path, err := syscall.UTF16PtrFromString(portName)
 	if err != nil {
@@ -219,7 +218,7 @@ func OpenPort(portName string, mode *Mode) (*SerialPort, error) {
 		return nil, err
 	}
 	// Create the serial port
-	port := &SerialPort{
+	port := &Port{
 		handle: handle,
 	}
 
