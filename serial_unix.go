@@ -14,34 +14,24 @@ import "strings"
 import "syscall"
 import "unsafe"
 
-// Port is the handler for a serial Port
-type Port struct {
+type unixPort struct {
 	handle int
 }
 
-// Close the serial port
-func (port *Port) Close() error {
+func (port *unixPort) Close() error {
 	port.releaseExclusiveAccess()
 	return syscall.Close(port.handle)
 }
 
-// Stores data received from the serial port into the provided byte array
-// buffer. The function returns the number of bytes read.
-//
-// The Read function blocks until (at least) one byte is received from
-// the serial port or an error occurs.
-func (port *Port) Read(p []byte) (n int, err error) {
+func (port *unixPort) Read(p []byte) (n int, err error) {
 	return syscall.Read(port.handle, p)
 }
 
-// Send the content of the data byte array to the serial port.
-// Returns the number of bytes written.
-func (port *Port) Write(p []byte) (n int, err error) {
+func (port *unixPort) Write(p []byte) (n int, err error) {
 	return syscall.Write(port.handle, p)
 }
 
-// SetMode sets all parameters of the serial port
-func (port *Port) SetMode(mode *Mode) error {
+func (port *unixPort) SetMode(mode *Mode) error {
 	settings, err := port.getTermSettings()
 	if err != nil {
 		return err
@@ -61,8 +51,7 @@ func (port *Port) SetMode(mode *Mode) error {
 	return port.setTermSettings(settings)
 }
 
-// OpenPort opens the serial port using the specified modes
-func OpenPort(portName string, mode *Mode) (*Port, error) {
+func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	h, err := syscall.Open(portName, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NDELAY, 0)
 	if err != nil {
 		switch err {
@@ -73,7 +62,7 @@ func OpenPort(portName string, mode *Mode) (*Port, error) {
 		}
 		return nil, err
 	}
-	port := &Port{
+	port := &unixPort{
 		handle: h,
 	}
 
@@ -102,8 +91,7 @@ func OpenPort(portName string, mode *Mode) (*Port, error) {
 	return port, nil
 }
 
-// GetPortsList retrieve the list of available serial ports
-func GetPortsList() ([]string, error) {
+func nativeGetPortsList() ([]string, error) {
 	files, err := ioutil.ReadDir(devFolder)
 	if err != nil {
 		return nil, err
@@ -129,7 +117,7 @@ func GetPortsList() ([]string, error) {
 
 		// Check if serial port is real or is a placeholder serial port "ttySxx"
 		if strings.HasPrefix(f.Name(), "ttyS") {
-			port, err := OpenPort(portName, &Mode{})
+			port, err := nativeOpen(portName, &Mode{})
 			if err != nil {
 				serr, ok := err.(*PortError)
 				if ok && serr.Code() == InvalidSerialPort {
@@ -230,20 +218,20 @@ func setRawMode(settings *syscall.Termios) {
 
 // native syscall wrapper functions
 
-func (port *Port) getTermSettings() (*syscall.Termios, error) {
+func (port *unixPort) getTermSettings() (*syscall.Termios, error) {
 	settings := &syscall.Termios{}
 	err := ioctl(port.handle, ioctlTcgetattr, uintptr(unsafe.Pointer(settings)))
 	return settings, err
 }
 
-func (port *Port) setTermSettings(settings *syscall.Termios) error {
+func (port *unixPort) setTermSettings(settings *syscall.Termios) error {
 	return ioctl(port.handle, ioctlTcsetattr, uintptr(unsafe.Pointer(settings)))
 }
 
-func (port *Port) acquireExclusiveAccess() error {
+func (port *unixPort) acquireExclusiveAccess() error {
 	return ioctl(port.handle, syscall.TIOCEXCL, 0)
 }
 
-func (port *Port) releaseExclusiveAccess() error {
+func (port *unixPort) releaseExclusiveAccess() error {
 	return ioctl(port.handle, syscall.TIOCNXCL, 0)
 }

@@ -26,17 +26,17 @@ GetPortsList function:
 		fmt.Printf("Found port: %v\n", port)
 	}
 
-The serial port can be opened with the OpenPort function:
+The serial port can be opened with the Open function:
 
 	mode := &serial.Mode{
 		BaudRate: 115200,
 	}
-	port, err := serial.OpenPort("/dev/ttyUSB0", mode)
+	port, err := serial.Open("/dev/ttyUSB0", mode)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-The OpenPort command needs a "mode" parameter that specifies the configuration
+The Open function needs a "mode" parameter that specifies the configuration
 options for the serial port. If not specified the default options are 9600_N81,
 in the example above only the speed is changed so the port is opened using 115200_N81.
 The following snippets shows how to declare a configuration for 57600_E71:

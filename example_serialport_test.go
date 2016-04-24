@@ -11,7 +11,7 @@ import "log"
 import "go.bug.st/serial"
 
 func ExampleSerialPort_SetMode() {
-	port, err := serial.OpenPort("/dev/ttyACM0", &serial.Mode{})
+	port, err := serial.Open("/dev/ttyACM0", &serial.Mode{})
 	if err != nil {
 		log.Fatal(err)
 	}

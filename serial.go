@@ -6,6 +6,36 @@
 
 package serial // import "go.bug.st/serial"
 
+// Port is the interface for a serial Port
+type Port interface {
+	// SetMode sets all parameters of the serial port
+	SetMode(mode *Mode) error
+
+	// Stores data received from the serial port into the provided byte array
+	// buffer. The function returns the number of bytes read.
+	//
+	// The Read function blocks until (at least) one byte is received from
+	// the serial port or an error occurs.
+	Read(p []byte) (n int, err error)
+
+	// Send the content of the data byte array to the serial port.
+	// Returns the number of bytes written.
+	Write(p []byte) (n int, err error)
+
+	// Close the serial port
+	Close() error
+}
+
+// Open opens the serial port using the specified modes
+func Open(portName string, mode *Mode) (Port, error) {
+	return nativeOpen(portName, mode)
+}
+
+// GetPortsList retrieve the list of available serial ports
+func GetPortsList() ([]string, error) {
+	return nativeGetPortsList()
+}
+
 // Mode describes a serial port configuration.
 type Mode struct {
 	BaudRate int      // The serial port bitrate (aka Baudrate)

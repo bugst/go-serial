@@ -35,7 +35,7 @@ func Example_sendAndReceive() {
 		DataBits: 8,
 		StopBits: serial.OneStopBit,
 	}
-	port, err := serial.OpenPort(ports[0], mode)
+	port, err := serial.Open(ports[0], mode)
 	if err != nil {
 		log.Fatal(err)
 	}
