@@ -157,18 +157,32 @@ type commTimeouts struct {
 //sys setCommTimeouts(handle syscall.Handle, timeouts *commTimeouts) (err error) = SetCommTimeouts
 
 const (
-	noParity    = 0 // Default
+	noParity    = 0
 	oddParity   = 1
 	evenParity  = 2
 	markParity  = 3
 	spaceParity = 4
 )
 
+var parityMap = map[Parity]byte{
+	NoParity:    noParity,
+	OddParity:   oddParity,
+	EvenParity:  evenParity,
+	MarkParity:  markParity,
+	SpaceParity: spaceParity,
+}
+
 const (
-	oneStopBit   = 0 // Default
+	oneStopBit   = 0
 	one5StopBits = 1
 	twoStopBits  = 2
 )
+
+var stopBitsMap = map[StopBits]byte{
+	OneStopBit:           oneStopBit,
+	OnePointFiveStopBits: one5StopBits,
+	TwoStopBits:          twoStopBits,
+}
 
 func (port *windowsPort) SetMode(mode *Mode) error {
 	params := dcb{}
@@ -186,8 +200,8 @@ func (port *windowsPort) SetMode(mode *Mode) error {
 	} else {
 		params.ByteSize = byte(mode.DataBits)
 	}
-	params.StopBits = byte(mode.StopBits)
-	params.Parity = byte(mode.Parity)
+	params.StopBits = stopBitsMap[mode.StopBits]
+	params.Parity = parityMap[mode.Parity]
 	if setCommState(port.handle, &params) != nil {
 		port.Close()
 		return &PortError{code: InvalidSerialPort}
