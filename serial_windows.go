@@ -22,7 +22,7 @@ type windowsPort struct {
 	handle syscall.Handle
 }
 
-//sys RegEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint32, reserved *uint32, class *uint16, value *uint16, valueLen *uint32) (regerrno error) = advapi32.RegEnumValueW
+//sys regEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint32, reserved *uint32, class *uint16, value *uint16, valueLen *uint32) (regerrno error) = advapi32.RegEnumValueW
 
 func nativeGetPortsList() ([]string, error) {
 	subKey, err := syscall.UTF16PtrFromString("HARDWARE\\DEVICEMAP\\SERIALCOMM\\")
@@ -47,7 +47,7 @@ func nativeGetPortsList() ([]string, error) {
 		dataSize := uint32(len(data))
 		var name [1024]uint16
 		nameSize := uint32(len(name))
-		if RegEnumValue(h, uint32(i), &name[0], &nameSize, nil, nil, &data[0], &dataSize) != nil {
+		if regEnumValue(h, uint32(i), &name[0], &nameSize, nil, nil, &data[0], &dataSize) != nil {
 			return nil, &PortError{code: ErrorEnumeratingPorts}
 		}
 		list[i] = syscall.UTF16ToString(data[:])
@@ -61,7 +61,7 @@ func (port *windowsPort) Close() error {
 
 func (port *windowsPort) Read(p []byte) (int, error) {
 	var readed uint32
-	params := &DCB{}
+	params := &dcb{}
 	for {
 		if err := syscall.ReadFile(port.handle, p, &readed, nil); err != nil {
 			return int(readed), err
@@ -74,8 +74,8 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 		// a serial port is alive in Windows is to check if the SetCommState
 		// function fails.
 
-		GetCommState(port.handle, params)
-		if err := SetCommState(port.handle, params); err != nil {
+		getCommState(port.handle, params)
+		if err := setCommState(port.handle, params); err != nil {
 			port.Close()
 			return 0, err
 		}
@@ -89,27 +89,27 @@ func (port *windowsPort) Write(p []byte) (int, error) {
 }
 
 const (
-	DCB_BINARY                   = 0x00000001
-	DCB_PARITY                   = 0x00000002
-	DCB_OUT_X_CTS_FLOW           = 0x00000004
-	DCB_OUT_X_DSR_FLOW           = 0x00000008
-	DCB_DTR_CONTROL_DISABLE_MASK = ^0x00000030
-	DCB_DTR_CONTROL_ENABLE       = 0x00000010
-	DCB_DTR_CONTROL_HANDSHAKE    = 0x00000020
-	DCB_DSR_SENSITIVITY          = 0x00000040
-	DCB_TX_CONTINUE_ON_XOFF      = 0x00000080
-	DCB_OUT_X                    = 0x00000100
-	DCB_IN_X                     = 0x00000200
-	DCB_ERROR_CHAR               = 0x00000400
-	DCB_NULL                     = 0x00000800
-	DCB_RTS_CONTROL_DISABLE_MASK = ^0x00003000
-	DCB_RTS_CONTROL_ENABLE       = 0x00001000
-	DCB_RTS_CONTROL_HANDSHAKE    = 0x00002000
-	DCB_RTS_CONTROL_TOGGLE       = 0x00003000
-	DCB_ABORT_ON_ERROR           = 0x00004000
+	dcbBinary                = 0x00000001
+	dcbParity                = 0x00000002
+	dcbOutXCTSFlow           = 0x00000004
+	dcbOutXDSRFlow           = 0x00000008
+	dcbDTRControlDisableMask = ^0x00000030
+	dcbDTRControlEnable      = 0x00000010
+	dcbDTRControlHandshake   = 0x00000020
+	dcbDSRSensitivity        = 0x00000040
+	dcbTXContinueOnXOFF      = 0x00000080
+	dcbOutX                  = 0x00000100
+	dcbInX                   = 0x00000200
+	dcbErrorChar             = 0x00000400
+	dcbNull                  = 0x00000800
+	dcbRTSControlDisbaleMask = ^0x00003000
+	dcbRTSControlEnable      = 0x00001000
+	dcbRTSControlHandshake   = 0x00002000
+	dcbRTSControlToggle      = 0x00003000
+	dcbAbortOnError          = 0x00004000
 )
 
-type DCB struct {
+type dcb struct {
 	DCBlength uint32
 	BaudRate  uint32
 
@@ -139,12 +139,12 @@ type DCB struct {
 	XonChar    byte
 	XoffChar   byte
 	ErrorChar  byte
-	EofChar    byte
+	EOFChar    byte
 	EvtChar    byte
 	wReserved1 uint16
 }
 
-type COMMTIMEOUTS struct {
+type commTimeouts struct {
 	ReadIntervalTimeout         uint32
 	ReadTotalTimeoutMultiplier  uint32
 	ReadTotalTimeoutConstant    uint32
@@ -152,27 +152,27 @@ type COMMTIMEOUTS struct {
 	WriteTotalTimeoutConstant   uint32
 }
 
-//sys GetCommState(handle syscall.Handle, dcb *DCB) (err error)
-//sys SetCommState(handle syscall.Handle, dcb *DCB) (err error)
-//sys SetCommTimeouts(handle syscall.Handle, timeouts *COMMTIMEOUTS) (err error)
+//sys getCommState(handle syscall.Handle, dcb *dcb) (err error) = GetCommState
+//sys setCommState(handle syscall.Handle, dcb *dcb) (err error) = SetCommState
+//sys setCommTimeouts(handle syscall.Handle, timeouts *commTimeouts) (err error) = SetCommTimeouts
 
 const (
-	NOPARITY    = 0 // Default
-	ODDPARITY   = 1
-	EVENPARITY  = 2
-	MARKPARITY  = 3
-	SPACEPARITY = 4
+	noParity    = 0 // Default
+	oddParity   = 1
+	evenParity  = 2
+	markParity  = 3
+	spaceParity = 4
 )
 
 const (
-	ONESTOPBIT   = 0 // Default
-	ONE5STOPBITS = 1
-	TWOSTOPBITS  = 2
+	oneStopBit   = 0 // Default
+	one5StopBits = 1
+	twoStopBits  = 2
 )
 
 func (port *windowsPort) SetMode(mode *Mode) error {
-	params := DCB{}
-	if GetCommState(port.handle, &params) != nil {
+	params := dcb{}
+	if getCommState(port.handle, &params) != nil {
 		port.Close()
 		return &PortError{code: InvalidSerialPort}
 	}
@@ -188,7 +188,7 @@ func (port *windowsPort) SetMode(mode *Mode) error {
 	}
 	params.StopBits = byte(mode.StopBits)
 	params.Parity = byte(mode.Parity)
-	if SetCommState(port.handle, &params) != nil {
+	if setCommState(port.handle, &params) != nil {
 		port.Close()
 		return &PortError{code: InvalidSerialPort}
 	}
@@ -228,38 +228,38 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 		return nil, &PortError{code: InvalidSerialPort}
 	}
 
-	params := &DCB{}
-	if GetCommState(port.handle, params) != nil {
+	params := &dcb{}
+	if getCommState(port.handle, params) != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort}
 	}
-	params.Flags |= DCB_RTS_CONTROL_ENABLE | DCB_DTR_CONTROL_ENABLE
-	params.Flags &= ^uint32(DCB_OUT_X_CTS_FLOW)
-	params.Flags &= ^uint32(DCB_OUT_X_DSR_FLOW)
-	params.Flags &= ^uint32(DCB_DSR_SENSITIVITY)
-	params.Flags |= DCB_TX_CONTINUE_ON_XOFF
-	params.Flags &= ^uint32(DCB_IN_X | DCB_OUT_X)
-	params.Flags &= ^uint32(DCB_ERROR_CHAR)
-	params.Flags &= ^uint32(DCB_NULL)
-	params.Flags &= ^uint32(DCB_ABORT_ON_ERROR)
+	params.Flags |= dcbRTSControlEnable | dcbDTRControlEnable
+	params.Flags &= ^uint32(dcbOutXCTSFlow)
+	params.Flags &= ^uint32(dcbOutXDSRFlow)
+	params.Flags &= ^uint32(dcbDSRSensitivity)
+	params.Flags |= dcbTXContinueOnXOFF
+	params.Flags &= ^uint32(dcbInX | dcbOutX)
+	params.Flags &= ^uint32(dcbErrorChar)
+	params.Flags &= ^uint32(dcbNull)
+	params.Flags &= ^uint32(dcbAbortOnError)
 	params.XonLim = 2048
 	params.XoffLim = 512
 	params.XonChar = 17  // DC1
 	params.XoffChar = 19 // C3
-	if SetCommState(port.handle, params) != nil {
+	if setCommState(port.handle, params) != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort}
 	}
 
 	// Set timeouts to 1 second
-	timeouts := &COMMTIMEOUTS{
+	timeouts := &commTimeouts{
 		ReadIntervalTimeout:         0xFFFFFFFF,
 		ReadTotalTimeoutMultiplier:  0xFFFFFFFF,
 		ReadTotalTimeoutConstant:    1000, // 1 sec
 		WriteTotalTimeoutConstant:   0,
 		WriteTotalTimeoutMultiplier: 0,
 	}
-	if SetCommTimeouts(port.handle, timeouts) != nil {
+	if setCommTimeouts(port.handle, timeouts) != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort}
 	}

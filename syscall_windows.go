@@ -3,8 +3,12 @@
 
 package serial
 
-import "unsafe"
-import "syscall"
+import (
+	"syscall"
+	"unsafe"
+)
+
+var _ unsafe.Pointer
 
 var (
 	modadvapi32 = syscall.NewLazyDLL("advapi32.dll")
@@ -16,7 +20,7 @@ var (
 	procSetCommTimeouts = modkernel32.NewProc("SetCommTimeouts")
 )
 
-func RegEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint32, reserved *uint32, class *uint16, value *uint16, valueLen *uint32) (regerrno error) {
+func regEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint32, reserved *uint32, class *uint16, value *uint16, valueLen *uint32) (regerrno error) {
 	r0, _, _ := syscall.Syscall9(procRegEnumValueW.Addr(), 8, uintptr(key), uintptr(index), uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(nameLen)), uintptr(unsafe.Pointer(reserved)), uintptr(unsafe.Pointer(class)), uintptr(unsafe.Pointer(value)), uintptr(unsafe.Pointer(valueLen)), 0)
 	if r0 != 0 {
 		regerrno = syscall.Errno(r0)
@@ -24,7 +28,7 @@ func RegEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint3
 	return
 }
 
-func GetCommState(handle syscall.Handle, dcb *DCB) (err error) {
+func getCommState(handle syscall.Handle, dcb *dcb) (err error) {
 	r1, _, e1 := syscall.Syscall(procGetCommState.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(dcb)), 0)
 	if r1 == 0 {
 		if e1 != 0 {
@@ -36,7 +40,7 @@ func GetCommState(handle syscall.Handle, dcb *DCB) (err error) {
 	return
 }
 
-func SetCommState(handle syscall.Handle, dcb *DCB) (err error) {
+func setCommState(handle syscall.Handle, dcb *dcb) (err error) {
 	r1, _, e1 := syscall.Syscall(procSetCommState.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(dcb)), 0)
 	if r1 == 0 {
 		if e1 != 0 {
@@ -48,7 +52,7 @@ func SetCommState(handle syscall.Handle, dcb *DCB) (err error) {
 	return
 }
 
-func SetCommTimeouts(handle syscall.Handle, timeouts *COMMTIMEOUTS) (err error) {
+func setCommTimeouts(handle syscall.Handle, timeouts *commTimeouts) (err error) {
 	r1, _, e1 := syscall.Syscall(procSetCommTimeouts.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(timeouts)), 0)
 	if r1 == 0 {
 		if e1 != 0 {
