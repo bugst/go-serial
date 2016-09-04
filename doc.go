@@ -7,10 +7,10 @@
 /*
 Package serial is a cross-platform serial library for the go language.
 
-The canonical import for this library is go.bug.st/serial so the import line
+The canonical import for this library is go.bug.st/serial.v1 so the import line
 is the following:
 
-	import "go.bug.st/serial"
+	import "go.bug.st/serial.v1"
 
 It is possibile to get the list of available serial ports with the
 GetPortsList function:
@@ -82,4 +82,4 @@ serial port:
 This library doesn't make use of cgo and "C" package, so it's a pure go library
 that can be easily cross compiled.
 */
-package serial // import "go.bug.st/serial"
+package serial // import "go.bug.st/serial.v1"

@@ -3,7 +3,7 @@ language: go
 go:
   - 1.4.2
 
-go_import_path: go.bug.st/serial
+go_import_path: go.bug.st/serial.v1
 
 env:
   - TEST_OS=linux TEST_ARCH=386

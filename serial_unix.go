@@ -6,7 +6,7 @@
 
 // +build linux darwin
 
-package serial // import "go.bug.st/serial"
+package serial // import "go.bug.st/serial.v1"
 
 import "io/ioutil"
 import "regexp"

@@ -8,7 +8,7 @@ package serial_test
 
 import "fmt"
 import "log"
-import "go.bug.st/serial"
+import "go.bug.st/serial.v1"
 
 func ExampleSerialPort_SetMode() {
 	port, err := serial.Open("/dev/ttyACM0", &serial.Mode{})

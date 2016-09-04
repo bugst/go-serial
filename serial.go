@@ -4,7 +4,7 @@
 // license that can be found in the LICENSE file.
 //
 
-package serial // import "go.bug.st/serial"
+package serial // import "go.bug.st/serial.v1"
 
 // Port is the interface for a serial Port
 type Port interface {

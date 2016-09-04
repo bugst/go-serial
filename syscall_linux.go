@@ -8,7 +8,7 @@
 //   mksyscall.pl serial_linux.go
 // The generated stub is modified to make it compile under the "serial" package
 
-package serial // import "go.bug.st/serial"
+package serial // import "go.bug.st/serial.v1"
 
 import "syscall"
 
