@@ -33,6 +33,8 @@ var baudrateMap = map[int]int{
 	57600:  syscall.B57600,
 	115200: syscall.B115200,
 	230400: syscall.B230400,
+	460800: syscall.B460800,
+	921600: syscall.B921600,
 }
 
 var databitsMap = map[int]int{
