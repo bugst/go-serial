@@ -4,7 +4,7 @@
 // license that can be found in the LICENSE file.
 //
 
-// +build linux darwin
+// +build linux darwin freebsd
 
 package serial // import "go.bug.st/serial.v1"
 

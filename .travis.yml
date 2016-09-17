@@ -18,7 +18,6 @@ env:
 
 matrix:
   allow_failures:
-    - env: TEST_OS=freebsd TEST_ARCH=amd64
     - env: TEST_OS=dragonfly TEST_ARCH=amd64
 
 before_install:
