@@ -74,8 +74,8 @@ const (
 
 // PortError is a platform independent error type for serial ports
 type PortError struct {
-	err  string
-	code PortErrorCode
+	code     PortErrorCode
+	causedBy error
 }
 
 // PortErrorCode is a code to easily identify the type of error
@@ -98,8 +98,8 @@ const (
 	ErrorEnumeratingPorts
 )
 
-// Error returns a string explaining the error occurred
-func (e PortError) Error() string {
+// EncodedErrorString returns a string explaining the error code
+func (e PortError) EncodedErrorString() string {
 	switch e.code {
 	case PortBusy:
 		return "Serial port busy"
@@ -115,8 +115,17 @@ func (e PortError) Error() string {
 		return "Invalid port data bits"
 	case ErrorEnumeratingPorts:
 		return "Could not enumerate serial ports"
+	default:
+		return "Other error"
 	}
-	return e.err
+}
+
+// Error returns the complete error code with details on the cause of the error
+func (e PortError) Error() string {
+	if e.causedBy != nil {
+		return e.EncodedErrorString() + ": " + e.causedBy.Error()
+	}
+	return e.EncodedErrorString()
 }
 
 // Code returns an identifier for the kind of error occurred
