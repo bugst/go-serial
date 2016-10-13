@@ -25,6 +25,7 @@ before_install:
   - ( cd $GOROOT/src; GOOS=$TEST_OS GOARCH=$TEST_ARCH ./make.bash )
 
 script:
+  - GOARM=5 GO386=387 GOOS=$TEST_OS GOARCH=$TEST_ARCH go get golang.org/x/sys/windows
   - GOARM=5 GO386=387 GOOS=$TEST_OS GOARCH=$TEST_ARCH go build -v ./...
   - GOARM=5 GO386=387 GOOS=$TEST_OS GOARCH=$TEST_ARCH go test -c -v ./...
 
