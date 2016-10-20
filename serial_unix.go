@@ -143,7 +143,7 @@ func setTermSettingsBaudrate(speed int, settings *syscall.Termios) error {
 		return &PortError{code: InvalidSpeed}
 	}
 	// revert old baudrate
-	BAUDMASK := 0
+	var BAUDMASK uint
 	for _, rate := range baudrateMap {
 		BAUDMASK |= rate
 	}

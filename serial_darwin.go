@@ -13,7 +13,7 @@ const regexFilter = "^(cu|tty)\\..*"
 
 // termios manipulation functions
 
-var baudrateMap = map[int]int{
+var baudrateMap = map[int]uint{
 	0:      syscall.B9600, // Default to 9600
 	50:     syscall.B50,
 	75:     syscall.B75,
@@ -35,7 +35,7 @@ var baudrateMap = map[int]int{
 	230400: syscall.B230400,
 }
 
-var databitsMap = map[int]int{
+var databitsMap = map[int]uint{
 	0: syscall.CS8, // Default to 8 bits
 	5: syscall.CS5,
 	6: syscall.CS6,
@@ -43,13 +43,13 @@ var databitsMap = map[int]int{
 	8: syscall.CS8,
 }
 
-const tcCMSPAR int = 0 // may be CMSPAR or PAREXT
-const tcIUCLC int = 0
+const tcCMSPAR uint = 0 // may be CMSPAR or PAREXT
+const tcIUCLC uint = 0
 
-const tcCCTS_OFLOW int = 0x00010000
-const tcCRTS_IFLOW int = 0x00020000
+const tcCCTS_OFLOW uint = 0x00010000
+const tcCRTS_IFLOW uint = 0x00020000
 
-const tcCRTSCTS int = (tcCCTS_OFLOW | tcCRTS_IFLOW)
+const tcCRTSCTS uint = (tcCCTS_OFLOW | tcCRTS_IFLOW)
 
 // syscall wrappers
 

@@ -6,6 +6,6 @@
 
 package serial // import "go.bug.st/serial.v1"
 
-func termiosMask(data int) uint32 {
+func termiosMask(data uint) uint32 {
 	return uint32(data)
 }

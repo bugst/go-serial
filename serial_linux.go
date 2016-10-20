@@ -13,7 +13,7 @@ const regexFilter = "(ttyS|ttyUSB|ttyACM|ttyAMA|rfcomm|ttyO)[0-9]{1,3}"
 
 // termios manipulation functions
 
-var baudrateMap = map[int]int{
+var baudrateMap = map[int]uint{
 	0:       syscall.B9600, // Default to 9600
 	50:      syscall.B50,
 	75:      syscall.B75,
@@ -47,7 +47,7 @@ var baudrateMap = map[int]int{
 	4000000: syscall.B4000000,
 }
 
-var databitsMap = map[int]int{
+var databitsMap = map[int]uint{
 	0: syscall.CS8, // Default to 8 bits
 	5: syscall.CS5,
 	6: syscall.CS6,
@@ -55,12 +55,12 @@ var databitsMap = map[int]int{
 	8: syscall.CS8,
 }
 
-const tcCMSPAR int = 0 // may be CMSPAR or PAREXT
+const tcCMSPAR uint = 0 // may be CMSPAR or PAREXT
 const tcIUCLC = syscall.IUCLC
 
-const tcCRTSCTS int = 0x80000000
+const tcCRTSCTS uint = 0x80000000
 
-func termiosMask(data int) uint32 {
+func termiosMask(data uint) uint32 {
 	return uint32(data)
 }
 

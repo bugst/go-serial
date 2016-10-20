@@ -8,6 +8,6 @@ package serial // import "go.bug.st/serial.v1"
 
 // termios manipulation functions
 
-func termiosMask(data int) uint64 {
+func termiosMask(data uint) uint64 {
 	return uint64(data)
 }
