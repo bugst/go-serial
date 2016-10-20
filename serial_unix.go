@@ -72,13 +72,18 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 		return nil, &PortError{code: InvalidSerialPort}
 	}
 
-	// Set raw mode
 	settings, err := port.getTermSettings()
 	if err != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort}
 	}
+
+	// Set raw mode
 	setRawMode(settings)
+
+	// Explicitly disable RTS/CTS flow control
+	setTermSettingsCtsRts(false, settings)
+
 	if port.setTermSettings(settings) != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort}
@@ -199,12 +204,17 @@ func setTermSettingsStopBits(bits StopBits, settings *syscall.Termios) error {
 	return nil
 }
 
+func setTermSettingsCtsRts(enable bool, settings *syscall.Termios) {
+	if enable {
+		settings.Cflag |= termiosMask(tcCRTSCTS)
+	} else {
+		settings.Cflag &= ^termiosMask(tcCRTSCTS)
+	}
+}
+
 func setRawMode(settings *syscall.Termios) {
 	// Set local mode
 	settings.Cflag |= termiosMask(syscall.CREAD | syscall.CLOCAL)
-
-	// Explicitly disable RTS/CTS flow control
-	settings.Cflag &= ^termiosMask(tcCRTSCTS)
 
 	// Set raw mode
 	settings.Lflag &= ^termiosMask(syscall.ICANON | syscall.ECHO | syscall.ECHOE | syscall.ECHOK |
