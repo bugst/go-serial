@@ -58,6 +58,8 @@ var databitsMap = map[int]int{
 const tcCMSPAR int = 0 // may be CMSPAR or PAREXT
 const tcIUCLC = syscall.IUCLC
 
+const tcCRTSCTS int = 0x80000000
+
 func termiosMask(data int) uint32 {
 	return uint32(data)
 }

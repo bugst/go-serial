@@ -203,6 +203,9 @@ func setRawMode(settings *syscall.Termios) {
 	// Set local mode
 	settings.Cflag |= termiosMask(syscall.CREAD | syscall.CLOCAL)
 
+	// Explicitly disable RTS/CTS flow control
+	settings.Cflag &= ^termiosMask(tcCRTSCTS)
+
 	// Set raw mode
 	settings.Lflag &= ^termiosMask(syscall.ICANON | syscall.ECHO | syscall.ECHOE | syscall.ECHOK |
 		syscall.ECHONL | syscall.ECHOCTL | syscall.ECHOPRT | syscall.ECHOKE | syscall.ISIG | syscall.IEXTEN)
