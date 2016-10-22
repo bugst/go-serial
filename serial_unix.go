@@ -213,8 +213,12 @@ func setTermSettingsStopBits(bits StopBits, settings *syscall.Termios) error {
 	switch bits {
 	case OneStopBit:
 		settings.Cflag &^= syscall.CSTOPB
-	case OnePointFiveStopBits, TwoStopBits:
+	case OnePointFiveStopBits:
+		return &PortError{code: InvalidStopBits}
+	case TwoStopBits:
 		settings.Cflag |= syscall.CSTOPB
+	default:
+		return &PortError{code: InvalidStopBits}
 	}
 	return nil
 }
