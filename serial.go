@@ -112,9 +112,9 @@ func (e PortError) EncodedErrorString() string {
 	case PermissionDenied:
 		return "Permission denied"
 	case InvalidSpeed:
-		return "Invalid port speed"
+		return "Port speed invalid or not supported"
 	case InvalidDataBits:
-		return "Invalid port data bits"
+		return "Port data bits invalid or not supported"
 	case InvalidParity:
 		return "Port parity invalid or not supported"
 	case ErrorEnumeratingPorts:
