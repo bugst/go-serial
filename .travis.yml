@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - 1.4.2
+  - 1.7.2
 
 go_import_path: go.bug.st/serial.v1
 
@@ -21,8 +21,6 @@ matrix:
     - env: TEST_OS=dragonfly TEST_ARCH=amd64
 
 before_install:
-# bootstrap go tools for the specific OS/Arch
-  - ( cd $GOROOT/src; GOOS=$TEST_OS GOARCH=$TEST_ARCH ./make.bash )
 
 script:
   - GOARM=5 GO386=387 GOOS=$TEST_OS GOARCH=$TEST_ARCH go get golang.org/x/sys/windows
