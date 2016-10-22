@@ -94,6 +94,8 @@ const (
 	InvalidSpeed
 	// InvalidDataBits the number of data bits is not valid or not supported
 	InvalidDataBits
+	// InvalidParity the selected parity is not valid or not supported
+	InvalidParity
 	// ErrorEnumeratingPorts an error occurred while listing serial port
 	ErrorEnumeratingPorts
 )
@@ -113,6 +115,8 @@ func (e PortError) EncodedErrorString() string {
 		return "Invalid port speed"
 	case InvalidDataBits:
 		return "Invalid port data bits"
+	case InvalidParity:
+		return "Port parity invalid or not supported"
 	case ErrorEnumeratingPorts:
 		return "Could not enumerate serial ports"
 	default:

@@ -176,15 +176,23 @@ func setTermSettingsParity(parity Parity, settings *syscall.Termios) error {
 		settings.Cflag &^= tcCMSPAR
 		settings.Iflag |= syscall.INPCK
 	case MarkParity:
+		if tcCMSPAR == 0 {
+			return &PortError{code: InvalidParity}
+		}
 		settings.Cflag |= syscall.PARENB
 		settings.Cflag |= syscall.PARODD
 		settings.Cflag |= tcCMSPAR
 		settings.Iflag |= syscall.INPCK
 	case SpaceParity:
+		if tcCMSPAR == 0 {
+			return &PortError{code: InvalidParity}
+		}
 		settings.Cflag |= syscall.PARENB
 		settings.Cflag &^= syscall.PARODD
 		settings.Cflag |= tcCMSPAR
 		settings.Iflag |= syscall.INPCK
+	default:
+		return &PortError{code: InvalidParity}
 	}
 	return nil
 }
