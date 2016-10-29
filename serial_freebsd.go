@@ -13,7 +13,7 @@ const regexFilter = "^(cu|tty)\\..*"
 
 // termios manipulation functions
 
-var baudrateMap = map[int]uint{
+var baudrateMap = map[int]uint32{
 	0:      syscall.B9600, // Default to 9600
 	50:     syscall.B50,
 	75:     syscall.B75,
@@ -37,7 +37,7 @@ var baudrateMap = map[int]uint{
 	921600: syscall.B921600,
 }
 
-var databitsMap = map[int]uint{
+var databitsMap = map[int]uint32{
 	0: syscall.CS8, // Default to 8 bits
 	5: syscall.CS5,
 	6: syscall.CS6,
@@ -45,19 +45,13 @@ var databitsMap = map[int]uint{
 	8: syscall.CS8,
 }
 
-const tcCMSPAR uint = 0 // may be CMSPAR or PAREXT
-const tcIUCLC uint = 0
+const tcCMSPAR uint32 = 0 // may be CMSPAR or PAREXT
+const tcIUCLC uint32 = 0
 
-const tcCCTS_OFLOW uint = 0x00010000
-const tcCRTS_IFLOW uint = 0x00020000
+const tcCCTS_OFLOW uint32 = 0x00010000
+const tcCRTS_IFLOW uint32 = 0x00020000
 
-const tcCRTSCTS uint = tcCCTS_OFLOW
-
-func termiosMask(data uint) uint32 {
-	return uint32(data)
-}
-
-// syscall wrappers
+const tcCRTSCTS uint32 = tcCCTS_OFLOW
 
 //sys ioctl(fd int, req uint64, data uintptr) (err error)
 

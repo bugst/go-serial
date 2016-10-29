@@ -148,38 +148,51 @@ func setTermSettingsBaudrate(speed int, settings *syscall.Termios) error {
 		return &PortError{code: InvalidSpeed}
 	}
 	// revert old baudrate
-	var BAUDMASK uint
 	for _, rate := range baudrateMap {
-		BAUDMASK |= rate
+		settings.Cflag &^= rate
 	}
-	settings.Cflag &= ^termiosMask(BAUDMASK)
 	// set new baudrate
-	settings.Cflag |= termiosMask(baudrate)
-	settings.Ispeed = termiosMask(baudrate)
-	settings.Ospeed = termiosMask(baudrate)
+	settings.Cflag |= baudrate
+	settings.Ispeed = baudrate
+	settings.Ospeed = baudrate
 	return nil
 }
 
 func setTermSettingsParity(parity Parity, settings *syscall.Termios) error {
 	switch parity {
 	case NoParity:
-		settings.Cflag &= ^termiosMask(syscall.PARENB | syscall.PARODD | tcCMSPAR)
-		settings.Iflag &= ^termiosMask(syscall.INPCK)
+		settings.Cflag &^= syscall.PARENB
+		settings.Cflag &^= syscall.PARODD
+		settings.Cflag &^= tcCMSPAR
+		settings.Iflag &^= syscall.INPCK
 	case OddParity:
-		settings.Cflag |= termiosMask(syscall.PARENB | syscall.PARODD)
-		settings.Cflag &= ^termiosMask(tcCMSPAR)
-		settings.Iflag |= termiosMask(syscall.INPCK)
+		settings.Cflag |= syscall.PARENB
+		settings.Cflag |= syscall.PARODD
+		settings.Cflag &^= tcCMSPAR
+		settings.Iflag |= syscall.INPCK
 	case EvenParity:
-		settings.Cflag &= ^termiosMask(syscall.PARODD | tcCMSPAR)
-		settings.Cflag |= termiosMask(syscall.PARENB)
-		settings.Iflag |= termiosMask(syscall.INPCK)
+		settings.Cflag |= syscall.PARENB
+		settings.Cflag &^= syscall.PARODD
+		settings.Cflag &^= tcCMSPAR
+		settings.Iflag |= syscall.INPCK
 	case MarkParity:
-		settings.Cflag |= termiosMask(syscall.PARENB | syscall.PARODD | tcCMSPAR)
-		settings.Iflag |= termiosMask(syscall.INPCK)
+		if tcCMSPAR == 0 {
+			return &PortError{code: InvalidParity}
+		}
+		settings.Cflag |= syscall.PARENB
+		settings.Cflag |= syscall.PARODD
+		settings.Cflag |= tcCMSPAR
+		settings.Iflag |= syscall.INPCK
 	case SpaceParity:
-		settings.Cflag &= ^termiosMask(syscall.PARODD)
-		settings.Cflag |= termiosMask(syscall.PARENB | tcCMSPAR)
-		settings.Iflag |= termiosMask(syscall.INPCK)
+		if tcCMSPAR == 0 {
+			return &PortError{code: InvalidParity}
+		}
+		settings.Cflag |= syscall.PARENB
+		settings.Cflag &^= syscall.PARODD
+		settings.Cflag |= tcCMSPAR
+		settings.Iflag |= syscall.INPCK
+	default:
+		return &PortError{code: InvalidParity}
 	}
 	return nil
 }
@@ -189,40 +202,67 @@ func setTermSettingsDataBits(bits int, settings *syscall.Termios) error {
 	if !ok {
 		return &PortError{code: InvalidDataBits}
 	}
-	settings.Cflag &= ^termiosMask(syscall.CSIZE)
-	settings.Cflag |= termiosMask(databits)
+	// Remove previous databits setting
+	settings.Cflag &^= syscall.CSIZE
+	// Set requested databits
+	settings.Cflag |= databits
 	return nil
 }
 
 func setTermSettingsStopBits(bits StopBits, settings *syscall.Termios) error {
 	switch bits {
 	case OneStopBit:
-		settings.Cflag &= ^termiosMask(syscall.CSTOPB)
-	case OnePointFiveStopBits, TwoStopBits:
-		settings.Cflag |= termiosMask(syscall.CSTOPB)
+		settings.Cflag &^= syscall.CSTOPB
+	case OnePointFiveStopBits:
+		return &PortError{code: InvalidStopBits}
+	case TwoStopBits:
+		settings.Cflag |= syscall.CSTOPB
+	default:
+		return &PortError{code: InvalidStopBits}
 	}
 	return nil
 }
 
 func setTermSettingsCtsRts(enable bool, settings *syscall.Termios) {
 	if enable {
-		settings.Cflag |= termiosMask(tcCRTSCTS)
+		settings.Cflag |= tcCRTSCTS
 	} else {
-		settings.Cflag &= ^termiosMask(tcCRTSCTS)
+		settings.Cflag &^= tcCRTSCTS
 	}
 }
 
 func setRawMode(settings *syscall.Termios) {
 	// Set local mode
-	settings.Cflag |= termiosMask(syscall.CREAD | syscall.CLOCAL)
+	settings.Cflag |= syscall.CREAD
+	settings.Cflag |= syscall.CLOCAL
 
 	// Set raw mode
-	settings.Lflag &= ^termiosMask(syscall.ICANON | syscall.ECHO | syscall.ECHOE | syscall.ECHOK |
-		syscall.ECHONL | syscall.ECHOCTL | syscall.ECHOPRT | syscall.ECHOKE | syscall.ISIG | syscall.IEXTEN)
-	settings.Iflag &= ^termiosMask(syscall.IXON | syscall.IXOFF | syscall.IXANY | syscall.INPCK |
-		syscall.IGNPAR | syscall.PARMRK | syscall.ISTRIP | syscall.IGNBRK | syscall.BRKINT | syscall.INLCR |
-		syscall.IGNCR | syscall.ICRNL | tcIUCLC)
-	settings.Oflag &= ^termiosMask(syscall.OPOST)
+	settings.Lflag &^= syscall.ICANON
+	settings.Lflag &^= syscall.ECHO
+	settings.Lflag &^= syscall.ECHOE
+	settings.Lflag &^= syscall.ECHOK
+	settings.Lflag &^= syscall.ECHONL
+	settings.Lflag &^= syscall.ECHOCTL
+	settings.Lflag &^= syscall.ECHOPRT
+	settings.Lflag &^= syscall.ECHOKE
+	settings.Lflag &^= syscall.ISIG
+	settings.Lflag &^= syscall.IEXTEN
+
+	settings.Iflag &^= syscall.IXON
+	settings.Iflag &^= syscall.IXOFF
+	settings.Iflag &^= syscall.IXANY
+	settings.Iflag &^= syscall.INPCK
+	settings.Iflag &^= syscall.IGNPAR
+	settings.Iflag &^= syscall.PARMRK
+	settings.Iflag &^= syscall.ISTRIP
+	settings.Iflag &^= syscall.IGNBRK
+	settings.Iflag &^= syscall.BRKINT
+	settings.Iflag &^= syscall.INLCR
+	settings.Iflag &^= syscall.IGNCR
+	settings.Iflag &^= syscall.ICRNL
+	settings.Iflag &^= tcIUCLC
+
+	settings.Oflag &^= syscall.OPOST
 
 	// Block reads until at least one char is available (no timeout)
 	settings.Cc[syscall.VMIN] = 1
