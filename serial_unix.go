@@ -52,15 +52,42 @@ func (port *unixPort) SetMode(mode *Mode) error {
 }
 
 func (port *unixPort) SetDTR(dtr bool) error {
-	return &PortError{}
+	status, err := port.getModemBitsStatus()
+	if err != nil {
+		return err
+	}
+	if dtr {
+		status |= syscall.TIOCM_DTR
+	} else {
+		status &^= syscall.TIOCM_DTR
+	}
+	return port.setModemBitsStatus(status)
 }
 
 func (port *unixPort) SetRTS(rts bool) error {
-	return &PortError{}
+	status, err := port.getModemBitsStatus()
+	if err != nil {
+		return err
+	}
+	if rts {
+		status |= syscall.TIOCM_RTS
+	} else {
+		status &^= syscall.TIOCM_RTS
+	}
+	return port.setModemBitsStatus(status)
 }
 
 func (port *unixPort) GetModemStatusBits() (*ModemStatusBits, error) {
-	return nil, &PortError{}
+	status, err := port.getModemBitsStatus()
+	if err != nil {
+		return nil, err
+	}
+	return &ModemStatusBits{
+		CTS: (status & syscall.TIOCM_CTS) != 0,
+		DCD: (status & syscall.TIOCM_CD) != 0,
+		DSR: (status & syscall.TIOCM_DSR) != 0,
+		RI:  (status & syscall.TIOCM_RI) != 0,
+	}, nil
 }
 
 func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
@@ -291,6 +318,16 @@ func (port *unixPort) getTermSettings() (*syscall.Termios, error) {
 
 func (port *unixPort) setTermSettings(settings *syscall.Termios) error {
 	return ioctl(port.handle, ioctlTcsetattr, uintptr(unsafe.Pointer(settings)))
+}
+
+func (port *unixPort) getModemBitsStatus() (int, error) {
+	var status int
+	err := ioctl(port.handle, syscall.TIOCMGET, uintptr(unsafe.Pointer(&status)))
+	return status, err
+}
+
+func (port *unixPort) setModemBitsStatus(status int) error {
+	return ioctl(port.handle, syscall.TIOCMSET, uintptr(unsafe.Pointer(&status)))
 }
 
 func (port *unixPort) acquireExclusiveAccess() error {
