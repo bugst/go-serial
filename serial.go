@@ -22,8 +22,27 @@ type Port interface {
 	// Returns the number of bytes written.
 	Write(p []byte) (n int, err error)
 
+	// SetDTR sets the modem status bit DataTerminalReady
+	SetDTR(dtr bool) error
+
+	// SetRTS sets the modem status bit RequestToSend
+	SetRTS(rts bool) error
+
+	// GetModemStatusBits returns a ModemStatusBits structure containing the
+	// modem status bits for the serial port (CTS, DSR, etc...)
+	GetModemStatusBits() (*ModemStatusBits, error)
+
 	// Close the serial port
 	Close() error
+}
+
+// ModemStatusBits contains all the modem status bits for a serial port (CTS, DSR, etc...).
+// It can be retrieved with the Port.GetModemStatusBits() method.
+type ModemStatusBits struct {
+	CTS bool // ClearToSend status
+	DSR bool // DataSetReady status
+	RI  bool // RingIndicator status
+	DCD bool // DataCarrierDetect status
 }
 
 // Open opens the serial port using the specified modes

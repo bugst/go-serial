@@ -211,6 +211,18 @@ func (port *windowsPort) SetMode(mode *Mode) error {
 	return nil
 }
 
+func (port *windowsPort) SetDTR(dtr bool) error {
+	return &PortError{}
+}
+
+func (port *windowsPort) SetRTS(rts bool) error {
+	return &PortError{}
+}
+
+func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
+	return nil, &PortError{}
+}
+
 func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 	portName = "\\\\.\\" + portName
 	path, err := syscall.UTF16PtrFromString(portName)

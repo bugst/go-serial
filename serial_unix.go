@@ -51,6 +51,18 @@ func (port *unixPort) SetMode(mode *Mode) error {
 	return port.setTermSettings(settings)
 }
 
+func (port *unixPort) SetDTR(dtr bool) error {
+	return &PortError{}
+}
+
+func (port *unixPort) SetRTS(rts bool) error {
+	return &PortError{}
+}
+
+func (port *unixPort) GetModemStatusBits() (*ModemStatusBits, error) {
+	return nil, &PortError{}
+}
+
 func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	h, err := syscall.Open(portName, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NDELAY, 0)
 	if err != nil {
