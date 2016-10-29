@@ -91,24 +91,24 @@ func (port *windowsPort) Write(p []byte) (int, error) {
 }
 
 const (
-	dcbBinary                = 0x00000001
-	dcbParity                = 0x00000002
-	dcbOutXCTSFlow           = 0x00000004
-	dcbOutXDSRFlow           = 0x00000008
-	dcbDTRControlDisableMask = ^0x00000030
-	dcbDTRControlEnable      = 0x00000010
-	dcbDTRControlHandshake   = 0x00000020
-	dcbDSRSensitivity        = 0x00000040
-	dcbTXContinueOnXOFF      = 0x00000080
-	dcbOutX                  = 0x00000100
-	dcbInX                   = 0x00000200
-	dcbErrorChar             = 0x00000400
-	dcbNull                  = 0x00000800
-	dcbRTSControlDisbaleMask = ^0x00003000
-	dcbRTSControlEnable      = 0x00001000
-	dcbRTSControlHandshake   = 0x00002000
-	dcbRTSControlToggle      = 0x00003000
-	dcbAbortOnError          = 0x00004000
+	dcbBinary                uint32 = 0x00000001
+	dcbParity                       = 0x00000002
+	dcbOutXCTSFlow                  = 0x00000004
+	dcbOutXDSRFlow                  = 0x00000008
+	dcbDTRControlDisableMask        = ^uint32(0x00000030)
+	dcbDTRControlEnable             = 0x00000010
+	dcbDTRControlHandshake          = 0x00000020
+	dcbDSRSensitivity               = 0x00000040
+	dcbTXContinueOnXOFF             = 0x00000080
+	dcbOutX                         = 0x00000100
+	dcbInX                          = 0x00000200
+	dcbErrorChar                    = 0x00000400
+	dcbNull                         = 0x00000800
+	dcbRTSControlDisbaleMask        = ^uint32(0x00003000)
+	dcbRTSControlEnable             = 0x00001000
+	dcbRTSControlHandshake          = 0x00002000
+	dcbRTSControlToggle             = 0x00003000
+	dcbAbortOnError                 = 0x00004000
 )
 
 type dcb struct {
@@ -249,15 +249,19 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort}
 	}
-	params.Flags |= dcbRTSControlEnable | dcbDTRControlEnable
-	params.Flags &= ^uint32(dcbOutXCTSFlow)
-	params.Flags &= ^uint32(dcbOutXDSRFlow)
-	params.Flags &= ^uint32(dcbDSRSensitivity)
+	params.Flags &= dcbRTSControlDisbaleMask
+	params.Flags |= dcbRTSControlEnable
+	params.Flags &= dcbDTRControlDisableMask
+	params.Flags |= dcbDTRControlEnable
+	params.Flags &^= dcbOutXCTSFlow
+	params.Flags &^= dcbOutXDSRFlow
+	params.Flags &^= dcbDSRSensitivity
 	params.Flags |= dcbTXContinueOnXOFF
-	params.Flags &= ^uint32(dcbInX | dcbOutX)
-	params.Flags &= ^uint32(dcbErrorChar)
-	params.Flags &= ^uint32(dcbNull)
-	params.Flags &= ^uint32(dcbAbortOnError)
+	params.Flags &^= dcbInX
+	params.Flags &^= dcbOutX
+	params.Flags &^= dcbErrorChar
+	params.Flags &^= dcbNull
+	params.Flags &^= dcbAbortOnError
 	params.XonLim = 2048
 	params.XoffLim = 512
 	params.XonChar = 17  // DC1
