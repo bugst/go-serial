@@ -10,6 +10,7 @@ package serial // import "go.bug.st/serial.v1"
 
 // MSDN article on Serial Communications:
 // http://msdn.microsoft.com/en-us/library/ff802693.aspx
+// (alternative link) https://msdn.microsoft.com/en-us/library/ms810467.aspx
 
 // Arduino Playground article on serial communication with Windows API:
 // http://playground.arduino.cc/Interfacing/CPPWindows
@@ -186,6 +187,28 @@ var stopBitsMap = map[StopBits]byte{
 	TwoStopBits:          twoStopBits,
 }
 
+//sys escapeCommFunction(handle syscall.Handle, function uint32) (res bool) = EscapeCommFunction
+
+const (
+	commFunctionSetXOFF  = 1
+	commFunctionSetXON   = 2
+	commFunctionSetRTS   = 3
+	commFunctionClrRTS   = 4
+	commFunctionSetDTR   = 5
+	commFunctionClrDTR   = 6
+	commFunctionSetBreak = 8
+	commFunctionClrBreak = 9
+)
+
+//sys getCommModemStatus(handle syscall.Handle, bits *uint32) (res bool) = GetCommModemStatus
+
+const (
+	msCTSOn  = 0x0010
+	msDSROn  = 0x0020
+	msRingOn = 0x0040
+	msRLSDOn = 0x0080
+)
+
 func (port *windowsPort) SetMode(mode *Mode) error {
 	params := dcb{}
 	if getCommState(port.handle, &params) != nil {
@@ -212,15 +235,64 @@ func (port *windowsPort) SetMode(mode *Mode) error {
 }
 
 func (port *windowsPort) SetDTR(dtr bool) error {
-	return &PortError{}
+	var res bool
+	if dtr {
+		res = escapeCommFunction(port.handle, commFunctionSetDTR)
+	} else {
+		res = escapeCommFunction(port.handle, commFunctionClrDTR)
+	}
+	if !res {
+		return &PortError{}
+	}
+	return nil
 }
 
 func (port *windowsPort) SetRTS(rts bool) error {
-	return &PortError{}
+	// It seems that there is a bug in the Windows VCP driver:
+	// it doesn't send USB control message when the RTS bit is
+	// changed, so the following code not always works with
+	// USB-to-serial adapters.
+
+	/*
+		var res bool
+		if rts {
+			res = escapeCommFunction(port.handle, commFunctionSetRTS)
+		} else {
+			res = escapeCommFunction(port.handle, commFunctionClrRTS)
+		}
+		if !res {
+			return &PortError{}
+		}
+		return nil
+	*/
+
+	// The following seems a more reliable way to do it
+
+	params := &dcb{}
+	if err := getCommState(port.handle, params); err != nil {
+		return &PortError{causedBy: err}
+	}
+	params.Flags &= dcbRTSControlDisbaleMask
+	if rts {
+		params.Flags |= dcbRTSControlEnable
+	}
+	if err := setCommState(port.handle, params); err != nil {
+		return &PortError{causedBy: err}
+	}
+	return nil
 }
 
 func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
-	return nil, &PortError{}
+	var bits uint32
+	if !getCommModemStatus(port.handle, &bits) {
+		return nil, &PortError{}
+	}
+	return &ModemStatusBits{
+		CTS: (bits & msCTSOn) != 0,
+		DCD: (bits & msRLSDOn) != 0,
+		DSR: (bits & msDSROn) != 0,
+		RI:  (bits & msRingOn) != 0,
+	}, nil
 }
 
 func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
