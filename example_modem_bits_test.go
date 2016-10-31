@@ -27,7 +27,7 @@ func ExampleGetSetModemBits() {
 
 	count := 0
 	for count < 25 {
-		status, err := port.GetStatus()
+		status, err := port.GetModemStatusBits()
 		if err != nil {
 			log.Fatal(err)
 		}
