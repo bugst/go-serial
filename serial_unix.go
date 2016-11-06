@@ -8,22 +8,63 @@
 
 package serial // import "go.bug.st/serial.v1"
 
-import "io/ioutil"
-import "regexp"
-import "strings"
-import "syscall"
-import "unsafe"
+import (
+	"io/ioutil"
+	"regexp"
+	"strings"
+	"sync"
+	"syscall"
+	"unsafe"
+
+	"github.com/creack/goselect"
+)
 
 type unixPort struct {
 	handle int
+
+	closeLock   sync.RWMutex
+	closeSignal *pipe
 }
 
 func (port *unixPort) Close() error {
+	// Close port
 	port.releaseExclusiveAccess()
-	return syscall.Close(port.handle)
+	if err := syscall.Close(port.handle); err != nil {
+		return err
+	}
+
+	// Send close signal to all pending reads (if any)
+	port.closeSignal.Write([]byte{0})
+
+	// Wait for all readers to complete
+	port.closeLock.Lock()
+	defer port.closeLock.Unlock()
+
+	// Close signaling pipe
+	if err := port.closeSignal.Close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (port *unixPort) Read(p []byte) (n int, err error) {
+	port.closeLock.RLock()
+	defer port.closeLock.RUnlock()
+
+	r := &goselect.FDSet{}
+	r.Set(uintptr(port.handle))
+	r.Set(uintptr(port.closeSignal.ReadFD()))
+	e := &goselect.FDSet{}
+	e.Set(uintptr(port.handle))
+	e.Set(uintptr(port.closeSignal.ReadFD()))
+
+	max := port.closeSignal.ReadFD()
+	if port.handle > max {
+		max = port.handle
+	}
+	if err = goselect.Select(max+1, r, nil, e, -1); err != nil {
+		return 0, err
+	}
 	return syscall.Read(port.handle, p)
 }
 
@@ -92,6 +133,14 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	syscall.SetNonblock(h, false)
 
 	port.acquireExclusiveAccess()
+
+	// This pipe is used as a signal to cancel blocking Read or Write
+	pipe, err := newPipe()
+	if err != nil {
+		port.Close()
+		return nil, &PortError{code: InvalidSerialPort, causedBy: err}
+	}
+	port.closeSignal = pipe
 
 	return port, nil
 }
