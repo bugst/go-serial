@@ -33,16 +33,18 @@ func (port *unixPort) Close() error {
 		return err
 	}
 
-	// Send close signal to all pending reads (if any)
-	port.closeSignal.Write([]byte{0})
+	if port.closeSignal != nil {
+		// Send close signal to all pending reads (if any)
+		port.closeSignal.Write([]byte{0})
 
-	// Wait for all readers to complete
-	port.closeLock.Lock()
-	defer port.closeLock.Unlock()
+		// Wait for all readers to complete
+		port.closeLock.Lock()
+		defer port.closeLock.Unlock()
 
-	// Close signaling pipe
-	if err := port.closeSignal.Close(); err != nil {
-		return err
+		// Close signaling pipe
+		if err := port.closeSignal.Close(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
