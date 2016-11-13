@@ -17,8 +17,6 @@ import (
 	"unsafe"
 
 	"go.bug.st/serial.v1/unixutils"
-
-	"github.com/creack/goselect"
 )
 
 type unixPort struct {
@@ -55,18 +53,9 @@ func (port *unixPort) Read(p []byte) (n int, err error) {
 	port.closeLock.RLock()
 	defer port.closeLock.RUnlock()
 
-	r := &goselect.FDSet{}
-	r.Set(uintptr(port.handle))
-	r.Set(uintptr(port.closeSignal.ReadFD()))
-	e := &goselect.FDSet{}
-	e.Set(uintptr(port.handle))
-	e.Set(uintptr(port.closeSignal.ReadFD()))
-
-	max := port.closeSignal.ReadFD()
-	if port.handle > max {
-		max = port.handle
-	}
-	if err = goselect.Select(max+1, r, nil, e, -1); err != nil {
+	fds := unixutils.NewFDSet(port.handle, port.closeSignal.ReadFD())
+	res, err := unixutils.Select(fds, nil, fds, -1)
+	if err != nil {
 		return 0, err
 	}
 	return syscall.Read(port.handle, p)
