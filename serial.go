@@ -100,6 +100,8 @@ const (
 	InvalidStopBits
 	// ErrorEnumeratingPorts an error occurred while listing serial port
 	ErrorEnumeratingPorts
+	// PortClosed the port has been closed while the operation is in progress
+	PortClosed
 )
 
 // EncodedErrorString returns a string explaining the error code
@@ -123,6 +125,8 @@ func (e PortError) EncodedErrorString() string {
 		return "Port stop bits invalid or not supported"
 	case ErrorEnumeratingPorts:
 		return "Could not enumerate serial ports"
+	case PortClosed:
+		return "Port has been closed"
 	default:
 		return "Other error"
 	}

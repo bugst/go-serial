@@ -24,6 +24,7 @@ type unixPort struct {
 
 	closeLock   sync.RWMutex
 	closeSignal *unixutils.Pipe
+	opened      bool
 }
 
 func (port *unixPort) Close() error {
@@ -32,6 +33,7 @@ func (port *unixPort) Close() error {
 	if err := syscall.Close(port.handle); err != nil {
 		return err
 	}
+	port.opened = false
 
 	if port.closeSignal != nil {
 		// Send close signal to all pending reads (if any)
@@ -52,11 +54,17 @@ func (port *unixPort) Close() error {
 func (port *unixPort) Read(p []byte) (n int, err error) {
 	port.closeLock.RLock()
 	defer port.closeLock.RUnlock()
+	if !port.opened {
+		return 0, &PortError{code: PortClosed}
+	}
 
 	fds := unixutils.NewFDSet(port.handle, port.closeSignal.ReadFD())
 	res, err := unixutils.Select(fds, nil, fds, -1)
 	if err != nil {
 		return 0, err
+	}
+	if res.IsReadable(port.closeSignal.ReadFD()) {
+		return 0, &PortError{code: PortClosed}
 	}
 	return syscall.Read(port.handle, p)
 }
@@ -98,6 +106,7 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	}
 	port := &unixPort{
 		handle: h,
+		opened: true,
 	}
 
 	// Setup serial port
@@ -127,7 +136,7 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 
 	port.acquireExclusiveAccess()
 
-	// This pipe is used as a signal to cancel blocking Read or Write
+	// This pipe is used as a signal to cancel blocking Read
 	pipe := &unixutils.Pipe{}
 	if err := pipe.Open(); err != nil {
 		port.Close()
