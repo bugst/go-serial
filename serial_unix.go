@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"unsafe"
 
+	"go.bug.st/serial.v1/unixutils"
+
 	"github.com/creack/goselect"
 )
 
@@ -23,7 +25,7 @@ type unixPort struct {
 	handle int
 
 	closeLock   sync.RWMutex
-	closeSignal *pipe
+	closeSignal *unixutils.Pipe
 }
 
 func (port *unixPort) Close() error {
@@ -137,8 +139,8 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	port.acquireExclusiveAccess()
 
 	// This pipe is used as a signal to cancel blocking Read or Write
-	pipe, err := newPipe()
-	if err != nil {
+	pipe := &unixutils.Pipe{}
+	if err := pipe.Open(); err != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort, causedBy: err}
 	}
