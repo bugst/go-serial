@@ -8,22 +8,64 @@
 
 package serial // import "go.bug.st/serial.v1"
 
-import "io/ioutil"
-import "regexp"
-import "strings"
-import "syscall"
-import "unsafe"
+import (
+	"io/ioutil"
+	"regexp"
+	"strings"
+	"sync"
+	"syscall"
+	"unsafe"
+
+	"go.bug.st/serial.v1/unixutils"
+)
 
 type unixPort struct {
 	handle int
+
+	closeLock   sync.RWMutex
+	closeSignal *unixutils.Pipe
+	opened      bool
 }
 
 func (port *unixPort) Close() error {
+	// Close port
 	port.releaseExclusiveAccess()
-	return syscall.Close(port.handle)
+	if err := syscall.Close(port.handle); err != nil {
+		return err
+	}
+	port.opened = false
+
+	if port.closeSignal != nil {
+		// Send close signal to all pending reads (if any)
+		port.closeSignal.Write([]byte{0})
+
+		// Wait for all readers to complete
+		port.closeLock.Lock()
+		defer port.closeLock.Unlock()
+
+		// Close signaling pipe
+		if err := port.closeSignal.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (port *unixPort) Read(p []byte) (n int, err error) {
+	port.closeLock.RLock()
+	defer port.closeLock.RUnlock()
+	if !port.opened {
+		return 0, &PortError{code: PortClosed}
+	}
+
+	fds := unixutils.NewFDSet(port.handle, port.closeSignal.ReadFD())
+	res, err := unixutils.Select(fds, nil, fds, -1)
+	if err != nil {
+		return 0, err
+	}
+	if res.IsReadable(port.closeSignal.ReadFD()) {
+		return 0, &PortError{code: PortClosed}
+	}
 	return syscall.Read(port.handle, p)
 }
 
@@ -103,6 +145,7 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	}
 	port := &unixPort{
 		handle: h,
+		opened: true,
 	}
 
 	// Setup serial port
@@ -131,6 +174,14 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	syscall.SetNonblock(h, false)
 
 	port.acquireExclusiveAccess()
+
+	// This pipe is used as a signal to cancel blocking Read
+	pipe := &unixutils.Pipe{}
+	if err := pipe.Open(); err != nil {
+		port.Close()
+		return nil, &PortError{code: InvalidSerialPort, causedBy: err}
+	}
+	port.closeSignal = pipe
 
 	return port, nil
 }
