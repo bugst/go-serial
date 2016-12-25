@@ -79,7 +79,26 @@ serial port:
 		fmt.Printf("%v", string(buff[:n]))
 	}
 
-This library doesn't make use of cgo and "C" package, so it's a pure go library
-that can be easily cross compiled.
+If a port is a virutal USB-CDC serial port (an USB-to-RS232 cable or a
+microcontroller development board are typical examples) is possible to
+retrieve the USB metadata, like VID/PID or USB Serial Number, with the
+GetDetailedPortsList function:
+
+	ports, err := serial.GetDetailedPortsList()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(ports) == 0 {
+		fmt.Println("No serial ports found!")
+		return
+	}
+	for _, port := range ports {
+		fmt.Printf("Found port: %s\n", port.Name)
+		if port.IsUSB {
+			fmt.Printf("   USB ID     %s:%s\n", port.VID, port.PID)
+			fmt.Printf("   USB serial %s\n", port.SerialNumber)
+		}
+	}
+
 */
 package serial // import "go.bug.st/serial.v1"
