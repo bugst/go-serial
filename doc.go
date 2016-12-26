@@ -12,7 +12,7 @@ is the following:
 
 	import "go.bug.st/serial.v1"
 
-It is possibile to get the list of available serial ports with the
+It is possible to get the list of available serial ports with the
 GetPortsList function:
 
 	ports, err := serial.GetPortsList()
