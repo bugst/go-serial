@@ -1,12 +1,12 @@
 //
-// Copyright 2014-2016 Lars Knudsen, Cristian Maglie. All rights reserved.
+// Copyright 2014-2017 Lars Knudsen, Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
 
 // +build ignore
 
-package serial
+package enumerator
 
 import (
 	"log"

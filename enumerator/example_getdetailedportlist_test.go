@@ -1,17 +1,17 @@
 //
-// Copyright 2014-2016 Cristian Maglie. All rights reserved.
+// Copyright 2014-2017 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
 
-package serial_test
+package enumerator_test
 
 import "fmt"
 import "log"
-import "go.bug.st/serial.v1"
+import "go.bug.st/serial.v1/enumerator"
 
 func ExampleGetDetailedPortsList() {
-	ports, err := serial.GetDetailedPortsList()
+	ports, err := enumerator.GetDetailedPortsList()
 	if err != nil {
 		log.Fatal(err)
 	}

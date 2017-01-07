@@ -1,30 +1,32 @@
 //
-// Copyright 2014-2016 Cristian Maglie. All rights reserved.
+// Copyright 2014-2017 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
 
-package serial // import "go.bug.st/serial.v1"
+package enumerator // import "go.bug.st/serial.v1/enumerator"
 
 import (
 	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"go.bug.st/serial.v1"
 )
 
 func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 	// Retrieve the port list
-	ports, err := nativeGetPortsList()
+	ports, err := serial.GetPortsList()
 	if err != nil {
-		return nil, &PortError{code: ErrorEnumeratingPorts, causedBy: err}
+		return nil, &PortEnumerationError{causedBy: err}
 	}
 
 	var res []*PortDetails
 	for _, port := range ports {
 		details, err := nativeGetPortDetails(port)
 		if err != nil {
-			return nil, &PortError{code: ErrorEnumeratingPorts, causedBy: err}
+			return nil, &PortEnumerationError{causedBy: err}
 		}
 		res = append(res, details)
 	}

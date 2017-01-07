@@ -23,7 +23,7 @@ type windowsPort struct {
 	handle syscall.Handle
 }
 
-//go:generate go run extras/mksyscall_windows.go -output syscall_windows.go serial_windows.go usb_windows.go
+//go:generate go run extras/mksyscall_windows.go -output syscall_windows.go serial_windows.go
 
 //sys regEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint32, reserved *uint32, class *uint16, value *uint16, valueLen *uint32) (regerrno error) = advapi32.RegEnumValueW
 

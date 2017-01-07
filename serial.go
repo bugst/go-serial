@@ -55,26 +55,6 @@ func GetPortsList() ([]string, error) {
 	return nativeGetPortsList()
 }
 
-// PortDetails contains detailed information about USB serial port.
-// Use GetDetailedPortsList function to retrieve it.
-type PortDetails struct {
-	Name         string
-	IsUSB        bool
-	VID          string
-	PID          string
-	SerialNumber string
-
-	// Manufacturer string
-	// Product      string
-}
-
-// GetDetailedPortsList retrieve ports details like USB VID/PID.
-// Please note that this function may not be available on all OS:
-// in that case a FunctionNotImplemented error is returned.
-func GetDetailedPortsList() ([]*PortDetails, error) {
-	return nativeGetDetailedPortsList()
-}
-
 // Mode describes a serial port configuration.
 type Mode struct {
 	BaudRate int      // The serial port bitrate (aka Baudrate)

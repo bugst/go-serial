@@ -1,10 +1,10 @@
 //
-// Copyright 2014-2016 Cristian Maglie. All rights reserved.
+// Copyright 2014-2017 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
 
-package serial // import "go.bug.st/serial.v1"
+package enumerator // import "go.bug.st/serial.v1/enumerator"
 
 import (
 	"fmt"
@@ -53,6 +53,8 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 
 // setupapi based
 // --------------
+
+//go:generate go run ../extras/mksyscall_windows.go -output syscall_windows.go usb_windows.go
 
 //sys setupDiClassGuidsFromNameInternal(class string, guid *guid, guidSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiClassGuidsFromNameW
 //sys setupDiGetClassDevs(guid *guid, enumerator *string, hwndParent uintptr, flags uint32) (set devicesSet, err error) = setupapi.SetupDiGetClassDevsW
@@ -232,14 +234,14 @@ func (dev *deviceInfo) openDevRegKey(scope dicsScope, hwProfile uint32, keyType 
 func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 	guids, err := classGuidsFromName("Ports")
 	if err != nil {
-		return nil, &PortError{code: ErrorEnumeratingPorts, causedBy: err}
+		return nil, &PortEnumerationError{causedBy: err}
 	}
 
 	var res []*PortDetails
 	for _, g := range guids {
 		devsSet, err := g.getDevicesSet()
 		if err != nil {
-			return nil, &PortError{code: ErrorEnumeratingPorts, causedBy: err}
+			return nil, &PortEnumerationError{causedBy: err}
 		}
 		defer devsSet.destroy()
 
@@ -260,7 +262,7 @@ func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 			details.Name = portName
 
 			if err := retrievePortDetailsFromDevInfo(device, details); err != nil {
-				return nil, &PortError{code: ErrorEnumeratingPorts, causedBy: err}
+				return nil, &PortEnumerationError{causedBy: err}
 			}
 			res = append(res, details)
 		}

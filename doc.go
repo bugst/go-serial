@@ -79,12 +79,14 @@ serial port:
 		fmt.Printf("%v", string(buff[:n]))
 	}
 
-If a port is a virutal USB-CDC serial port (an USB-to-RS232 cable or a
-microcontroller development board are typical examples) is possible to
-retrieve the USB metadata, like VID/PID or USB Serial Number, with the
-GetDetailedPortsList function:
+If a port is a virtual USB-CDC serial port (for example an USB-to-RS232
+cable or a microcontroller development board) is possible to retrieve
+the USB metadata, like VID/PID or USB Serial Number, with the
+GetDetailedPortsList function in the enumerator package:
 
-	ports, err := serial.GetDetailedPortsList()
+        import "go.bug.st/serial.v1/enumerator"
+
+	ports, err := enumerator.GetDetailedPortsList()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -100,5 +102,12 @@ GetDetailedPortsList function:
 		}
 	}
 
+for details on USB port enumeration see the documentation of the specific package.
+
+This library tries to avoid the use of the "C" package (and consequently the need
+of cgo) to simplify cross compiling.
+Unfortunately the USB enumeration package for darwin (MacOSX) requires cgo
+to access the IOKit framework. This means that if you need USB enumeration
+on darwin you're forced to use cgo.
 */
 package serial // import "go.bug.st/serial.v1"
