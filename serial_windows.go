@@ -65,12 +65,31 @@ func (port *windowsPort) Close() error {
 func (port *windowsPort) Read(p []byte) (int, error) {
 	var readed uint32
 	params := &dcb{}
+	ev, err := createOverlappedEvent()
+	if err != nil {
+		return 0, err
+	}
+	defer syscall.CloseHandle(ev.HEvent)
 	for {
-		if err := syscall.ReadFile(port.handle, p, &readed, nil); err != nil {
+		err := syscall.ReadFile(port.handle, p, &readed, ev)
+		switch err {
+		case nil:
+			// operation completed successfully
+		case syscall.ERROR_IO_PENDING:
+			// wait for overlapped I/O to complete
+			if err := getOverlappedResult(port.handle, ev, &readed, true); err != nil {
+				return int(readed), err
+			}
+		default:
+			// error happened
 			return int(readed), err
 		}
+
 		if readed > 0 {
 			return int(readed), nil
+		}
+		if err := resetEvent(ev.HEvent); err != nil {
+			return 0, err
 		}
 
 		// At the moment it seems that the only reliable way to check if
@@ -87,7 +106,16 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 
 func (port *windowsPort) Write(p []byte) (int, error) {
 	var writed uint32
-	err := syscall.WriteFile(port.handle, p, &writed, nil)
+	ev, err := createOverlappedEvent()
+	if err != nil {
+		return 0, err
+	}
+	defer syscall.CloseHandle(ev.HEvent)
+	err = syscall.WriteFile(port.handle, p, &writed, ev)
+	if err == syscall.ERROR_IO_PENDING {
+		// wait for write to complete
+		err = getOverlappedResult(port.handle, ev, &writed, true)
+	}
 	return int(writed), err
 }
 
@@ -295,6 +323,15 @@ func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
 	}, nil
 }
 
+//sys createEvent(eventAttributes *uint32, manualReset bool, initialState bool, name *uint16) (handle syscall.Handle, err error) = CreateEventW
+//sys resetEvent(handle syscall.Handle) (err error) = ResetEvent
+//sys getOverlappedResult(handle syscall.Handle, overlapEvent *syscall.Overlapped, n *uint32, wait bool) (err error) = GetOverlappedResult
+
+func createOverlappedEvent() (*syscall.Overlapped, error) {
+	h, err := createEvent(nil, true, false, nil)
+	return &syscall.Overlapped{HEvent: h}, err
+}
+
 func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 	portName = "\\\\.\\" + portName
 	path, err := syscall.UTF16PtrFromString(portName)
@@ -306,7 +343,7 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 		syscall.GENERIC_READ|syscall.GENERIC_WRITE,
 		0, nil,
 		syscall.OPEN_EXISTING,
-		0, //syscall.FILE_FLAG_OVERLAPPED,
+		syscall.FILE_FLAG_OVERLAPPED,
 		0)
 	if err != nil {
 		switch err {
