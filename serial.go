@@ -6,6 +6,8 @@
 
 package serial // import "go.bug.st/serial.v1"
 
+//go:generate go run extras/mksyscall_windows.go -output syscall_windows.go serial_windows.go
+
 // Port is the interface for a serial Port
 type Port interface {
 	// SetMode sets all parameters of the serial port
