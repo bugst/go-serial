@@ -27,6 +27,12 @@ type Port interface {
 	// Returns the number of bytes written.
 	Write(p []byte) (n int, err error)
 
+	// ResetInputBuffer Purges port read buffer
+	ResetInputBuffer() error
+
+	// ResetOutputBuffer Purges port write buffer
+	ResetOutputBuffer() error
+
 	// SetDTR sets the modem status bit DataTerminalReady
 	SetDTR(dtr bool) error
 

@@ -123,6 +123,23 @@ func (port *windowsPort) Write(p []byte) (int, error) {
 }
 
 const (
+	PURGE_RXABORT uint32 = 0x0002
+	PURGE_RXCLEAR        = 0x0008
+	PURGE_TXABORT        = 0x0001
+	PURGE_TXCLEAR        = 0x0004
+)
+
+//sys	purgeComm(handle syscall.Handle, flags uint32) (err error) = PurgeComm
+
+func (port *windowsPort) ResetInputBuffer() error {
+	return purgeComm(port.handle, PURGE_RXCLEAR|PURGE_RXABORT)
+}
+
+func (port *windowsPort) ResetOutputBuffer() error {
+	return purgeComm(port.handle, PURGE_TXCLEAR|PURGE_TXABORT)
+}
+
+const (
 	dcbBinary                uint32 = 0x00000001
 	dcbParity                       = 0x00000002
 	dcbOutXCTSFlow                  = 0x00000004

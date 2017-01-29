@@ -57,3 +57,5 @@ const tcCRTSCTS uint32 = tcCCTS_OFLOW
 
 const ioctlTcgetattr = syscall.TIOCGETA
 const ioctlTcsetattr = syscall.TIOCSETA
+
+const ioctlTCFLSH = syscall.TIOCFLUSH
