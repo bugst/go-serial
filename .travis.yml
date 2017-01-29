@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - 1.7.2
+  - 1.7.x
 
 go_import_path: go.bug.st/serial.v1
 

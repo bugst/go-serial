@@ -21,10 +21,15 @@ import (
 
 type unixPort struct {
 	handle int
+	name   string
 
 	closeLock   sync.RWMutex
 	closeSignal *unixutils.Pipe
 	opened      bool
+}
+
+func (port *unixPort) GetName() string {
+	return port.name
 }
 
 func (port *unixPort) Close() error {
@@ -71,6 +76,14 @@ func (port *unixPort) Read(p []byte) (n int, err error) {
 
 func (port *unixPort) Write(p []byte) (n int, err error) {
 	return syscall.Write(port.handle, p)
+}
+
+func (port *unixPort) ResetInputBuffer() error {
+	return ioctl(port.handle, ioctlTCFLSH, syscall.TCIFLUSH)
+}
+
+func (port *unixPort) ResetOutputBuffer() error {
+	return ioctl(port.handle, ioctlTCFLSH, syscall.TCOFLUSH)
 }
 
 func (port *unixPort) SetMode(mode *Mode) error {
@@ -145,6 +158,7 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	}
 	port := &unixPort{
 		handle: h,
+		name:   portName,
 		opened: true,
 	}
 

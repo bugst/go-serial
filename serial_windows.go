@@ -21,6 +21,7 @@ import "syscall"
 
 type windowsPort struct {
 	handle syscall.Handle
+	name   string
 }
 
 //sys regEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint32, reserved *uint32, class *uint16, value *uint16, valueLen *uint32) (regerrno error) = advapi32.RegEnumValueW
@@ -54,6 +55,10 @@ func nativeGetPortsList() ([]string, error) {
 		list[i] = syscall.UTF16ToString(data[:])
 	}
 	return list, nil
+}
+
+func (port *windowsPort) GetName() string {
+	return port.name
 }
 
 func (port *windowsPort) Close() error {
@@ -115,6 +120,23 @@ func (port *windowsPort) Write(p []byte) (int, error) {
 		err = getOverlappedResult(port.handle, ev, &writed, true)
 	}
 	return int(writed), err
+}
+
+const (
+	PURGE_RXABORT uint32 = 0x0002
+	PURGE_RXCLEAR        = 0x0008
+	PURGE_TXABORT        = 0x0001
+	PURGE_TXCLEAR        = 0x0004
+)
+
+//sys	purgeComm(handle syscall.Handle, flags uint32) (err error) = PurgeComm
+
+func (port *windowsPort) ResetInputBuffer() error {
+	return purgeComm(port.handle, PURGE_RXCLEAR|PURGE_RXABORT)
+}
+
+func (port *windowsPort) ResetOutputBuffer() error {
+	return purgeComm(port.handle, PURGE_TXCLEAR|PURGE_TXABORT)
 }
 
 const (
@@ -331,8 +353,7 @@ func createOverlappedEvent() (*syscall.Overlapped, error) {
 }
 
 func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
-	portName = "\\\\.\\" + portName
-	path, err := syscall.UTF16PtrFromString(portName)
+	path, err := syscall.UTF16PtrFromString("\\\\.\\" + portName)
 	if err != nil {
 		return nil, err
 	}
@@ -355,6 +376,7 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 	// Create the serial port
 	port := &windowsPort{
 		handle: handle,
+		name:   portName,
 	}
 
 	// Set port parameters
