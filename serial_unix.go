@@ -21,10 +21,15 @@ import (
 
 type unixPort struct {
 	handle int
+	name   string
 
 	closeLock   sync.RWMutex
 	closeSignal *unixutils.Pipe
 	opened      bool
+}
+
+func (port *unixPort) GetName() string {
+	return port.name
 }
 
 func (port *unixPort) Close() error {
@@ -145,6 +150,7 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	}
 	port := &unixPort{
 		handle: h,
+		name:   portName,
 		opened: true,
 	}
 
