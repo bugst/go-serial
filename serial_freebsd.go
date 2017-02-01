@@ -53,7 +53,5 @@ const tcCRTS_IFLOW uint32 = 0x00020000
 
 const tcCRTSCTS uint32 = tcCCTS_OFLOW
 
-//sys ioctl(fd int, req uint64, data uintptr) (err error)
-
 const ioctlTcgetattr = syscall.TIOCGETA
 const ioctlTcsetattr = syscall.TIOCSETA

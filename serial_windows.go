@@ -23,8 +23,6 @@ type windowsPort struct {
 	handle syscall.Handle
 }
 
-//sys regEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint32, reserved *uint32, class *uint16, value *uint16, valueLen *uint32) (regerrno error) = advapi32.RegEnumValueW
-
 func nativeGetPortsList() ([]string, error) {
 	subKey, err := syscall.UTF16PtrFromString("HARDWARE\\DEVICEMAP\\SERIALCOMM\\")
 	if err != nil {
@@ -181,10 +179,6 @@ type commTimeouts struct {
 	WriteTotalTimeoutConstant   uint32
 }
 
-//sys getCommState(handle syscall.Handle, dcb *dcb) (err error) = GetCommState
-//sys setCommState(handle syscall.Handle, dcb *dcb) (err error) = SetCommState
-//sys setCommTimeouts(handle syscall.Handle, timeouts *commTimeouts) (err error) = SetCommTimeouts
-
 const (
 	noParity    = 0
 	oddParity   = 1
@@ -213,8 +207,6 @@ var stopBitsMap = map[StopBits]byte{
 	TwoStopBits:          twoStopBits,
 }
 
-//sys escapeCommFunction(handle syscall.Handle, function uint32) (res bool) = EscapeCommFunction
-
 const (
 	commFunctionSetXOFF  = 1
 	commFunctionSetXON   = 2
@@ -225,8 +217,6 @@ const (
 	commFunctionSetBreak = 8
 	commFunctionClrBreak = 9
 )
-
-//sys getCommModemStatus(handle syscall.Handle, bits *uint32) (res bool) = GetCommModemStatus
 
 const (
 	msCTSOn  = 0x0010
@@ -320,10 +310,6 @@ func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
 		RI:  (bits & msRingOn) != 0,
 	}, nil
 }
-
-//sys createEvent(eventAttributes *uint32, manualReset bool, initialState bool, name *uint16) (handle syscall.Handle, err error) = CreateEventW
-//sys resetEvent(handle syscall.Handle) (err error) = ResetEvent
-//sys getOverlappedResult(handle syscall.Handle, overlapEvent *syscall.Overlapped, n *uint32, wait bool) (err error) = GetOverlappedResult
 
 func createOverlappedEvent() (*syscall.Overlapped, error) {
 	h, err := createEvent(nil, true, false, nil)

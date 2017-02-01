@@ -11,7 +11,5 @@ import "syscall"
 const devFolder = "/dev"
 const regexFilter = "^(cu|tty)\\..*"
 
-//sys ioctl(fd int, req uint64, data uintptr) (err error)
-
 const ioctlTcgetattr = syscall.TIOCGETA
 const ioctlTcsetattr = syscall.TIOCSETA
