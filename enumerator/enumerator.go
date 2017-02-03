@@ -6,6 +6,8 @@
 
 package enumerator // import "go.bug.st/serial.v1/enumerator"
 
+//go:generate go run ../extras/mksyscall_windows.go -output syscall_windows.go usb_windows.go
+
 // PortDetails contains detailed information about USB serial port.
 // Use GetDetailedPortsList function to retrieve it.
 type PortDetails struct {

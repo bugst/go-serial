@@ -54,8 +54,6 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 // setupapi based
 // --------------
 
-//go:generate go run ../extras/mksyscall_windows.go -output syscall_windows.go usb_windows.go
-
 //sys setupDiClassGuidsFromNameInternal(class string, guid *guid, guidSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiClassGuidsFromNameW
 //sys setupDiGetClassDevs(guid *guid, enumerator *string, hwndParent uintptr, flags uint32) (set devicesSet, err error) = setupapi.SetupDiGetClassDevsW
 //sys setupDiDestroyDeviceInfoList(set devicesSet) (err error) = setupapi.SetupDiDestroyDeviceInfoList
