@@ -123,6 +123,8 @@ const (
 	ErrorEnumeratingPorts
 	// PortClosed the port has been closed while the operation is in progress
 	PortClosed
+	// FunctionNotImplemented the requested function is not implemented
+	FunctionNotImplemented
 )
 
 // EncodedErrorString returns a string explaining the error code
@@ -148,6 +150,8 @@ func (e PortError) EncodedErrorString() string {
 		return "Could not enumerate serial ports"
 	case PortClosed:
 		return "Port has been closed"
+	case FunctionNotImplemented:
+		return "Function not implemented"
 	default:
 		return "Other error"
 	}
