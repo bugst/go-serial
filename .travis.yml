@@ -25,7 +25,7 @@ before_install:
 script:
   - GOARM=5 GO386=387 GOOS=$TEST_OS GOARCH=$TEST_ARCH go get github.com/stretchr/testify/require
   - GOARM=5 GO386=387 GOOS=$TEST_OS GOARCH=$TEST_ARCH go get golang.org/x/sys/windows
-  - GOARM=5 GO386=387 GOOS=$TEST_OS GOARCH=$TEST_ARCH go build -v ./...
+  - GOARM=5 GO386=387 GOOS=$TEST_OS GOARCH=$TEST_ARCH go build -v go.bug.st/serial.v1
   - GOARM=5 GO386=387 GOOS=$TEST_OS GOARCH=$TEST_ARCH go test -c -v go.bug.st/serial.v1
 
 notifications:
