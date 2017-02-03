@@ -60,7 +60,5 @@ const tcIUCLC = syscall.IUCLC
 
 const tcCRTSCTS uint32 = 0x80000000
 
-//sys ioctl(fd int, req uint64, data uintptr) (err error)
-
 const ioctlTcgetattr = syscall.TCGETS
 const ioctlTcsetattr = syscall.TCSETS
