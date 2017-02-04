@@ -15,3 +15,5 @@ const regexFilter = "^(cu|tty)\\..*"
 
 const ioctlTcgetattr = syscall.TIOCGETA
 const ioctlTcsetattr = syscall.TIOCSETA
+
+const ioctlTCFLSH = syscall.TIOCFLUSH

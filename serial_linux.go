@@ -6,7 +6,10 @@
 
 package serial // import "go.bug.st/serial.v1"
 
-import "syscall"
+import (
+	"syscall"
+	"golang.org/x/sys/unix"
+)
 
 const devFolder = "/dev"
 const regexFilter = "(ttyS|ttyUSB|ttyACM|ttyAMA|rfcomm|ttyO)[0-9]{1,3}"
@@ -64,3 +67,5 @@ const tcCRTSCTS uint32 = 0x80000000
 
 const ioctlTcgetattr = syscall.TCGETS
 const ioctlTcsetattr = syscall.TCSETS
+
+const ioctlTCFLSH = unix.TCFLSH
