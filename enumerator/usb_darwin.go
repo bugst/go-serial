@@ -22,14 +22,14 @@ func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 
 	services, err := getAllServices("IOSerialBSDClient")
 	if err != nil {
-		return nil, &PortError{code: ErrorEnumeratingPorts, causedBy: err}
+		return nil, &PortEnumerationError{causedBy: err}
 	}
 	for _, service := range services {
 		defer service.Release()
 
 		port, err := extractPortInfo(C.io_registry_entry_t(service))
 		if err != nil {
-			return nil, &PortError{code: ErrorEnumeratingPorts, causedBy: err}
+			return nil, &PortEnumerationError{causedBy: err}
 		}
 		ports = append(ports, port)
 	}
