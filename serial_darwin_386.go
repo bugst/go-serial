@@ -47,3 +47,7 @@ const tcCCTS_OFLOW uint32 = 0x00010000
 const tcCRTS_IFLOW uint32 = 0x00020000
 
 const tcCRTSCTS uint32 = (tcCCTS_OFLOW | tcCRTS_IFLOW)
+
+func toTermiosSpeedType(speed uint32) uint32 {
+	return speed
+}

@@ -16,6 +16,9 @@ env:
   - TEST_OS=darwin TEST_ARCH=amd64
   - TEST_OS=freebsd TEST_ARCH=amd64
   - TEST_OS=dragonfly TEST_ARCH=amd64
+  - TEST_OS=openbsd TEST_ARCH=amd64
+  - TEST_OS=openbsd TEST_ARCH=386
+  - TEST_OS=openbsd TEST_ARCH=arm
 
 matrix:
   allow_failures:
