@@ -62,3 +62,4 @@ const tcCRTSCTS uint32 = 0x80000000
 
 const ioctlTcgetattr = unix.TCGETS
 const ioctlTcsetattr = unix.TCSETS
+const ioctlTcflsh = unix.TCFLSH

@@ -116,6 +116,21 @@ func (port *windowsPort) Write(p []byte) (int, error) {
 }
 
 const (
+	purgeRxAbort uint32 = 0x0002
+	purgeRxClear        = 0x0008
+	purgeTxAbort        = 0x0001
+	purgeTxClear        = 0x0004
+)
+
+func (port *windowsPort) ResetInputBuffer() error {
+	return purgeComm(port.handle, purgeRxClear|purgeRxAbort)
+}
+
+func (port *windowsPort) ResetOutputBuffer() error {
+	return purgeComm(port.handle, purgeTxClear|purgeTxAbort)
+}
+
+const (
 	dcbBinary                uint32 = 0x00000001
 	dcbParity                       = 0x00000002
 	dcbOutXCTSFlow                  = 0x00000004

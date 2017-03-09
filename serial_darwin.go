@@ -13,3 +13,4 @@ const regexFilter = "^(cu|tty)\\..*"
 
 const ioctlTcgetattr = unix.TIOCGETA
 const ioctlTcsetattr = unix.TIOCSETA
+const ioctlTcflsh = unix.TIOCFLUSH

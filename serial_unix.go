@@ -74,6 +74,14 @@ func (port *unixPort) Write(p []byte) (n int, err error) {
 	return unix.Write(port.handle, p)
 }
 
+func (port *unixPort) ResetInputBuffer() error {
+	return ioctl(port.handle, ioctlTcflsh, unix.TCIFLUSH)
+}
+
+func (port *unixPort) ResetOutputBuffer() error {
+	return ioctl(port.handle, ioctlTcflsh, unix.TCOFLUSH)
+}
+
 func (port *unixPort) SetMode(mode *Mode) error {
 	settings, err := port.getTermSettings()
 	if err != nil {
