@@ -13,8 +13,9 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 
 	"go.bug.st/serial.v1/unixutils"
 )
@@ -30,7 +31,7 @@ type unixPort struct {
 func (port *unixPort) Close() error {
 	// Close port
 	port.releaseExclusiveAccess()
-	if err := syscall.Close(port.handle); err != nil {
+	if err := unix.Close(port.handle); err != nil {
 		return err
 	}
 	port.opened = false
@@ -66,11 +67,11 @@ func (port *unixPort) Read(p []byte) (n int, err error) {
 	if res.IsReadable(port.closeSignal.ReadFD()) {
 		return 0, &PortError{code: PortClosed}
 	}
-	return syscall.Read(port.handle, p)
+	return unix.Read(port.handle, p)
 }
 
 func (port *unixPort) Write(p []byte) (n int, err error) {
-	return syscall.Write(port.handle, p)
+	return unix.Write(port.handle, p)
 }
 
 func (port *unixPort) SetMode(mode *Mode) error {
@@ -99,9 +100,9 @@ func (port *unixPort) SetDTR(dtr bool) error {
 		return err
 	}
 	if dtr {
-		status |= syscall.TIOCM_DTR
+		status |= unix.TIOCM_DTR
 	} else {
-		status &^= syscall.TIOCM_DTR
+		status &^= unix.TIOCM_DTR
 	}
 	return port.setModemBitsStatus(status)
 }
@@ -112,9 +113,9 @@ func (port *unixPort) SetRTS(rts bool) error {
 		return err
 	}
 	if rts {
-		status |= syscall.TIOCM_RTS
+		status |= unix.TIOCM_RTS
 	} else {
-		status &^= syscall.TIOCM_RTS
+		status &^= unix.TIOCM_RTS
 	}
 	return port.setModemBitsStatus(status)
 }
@@ -125,20 +126,20 @@ func (port *unixPort) GetModemStatusBits() (*ModemStatusBits, error) {
 		return nil, err
 	}
 	return &ModemStatusBits{
-		CTS: (status & syscall.TIOCM_CTS) != 0,
-		DCD: (status & syscall.TIOCM_CD) != 0,
-		DSR: (status & syscall.TIOCM_DSR) != 0,
-		RI:  (status & syscall.TIOCM_RI) != 0,
+		CTS: (status & unix.TIOCM_CTS) != 0,
+		DCD: (status & unix.TIOCM_CD) != 0,
+		DSR: (status & unix.TIOCM_DSR) != 0,
+		RI:  (status & unix.TIOCM_RI) != 0,
 	}, nil
 }
 
 func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
-	h, err := syscall.Open(portName, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NDELAY, 0)
+	h, err := unix.Open(portName, unix.O_RDWR|unix.O_NOCTTY|unix.O_NDELAY, 0)
 	if err != nil {
 		switch err {
-		case syscall.EBUSY:
+		case unix.EBUSY:
 			return nil, &PortError{code: PortBusy}
-		case syscall.EACCES:
+		case unix.EACCES:
 			return nil, &PortError{code: PermissionDenied}
 		}
 		return nil, err
@@ -171,7 +172,7 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 		return nil, &PortError{code: InvalidSerialPort}
 	}
 
-	syscall.SetNonblock(h, false)
+	unix.SetNonblock(h, false)
 
 	port.acquireExclusiveAccess()
 
@@ -232,7 +233,7 @@ func nativeGetPortsList() ([]string, error) {
 
 // termios manipulation functions
 
-func setTermSettingsBaudrate(speed int, settings *syscall.Termios) error {
+func setTermSettingsBaudrate(speed int, settings *unix.Termios) error {
 	baudrate, ok := baudrateMap[speed]
 	if !ok {
 		return &PortError{code: InvalidSpeed}
@@ -248,72 +249,72 @@ func setTermSettingsBaudrate(speed int, settings *syscall.Termios) error {
 	return nil
 }
 
-func setTermSettingsParity(parity Parity, settings *syscall.Termios) error {
+func setTermSettingsParity(parity Parity, settings *unix.Termios) error {
 	switch parity {
 	case NoParity:
-		settings.Cflag &^= syscall.PARENB
-		settings.Cflag &^= syscall.PARODD
+		settings.Cflag &^= unix.PARENB
+		settings.Cflag &^= unix.PARODD
 		settings.Cflag &^= tcCMSPAR
-		settings.Iflag &^= syscall.INPCK
+		settings.Iflag &^= unix.INPCK
 	case OddParity:
-		settings.Cflag |= syscall.PARENB
-		settings.Cflag |= syscall.PARODD
+		settings.Cflag |= unix.PARENB
+		settings.Cflag |= unix.PARODD
 		settings.Cflag &^= tcCMSPAR
-		settings.Iflag |= syscall.INPCK
+		settings.Iflag |= unix.INPCK
 	case EvenParity:
-		settings.Cflag |= syscall.PARENB
-		settings.Cflag &^= syscall.PARODD
+		settings.Cflag |= unix.PARENB
+		settings.Cflag &^= unix.PARODD
 		settings.Cflag &^= tcCMSPAR
-		settings.Iflag |= syscall.INPCK
+		settings.Iflag |= unix.INPCK
 	case MarkParity:
 		if tcCMSPAR == 0 {
 			return &PortError{code: InvalidParity}
 		}
-		settings.Cflag |= syscall.PARENB
-		settings.Cflag |= syscall.PARODD
+		settings.Cflag |= unix.PARENB
+		settings.Cflag |= unix.PARODD
 		settings.Cflag |= tcCMSPAR
-		settings.Iflag |= syscall.INPCK
+		settings.Iflag |= unix.INPCK
 	case SpaceParity:
 		if tcCMSPAR == 0 {
 			return &PortError{code: InvalidParity}
 		}
-		settings.Cflag |= syscall.PARENB
-		settings.Cflag &^= syscall.PARODD
+		settings.Cflag |= unix.PARENB
+		settings.Cflag &^= unix.PARODD
 		settings.Cflag |= tcCMSPAR
-		settings.Iflag |= syscall.INPCK
+		settings.Iflag |= unix.INPCK
 	default:
 		return &PortError{code: InvalidParity}
 	}
 	return nil
 }
 
-func setTermSettingsDataBits(bits int, settings *syscall.Termios) error {
+func setTermSettingsDataBits(bits int, settings *unix.Termios) error {
 	databits, ok := databitsMap[bits]
 	if !ok {
 		return &PortError{code: InvalidDataBits}
 	}
 	// Remove previous databits setting
-	settings.Cflag &^= syscall.CSIZE
+	settings.Cflag &^= unix.CSIZE
 	// Set requested databits
 	settings.Cflag |= databits
 	return nil
 }
 
-func setTermSettingsStopBits(bits StopBits, settings *syscall.Termios) error {
+func setTermSettingsStopBits(bits StopBits, settings *unix.Termios) error {
 	switch bits {
 	case OneStopBit:
-		settings.Cflag &^= syscall.CSTOPB
+		settings.Cflag &^= unix.CSTOPB
 	case OnePointFiveStopBits:
 		return &PortError{code: InvalidStopBits}
 	case TwoStopBits:
-		settings.Cflag |= syscall.CSTOPB
+		settings.Cflag |= unix.CSTOPB
 	default:
 		return &PortError{code: InvalidStopBits}
 	}
 	return nil
 }
 
-func setTermSettingsCtsRts(enable bool, settings *syscall.Termios) {
+func setTermSettingsCtsRts(enable bool, settings *unix.Termios) {
 	if enable {
 		settings.Cflag |= tcCRTSCTS
 	} else {
@@ -321,70 +322,70 @@ func setTermSettingsCtsRts(enable bool, settings *syscall.Termios) {
 	}
 }
 
-func setRawMode(settings *syscall.Termios) {
+func setRawMode(settings *unix.Termios) {
 	// Set local mode
-	settings.Cflag |= syscall.CREAD
-	settings.Cflag |= syscall.CLOCAL
+	settings.Cflag |= unix.CREAD
+	settings.Cflag |= unix.CLOCAL
 
 	// Set raw mode
-	settings.Lflag &^= syscall.ICANON
-	settings.Lflag &^= syscall.ECHO
-	settings.Lflag &^= syscall.ECHOE
-	settings.Lflag &^= syscall.ECHOK
-	settings.Lflag &^= syscall.ECHONL
-	settings.Lflag &^= syscall.ECHOCTL
-	settings.Lflag &^= syscall.ECHOPRT
-	settings.Lflag &^= syscall.ECHOKE
-	settings.Lflag &^= syscall.ISIG
-	settings.Lflag &^= syscall.IEXTEN
+	settings.Lflag &^= unix.ICANON
+	settings.Lflag &^= unix.ECHO
+	settings.Lflag &^= unix.ECHOE
+	settings.Lflag &^= unix.ECHOK
+	settings.Lflag &^= unix.ECHONL
+	settings.Lflag &^= unix.ECHOCTL
+	settings.Lflag &^= unix.ECHOPRT
+	settings.Lflag &^= unix.ECHOKE
+	settings.Lflag &^= unix.ISIG
+	settings.Lflag &^= unix.IEXTEN
 
-	settings.Iflag &^= syscall.IXON
-	settings.Iflag &^= syscall.IXOFF
-	settings.Iflag &^= syscall.IXANY
-	settings.Iflag &^= syscall.INPCK
-	settings.Iflag &^= syscall.IGNPAR
-	settings.Iflag &^= syscall.PARMRK
-	settings.Iflag &^= syscall.ISTRIP
-	settings.Iflag &^= syscall.IGNBRK
-	settings.Iflag &^= syscall.BRKINT
-	settings.Iflag &^= syscall.INLCR
-	settings.Iflag &^= syscall.IGNCR
-	settings.Iflag &^= syscall.ICRNL
+	settings.Iflag &^= unix.IXON
+	settings.Iflag &^= unix.IXOFF
+	settings.Iflag &^= unix.IXANY
+	settings.Iflag &^= unix.INPCK
+	settings.Iflag &^= unix.IGNPAR
+	settings.Iflag &^= unix.PARMRK
+	settings.Iflag &^= unix.ISTRIP
+	settings.Iflag &^= unix.IGNBRK
+	settings.Iflag &^= unix.BRKINT
+	settings.Iflag &^= unix.INLCR
+	settings.Iflag &^= unix.IGNCR
+	settings.Iflag &^= unix.ICRNL
 	settings.Iflag &^= tcIUCLC
 
-	settings.Oflag &^= syscall.OPOST
+	settings.Oflag &^= unix.OPOST
 
 	// Block reads until at least one char is available (no timeout)
-	settings.Cc[syscall.VMIN] = 1
-	settings.Cc[syscall.VTIME] = 0
+	settings.Cc[unix.VMIN] = 1
+	settings.Cc[unix.VTIME] = 0
 }
 
 // native syscall wrapper functions
 
-func (port *unixPort) getTermSettings() (*syscall.Termios, error) {
-	settings := &syscall.Termios{}
+func (port *unixPort) getTermSettings() (*unix.Termios, error) {
+	settings := &unix.Termios{}
 	err := ioctl(port.handle, ioctlTcgetattr, uintptr(unsafe.Pointer(settings)))
 	return settings, err
 }
 
-func (port *unixPort) setTermSettings(settings *syscall.Termios) error {
+func (port *unixPort) setTermSettings(settings *unix.Termios) error {
 	return ioctl(port.handle, ioctlTcsetattr, uintptr(unsafe.Pointer(settings)))
 }
 
 func (port *unixPort) getModemBitsStatus() (int, error) {
 	var status int
-	err := ioctl(port.handle, syscall.TIOCMGET, uintptr(unsafe.Pointer(&status)))
+	err := ioctl(port.handle, unix.TIOCMGET, uintptr(unsafe.Pointer(&status)))
 	return status, err
 }
 
 func (port *unixPort) setModemBitsStatus(status int) error {
-	return ioctl(port.handle, syscall.TIOCMSET, uintptr(unsafe.Pointer(&status)))
+	return ioctl(port.handle, unix.TIOCMSET, uintptr(unsafe.Pointer(&status)))
 }
 
 func (port *unixPort) acquireExclusiveAccess() error {
-	return ioctl(port.handle, syscall.TIOCEXCL, 0)
+	return ioctl(port.handle, unix.TIOCEXCL, 0)
 }
 
 func (port *unixPort) releaseExclusiveAccess() error {
-	return ioctl(port.handle, syscall.TIOCNXCL, 0)
+	return ioctl(port.handle, unix.TIOCNXCL, 0)
 }
