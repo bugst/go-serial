@@ -6,7 +6,7 @@
 
 package serial // import "go.bug.st/serial.v1"
 
-//go:generate go run extras/mksyscall_windows.go -output zsyscall_windows.go syscall_windows.go
+//go:generate go run $GOROOT/src/syscall/mksyscall_windows.go -output zsyscall_windows.go syscall_windows.go
 
 // Port is the interface for a serial Port
 type Port interface {
