@@ -55,10 +55,10 @@ var databitsMap = map[int]uint32{
 	8: unix.CS8,
 }
 
-const tcCMSPAR uint32 = 0 // may be CMSPAR or PAREXT
+const tcCMSPAR = unix.CMSPAR
 const tcIUCLC = unix.IUCLC
 
-const tcCRTSCTS uint32 = 0x80000000
+const tcCRTSCTS uint32 = unix.CRTSCTS
 
 const ioctlTcgetattr = unix.TCGETS
 const ioctlTcsetattr = unix.TCSETS
