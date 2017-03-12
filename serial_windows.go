@@ -82,14 +82,15 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 	defer syscall.CloseHandle(ev.HEvent)
 	for {
 		err := syscall.ReadFile(port.handle, p, &readed, ev)
+		if err == syscall.ERROR_IO_PENDING {
+			err = getOverlappedResult(port.handle, ev, &readed, true)
+		}
 		switch err {
 		case nil:
 			// operation completed successfully
-		case syscall.ERROR_IO_PENDING:
-			// wait for overlapped I/O to complete
-			if err := getOverlappedResult(port.handle, ev, &readed, true); err != nil {
-				return int(readed), err
-			}
+		case syscall.ERROR_OPERATION_ABORTED:
+			// port may have been closed
+			return int(readed), &PortError{code: PortClosed, causedBy: err}
 		default:
 			// error happened
 			return int(readed), err
