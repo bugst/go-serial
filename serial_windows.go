@@ -115,83 +115,12 @@ func (port *windowsPort) Write(p []byte) (int, error) {
 	return int(writed), err
 }
 
-const (
-	purgeRxAbort uint32 = 0x0002
-	purgeRxClear        = 0x0008
-	purgeTxAbort        = 0x0001
-	purgeTxClear        = 0x0004
-)
-
 func (port *windowsPort) ResetInputBuffer() error {
 	return purgeComm(port.handle, purgeRxClear|purgeRxAbort)
 }
 
 func (port *windowsPort) ResetOutputBuffer() error {
 	return purgeComm(port.handle, purgeTxClear|purgeTxAbort)
-}
-
-const (
-	dcbBinary                uint32 = 0x00000001
-	dcbParity                       = 0x00000002
-	dcbOutXCTSFlow                  = 0x00000004
-	dcbOutXDSRFlow                  = 0x00000008
-	dcbDTRControlDisableMask        = ^uint32(0x00000030)
-	dcbDTRControlEnable             = 0x00000010
-	dcbDTRControlHandshake          = 0x00000020
-	dcbDSRSensitivity               = 0x00000040
-	dcbTXContinueOnXOFF             = 0x00000080
-	dcbOutX                         = 0x00000100
-	dcbInX                          = 0x00000200
-	dcbErrorChar                    = 0x00000400
-	dcbNull                         = 0x00000800
-	dcbRTSControlDisbaleMask        = ^uint32(0x00003000)
-	dcbRTSControlEnable             = 0x00001000
-	dcbRTSControlHandshake          = 0x00002000
-	dcbRTSControlToggle             = 0x00003000
-	dcbAbortOnError                 = 0x00004000
-)
-
-type dcb struct {
-	DCBlength uint32
-	BaudRate  uint32
-
-	// Flags field is a bitfield
-	//  fBinary            :1
-	//  fParity            :1
-	//  fOutxCtsFlow       :1
-	//  fOutxDsrFlow       :1
-	//  fDtrControl        :2
-	//  fDsrSensitivity    :1
-	//  fTXContinueOnXoff  :1
-	//  fOutX              :1
-	//  fInX               :1
-	//  fErrorChar         :1
-	//  fNull              :1
-	//  fRtsControl        :2
-	//  fAbortOnError      :1
-	//  fDummy2            :17
-	Flags uint32
-
-	wReserved  uint16
-	XonLim     uint16
-	XoffLim    uint16
-	ByteSize   byte
-	Parity     byte
-	StopBits   byte
-	XonChar    byte
-	XoffChar   byte
-	ErrorChar  byte
-	EOFChar    byte
-	EvtChar    byte
-	wReserved1 uint16
-}
-
-type commTimeouts struct {
-	ReadIntervalTimeout         uint32
-	ReadTotalTimeoutMultiplier  uint32
-	ReadTotalTimeoutConstant    uint32
-	WriteTotalTimeoutMultiplier uint32
-	WriteTotalTimeoutConstant   uint32
 }
 
 const (
@@ -221,24 +150,6 @@ var stopBitsMap = map[StopBits]byte{
 	OnePointFiveStopBits: one5StopBits,
 	TwoStopBits:          twoStopBits,
 }
-
-const (
-	commFunctionSetXOFF  = 1
-	commFunctionSetXON   = 2
-	commFunctionSetRTS   = 3
-	commFunctionClrRTS   = 4
-	commFunctionSetDTR   = 5
-	commFunctionClrDTR   = 6
-	commFunctionSetBreak = 8
-	commFunctionClrBreak = 9
-)
-
-const (
-	msCTSOn  = 0x0010
-	msDSROn  = 0x0020
-	msRingOn = 0x0040
-	msRLSDOn = 0x0080
-)
 
 func (port *windowsPort) SetMode(mode *Mode) error {
 	params := dcb{}
@@ -303,7 +214,7 @@ func (port *windowsPort) SetRTS(rts bool) error {
 	if err := getCommState(port.handle, params); err != nil {
 		return &PortError{causedBy: err}
 	}
-	params.Flags &= dcbRTSControlDisbaleMask
+	params.Flags &= dcbRTSControlDisableMask
 	if rts {
 		params.Flags |= dcbRTSControlEnable
 	}
@@ -369,7 +280,7 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort}
 	}
-	params.Flags &= dcbRTSControlDisbaleMask
+	params.Flags &= dcbRTSControlDisableMask
 	params.Flags |= dcbRTSControlEnable
 	params.Flags &= dcbDTRControlDisableMask
 	params.Flags |= dcbDTRControlEnable
