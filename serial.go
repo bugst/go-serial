@@ -13,11 +13,31 @@ type Port interface {
 	// SetMode sets all parameters of the serial port
 	SetMode(mode *Mode) error
 
+	// Sets interbytes timeout
+	// Values:
+	//   x <= 0: disable interbyte timeout
+	//   x >  0: set iterbyte timeout ot x milliseconds
+	SetInterbyteTimeout(msec int) error
+
+	// SetReadTimeout sets whole packet read timeout.
+	// Values:
+	//   x < 0: wait forever / until requested number of bytes are received.
+	//   x = 0: non-blocking mode, return immediately in any case, returning zero or more,
+	//          up to the requested number of bytes.
+	//          NOTE: SetReadTimeout(0) for windows resets interbyte timeout to MAXDWORD
+	//   x > 0: set timeout to x milliseconds returns immediately when the requested number of bytes are available,
+	//          otherwise wait until the timeout expires and return all bytes that were received until then.
+	SetReadTimeout(msec int) error
+
+	// SetWriteTimeout set whole packet write timeout
+	// For possible values refer to the list for read timeout values above.
+	SetWriteTimeout(msec int) error
+
 	// Stores data received from the serial port into the provided byte array
 	// buffer. The function returns the number of bytes read.
 	//
 	// The Read function blocks until (at least) one byte is received from
-	// the serial port or an error occurs.
+	// the serial port or a timeout reached or an error occurs.
 	Read(p []byte) (n int, err error)
 
 	// Send the content of the data byte array to the serial port.
@@ -125,12 +145,18 @@ const (
 	InvalidParity
 	// InvalidStopBits the selected number of stop bits is not valid or not supported
 	InvalidStopBits
+	// Invalid timeout value passed
+	InvalidTimeoutValue
 	// ErrorEnumeratingPorts an error occurred while listing serial port
 	ErrorEnumeratingPorts
 	// PortClosed the port has been closed while the operation is in progress
 	PortClosed
 	// FunctionNotImplemented the requested function is not implemented
 	FunctionNotImplemented
+	// Port operation timed out
+	Timeout
+	// Port write failed
+	WriteFailed
 )
 
 // EncodedErrorString returns a string explaining the error code
@@ -152,12 +178,18 @@ func (e PortError) EncodedErrorString() string {
 		return "Port parity invalid or not supported"
 	case InvalidStopBits:
 		return "Port stop bits invalid or not supported"
+	case InvalidTimeoutValue:
+		return "Timeout value invalid or not supported"
 	case ErrorEnumeratingPorts:
 		return "Could not enumerate serial ports"
 	case PortClosed:
 		return "Port has been closed"
 	case FunctionNotImplemented:
 		return "Function not implemented"
+	case Timeout:
+		return "Timeout"
+	case WriteFailed:
+		return "Write failed"
 	default:
 		return "Other error"
 	}

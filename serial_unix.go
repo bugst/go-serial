@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -22,6 +23,9 @@ import (
 
 type unixPort struct {
 	handle int
+
+	readTimeout  int
+	writeTimeout int
 
 	closeLock   sync.RWMutex
 	closeSignal *unixutils.Pipe
@@ -52,26 +56,90 @@ func (port *unixPort) Close() error {
 	return nil
 }
 
-func (port *unixPort) Read(p []byte) (n int, err error) {
+func (port *unixPort) Read(p []byte) (int, error) {
 	port.closeLock.RLock()
 	defer port.closeLock.RUnlock()
 	if !port.opened {
 		return 0, &PortError{code: PortClosed}
 	}
 
+	rlen := len(p)
+	read := 0
+	deadline := time.Now().Add(time.Duration(port.readTimeout) * time.Millisecond)
 	fds := unixutils.NewFDSet(port.handle, port.closeSignal.ReadFD())
-	res, err := unixutils.Select(fds, nil, fds, -1)
-	if err != nil {
-		return 0, err
+	for read < rlen {
+		now := time.Now()
+		if !deadline.After(now) {
+			return 0, nil
+		}
+		res, err := unixutils.Select(fds, nil, fds, deadline.Sub(now))
+		if err != nil {
+			return read, err
+		}
+		if res.IsReadable(port.closeSignal.ReadFD()) {
+			return read, &PortError{code: PortClosed}
+		}
+		if !res.IsReadable(port.handle) {
+			return 0, nil
+		}
+		n, err := unix.Read(port.handle, p)
+		if err != nil {
+			return read, err
+		}
+		read += n
 	}
-	if res.IsReadable(port.closeSignal.ReadFD()) {
-		return 0, &PortError{code: PortClosed}
-	}
-	return unix.Read(port.handle, p)
+	return read, nil
 }
 
-func (port *unixPort) Write(p []byte) (n int, err error) {
-	return unix.Write(port.handle, p)
+func (port *unixPort) Write(p []byte) (int, error) {
+	wlen := len(p)
+	written := 0
+
+	var deadline time.Time
+	if port.writeTimeout > 0 {
+		deadline = time.Now().Add(time.Duration(port.writeTimeout) * time.Millisecond)
+	}
+
+	fds := unixutils.NewFDSet(port.handle)
+	clFds := unixutils.NewFDSet(port.closeSignal.ReadFD())
+
+	for written < wlen {
+		n, err := unix.Write(port.handle, p)
+		written += n
+		switch {
+		case err != nil:
+			return 0, err
+		case port.writeTimeout == 0:
+			return n, nil
+		case port.writeTimeout > 0:
+			now := time.Now()
+			if !deadline.After(now) {
+				return n, &PortError{code: Timeout}
+			}
+			res, err := unixutils.Select(clFds, fds, fds, deadline.Sub(now))
+			if err != nil {
+				return n, err
+			}
+			if res.IsReadable(port.closeSignal.ReadFD()) {
+				return n, &PortError{code: PortClosed}
+			}
+			if !res.IsWritable(port.handle) {
+				return n, &PortError{code: Timeout}
+			}
+		default:
+			res, err := unixutils.Select(clFds, fds, fds, -1)
+			if err != nil {
+				return n, err
+			}
+			if res.IsReadable(port.closeSignal.ReadFD()) {
+				return n, &PortError{code: PortClosed}
+			}
+			if !res.IsWritable(port.handle) {
+				return n, &PortError{code: WriteFailed}
+			}
+		}
+	}
+	return written, nil
 }
 
 func (port *unixPort) ResetInputBuffer() error {
@@ -126,6 +194,27 @@ func (port *unixPort) SetRTS(rts bool) error {
 		status &^= unix.TIOCM_RTS
 	}
 	return port.setModemBitsStatus(status)
+}
+
+func (port *unixPort) SetInterbyteTimeout(timeout int) error {
+	settings, err := port.getTermSettings()
+	if err != nil {
+		return err
+	}
+	if err := setTermSettingsInterbyteTimeout(timeout, settings); err != nil {
+		return err
+	}
+	return port.setTermSettings(settings)
+}
+
+func (port *unixPort) SetReadTimeout(t int) error {
+	port.readTimeout = t
+	return nil // timeout is done via select
+}
+
+func (port *unixPort) SetWriteTimeout(t int) error {
+	port.writeTimeout = t
+	return nil // timeout is done via select
 }
 
 func (port *unixPort) GetModemStatusBits() (*ModemStatusBits, error) {
@@ -366,6 +455,21 @@ func setRawMode(settings *unix.Termios) {
 	// Block reads until at least one char is available (no timeout)
 	settings.Cc[unix.VMIN] = 1
 	settings.Cc[unix.VTIME] = 0
+}
+
+func setTermSettingsInterbyteTimeout(timeout int, settings *unix.Termios) error {
+	vtime := timeout / 100 // VTIME tenths of a second elapses between bytes
+	if vtime > 255 || vtime*100 != timeout {
+		return &PortError{code: InvalidTimeoutValue}
+	}
+	if vtime > 0 {
+		settings.Cc[unix.VMIN] = 1
+		settings.Cc[unix.VTIME] = uint8(timeout)
+	} else {
+		settings.Cc[unix.VMIN] = 0
+		settings.Cc[unix.VTIME] = 0
+	}
+	return nil
 }
 
 // native syscall wrapper functions
