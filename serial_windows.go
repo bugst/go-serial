@@ -82,19 +82,18 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 
 	var read uint32
 	if readSize > 0 {
-		buf := make([]byte, readSize)
 		overlappedEv, err := createOverlappedEvent()
 		if err != nil {
-			return 0, err
+			return 0, &PortError{code: OsError, causedBy: err}
 		}
 		defer syscall.CloseHandle(overlappedEv.HEvent)
-		err = syscall.ReadFile(port.handle, buf, &read, overlappedEv)
+		err = syscall.ReadFile(port.handle, p, &read, overlappedEv)
 		if err != nil && err != syscall.ERROR_IO_PENDING {
-			return 0, &PortError{code: InvalidSerialPort, causedBy: err}
+			return 0, &PortError{code: OsError, causedBy: err}
 		}
 		err = getOverlappedResult(port.handle, overlappedEv, &read, true)
 		if err != nil && err != syscall.ERROR_OPERATION_ABORTED {
-			return 0, &PortError{code: InvalidSerialPort, causedBy: err}
+			return 0, &PortError{code: OsError, causedBy: err}
 		}
 		return int(read), nil
 	} else {
