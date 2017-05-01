@@ -74,8 +74,12 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 
 	size := uint32(len(p))
 	var readSize uint32
-	if port.timeouts.ReadTotalTimeoutConstant == 0 && stat.inque < size {
-		readSize = stat.inque
+	if port.timeouts.ReadTotalTimeoutConstant == 0 && port.timeouts.ReadTotalTimeoutMultiplier == 0 {
+		if stat.inque < size {
+			readSize = stat.inque
+		} else {
+			readSize = size
+		}
 	} else {
 		readSize = size
 	}
