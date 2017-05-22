@@ -20,6 +20,7 @@ package serial // import "go.bug.st/serial.v1"
 import "syscall"
 
 type windowsPort struct {
+	name     string
 	handle   syscall.Handle
 	mode     *Mode
 	timeouts *commTimeouts
@@ -54,6 +55,10 @@ func nativeGetPortsList() ([]string, error) {
 		list[i] = syscall.UTF16ToString(data[:])
 	}
 	return list, nil
+}
+
+func (port *windowsPort) GetName() string {
+	return port.name
 }
 
 func (port *windowsPort) Close() error {
@@ -227,6 +232,7 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 	}
 	// Create the serial port
 	port := &windowsPort{
+		name:   portName,
 		handle: handle,
 		mode:   mode,
 		timeouts: &commTimeouts{
