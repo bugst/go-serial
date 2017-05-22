@@ -326,11 +326,14 @@ func (port *windowsPort) SetReadTimeout(t int) error {
 	switch {
 	case t == 0:
 		port.timeouts.ReadIntervalTimeout = 0xFFFFFFFF
+		port.timeouts.ReadTotalTimeoutMultiplier = 0
 		port.timeouts.ReadTotalTimeoutConstant = 0
 	case t > 0:
+		port.timeouts.ReadTotalTimeoutMultiplier = 0
 		port.timeouts.ReadTotalTimeoutConstant = uint32(t)
-	default:
+	case t < 0:
 		port.timeouts.ReadIntervalTimeout = 0
+		port.timeouts.ReadTotalTimeoutMultiplier = 0
 		port.timeouts.ReadTotalTimeoutConstant = 0
 	}
 	return port.reconfigurePort()
