@@ -110,4 +110,4 @@ Unfortunately the USB enumeration package for darwin (MacOSX) requires cgo
 to access the IOKit framework. This means that if you need USB enumeration
 on darwin you're forced to use cgo.
 */
-package serial // import "go.bug.st/serial.v1"
+package serial

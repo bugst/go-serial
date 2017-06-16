@@ -46,7 +46,8 @@ func Example_sendAndReceive() {
 		log.Fatal(err)
 	}
 	fmt.Printf("Sent %v bytes\n", n)
-
+	// Set 100msec timeout
+	port.SetReadTimeout(100)
 	// Read and print the response
 	buff := make([]byte, 100)
 	for {

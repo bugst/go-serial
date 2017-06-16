@@ -4,7 +4,7 @@
 // license that can be found in the LICENSE file.
 //
 
-package enumerator // import "go.bug.st/serial.v1/enumerator"
+package enumerator 
 
 //go:generate go run ../extras/mksyscall_windows.go -output syscall_windows.go usb_windows.go
 

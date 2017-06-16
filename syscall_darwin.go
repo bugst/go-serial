@@ -4,6 +4,6 @@
 // license that can be found in the LICENSE file.
 //
 
-package serial // import "go.bug.st/serial.v1"
+package serial 
 
 //sys ioctl(fd int, req uint64, data uintptr) (err error)

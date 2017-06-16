@@ -6,7 +6,7 @@
 
 // +build linux darwin freebsd
 
-package serial // import "go.bug.st/serial.v1"
+package serial
 
 import (
 	"io/ioutil"

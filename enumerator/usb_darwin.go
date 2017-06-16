@@ -4,7 +4,7 @@
 // license that can be found in the LICENSE file.
 //
 
-package enumerator // import "go.bug.st/serial.v1/enumerator"
+package enumerator 
 
 // #cgo LDFLAGS: -framework CoreFoundation -framework IOKit -fconstant-cfstrings
 // #include <IOKit/IOKitLib.h>
