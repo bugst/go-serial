@@ -4,7 +4,7 @@
 // license that can be found in the LICENSE file.
 //
 
-package serial // import "go.bug.st/serial.v1"
+package serial
 
 /*
 
@@ -20,7 +20,10 @@ package serial // import "go.bug.st/serial.v1"
 import "syscall"
 
 type windowsPort struct {
-	handle syscall.Handle
+	name     string
+	handle   syscall.Handle
+	mode     *Mode
+	timeouts *commTimeouts
 }
 
 func nativeGetPortsList() ([]string, error) {
@@ -54,73 +57,75 @@ func nativeGetPortsList() ([]string, error) {
 	return list, nil
 }
 
+func (port *windowsPort) GetName() string {
+	return port.name
+}
+
 func (port *windowsPort) Close() error {
 	return syscall.CloseHandle(port.handle)
 }
 
 func (port *windowsPort) Read(p []byte) (int, error) {
-	var readed uint32
-	params := &dcb{}
-	ev, err := createOverlappedEvent()
-	if err != nil {
-		return 0, err
+	if port.handle == syscall.InvalidHandle {
+		return 0, &PortError{code: PortClosed, causedBy: nil}
 	}
-	defer syscall.CloseHandle(ev.HEvent)
-	for {
-		err := syscall.ReadFile(port.handle, p, &readed, ev)
-		switch err {
-		case nil:
-			// operation completed successfully
-		case syscall.ERROR_IO_PENDING:
-			// wait for overlapped I/O to complete
-			if err := getOverlappedResult(port.handle, ev, &readed, true); err != nil {
-				return int(readed), err
-			}
-		default:
-			// error happened
-			return int(readed), err
-		}
 
-		if readed > 0 {
-			return int(readed), nil
-		}
-		if err := resetEvent(ev.HEvent); err != nil {
-			return 0, err
-		}
+	errs := new(uint32)
+	stat := new(comstat)
+	if err := clearCommError(port.handle, errs, stat); err != nil {
+		port.Close()
+		return 0, &PortError{code: InvalidSerialPort, causedBy: err}
+	}
 
-		// At the moment it seems that the only reliable way to check if
-		// a serial port is alive in Windows is to check if the SetCommState
-		// function fails.
-
-		getCommState(port.handle, params)
-		if err := setCommState(port.handle, params); err != nil {
-			port.Close()
-			return 0, err
+	size := uint32(len(p))
+	var readSize uint32
+	if port.timeouts.ReadTotalTimeoutConstant == 0 && port.timeouts.ReadTotalTimeoutMultiplier == 0 {
+		if stat.inque < size {
+			readSize = stat.inque
+		} else {
+			readSize = size
 		}
+	} else {
+		readSize = size
+	}
+
+	var read uint32
+	if readSize > 0 {
+		overlappedEv, err := createOverlappedEvent()
+		if err != nil {
+			return 0, &PortError{code: OsError, causedBy: err}
+		}
+		defer syscall.CloseHandle(overlappedEv.HEvent)
+		err = syscall.ReadFile(port.handle, p, &read, overlappedEv)
+		if err != nil && err != syscall.ERROR_IO_PENDING {
+			return 0, &PortError{code: OsError, causedBy: err}
+		}
+		err = getOverlappedResult(port.handle, overlappedEv, &read, true)
+		if err != nil && err != syscall.ERROR_OPERATION_ABORTED {
+			return 0, &PortError{code: OsError, causedBy: err}
+		}
+		return int(read), nil
+	} else {
+		return 0, nil
 	}
 }
 
 func (port *windowsPort) Write(p []byte) (int, error) {
-	var writed uint32
 	ev, err := createOverlappedEvent()
 	if err != nil {
 		return 0, err
 	}
 	defer syscall.CloseHandle(ev.HEvent)
-	err = syscall.WriteFile(port.handle, p, &writed, ev)
-	if err == syscall.ERROR_IO_PENDING {
-		// wait for write to complete
-		err = getOverlappedResult(port.handle, ev, &writed, true)
+	var written uint32
+	err = syscall.WriteFile(port.handle, p, &written, ev)
+	if err == nil || err == syscall.ERROR_IO_PENDING || err == syscall.ERROR_OPERATION_ABORTED {
+		err = getOverlappedResult(port.handle, ev, &written, true)
+		if err == nil || err == syscall.ERROR_OPERATION_ABORTED {
+			return int(written), nil
+		}
 	}
-	return int(writed), err
+	return int(written), err
 }
-
-const (
-	purgeRxAbort uint32 = 0x0002
-	purgeRxClear        = 0x0008
-	purgeTxAbort        = 0x0001
-	purgeTxClear        = 0x0004
-)
 
 func (port *windowsPort) ResetInputBuffer() error {
 	return purgeComm(port.handle, purgeRxClear|purgeRxAbort)
@@ -130,139 +135,9 @@ func (port *windowsPort) ResetOutputBuffer() error {
 	return purgeComm(port.handle, purgeTxClear|purgeTxAbort)
 }
 
-const (
-	dcbBinary                uint32 = 0x00000001
-	dcbParity                       = 0x00000002
-	dcbOutXCTSFlow                  = 0x00000004
-	dcbOutXDSRFlow                  = 0x00000008
-	dcbDTRControlDisableMask        = ^uint32(0x00000030)
-	dcbDTRControlEnable             = 0x00000010
-	dcbDTRControlHandshake          = 0x00000020
-	dcbDSRSensitivity               = 0x00000040
-	dcbTXContinueOnXOFF             = 0x00000080
-	dcbOutX                         = 0x00000100
-	dcbInX                          = 0x00000200
-	dcbErrorChar                    = 0x00000400
-	dcbNull                         = 0x00000800
-	dcbRTSControlDisbaleMask        = ^uint32(0x00003000)
-	dcbRTSControlEnable             = 0x00001000
-	dcbRTSControlHandshake          = 0x00002000
-	dcbRTSControlToggle             = 0x00003000
-	dcbAbortOnError                 = 0x00004000
-)
-
-type dcb struct {
-	DCBlength uint32
-	BaudRate  uint32
-
-	// Flags field is a bitfield
-	//  fBinary            :1
-	//  fParity            :1
-	//  fOutxCtsFlow       :1
-	//  fOutxDsrFlow       :1
-	//  fDtrControl        :2
-	//  fDsrSensitivity    :1
-	//  fTXContinueOnXoff  :1
-	//  fOutX              :1
-	//  fInX               :1
-	//  fErrorChar         :1
-	//  fNull              :1
-	//  fRtsControl        :2
-	//  fAbortOnError      :1
-	//  fDummy2            :17
-	Flags uint32
-
-	wReserved  uint16
-	XonLim     uint16
-	XoffLim    uint16
-	ByteSize   byte
-	Parity     byte
-	StopBits   byte
-	XonChar    byte
-	XoffChar   byte
-	ErrorChar  byte
-	EOFChar    byte
-	EvtChar    byte
-	wReserved1 uint16
-}
-
-type commTimeouts struct {
-	ReadIntervalTimeout         uint32
-	ReadTotalTimeoutMultiplier  uint32
-	ReadTotalTimeoutConstant    uint32
-	WriteTotalTimeoutMultiplier uint32
-	WriteTotalTimeoutConstant   uint32
-}
-
-const (
-	noParity    = 0
-	oddParity   = 1
-	evenParity  = 2
-	markParity  = 3
-	spaceParity = 4
-)
-
-var parityMap = map[Parity]byte{
-	NoParity:    noParity,
-	OddParity:   oddParity,
-	EvenParity:  evenParity,
-	MarkParity:  markParity,
-	SpaceParity: spaceParity,
-}
-
-const (
-	oneStopBit   = 0
-	one5StopBits = 1
-	twoStopBits  = 2
-)
-
-var stopBitsMap = map[StopBits]byte{
-	OneStopBit:           oneStopBit,
-	OnePointFiveStopBits: one5StopBits,
-	TwoStopBits:          twoStopBits,
-}
-
-const (
-	commFunctionSetXOFF  = 1
-	commFunctionSetXON   = 2
-	commFunctionSetRTS   = 3
-	commFunctionClrRTS   = 4
-	commFunctionSetDTR   = 5
-	commFunctionClrDTR   = 6
-	commFunctionSetBreak = 8
-	commFunctionClrBreak = 9
-)
-
-const (
-	msCTSOn  = 0x0010
-	msDSROn  = 0x0020
-	msRingOn = 0x0040
-	msRLSDOn = 0x0080
-)
-
 func (port *windowsPort) SetMode(mode *Mode) error {
-	params := dcb{}
-	if getCommState(port.handle, &params) != nil {
-		port.Close()
-		return &PortError{code: InvalidSerialPort}
-	}
-	if mode.BaudRate == 0 {
-		params.BaudRate = 9600 // Default to 9600
-	} else {
-		params.BaudRate = uint32(mode.BaudRate)
-	}
-	if mode.DataBits == 0 {
-		params.ByteSize = 8 // Default to 8 bits
-	} else {
-		params.ByteSize = byte(mode.DataBits)
-	}
-	params.StopBits = stopBitsMap[mode.StopBits]
-	params.Parity = parityMap[mode.Parity]
-	if setCommState(port.handle, &params) != nil {
-		port.Close()
-		return &PortError{code: InvalidSerialPort}
-	}
-	return nil
+	port.mode = mode
+	return port.reconfigurePort()
 }
 
 func (port *windowsPort) SetDTR(dtr bool) error {
@@ -303,7 +178,7 @@ func (port *windowsPort) SetRTS(rts bool) error {
 	if err := getCommState(port.handle, params); err != nil {
 		return &PortError{causedBy: err}
 	}
-	params.Flags &= dcbRTSControlDisbaleMask
+	params.Flags &= dcbRTSControlDisableMask
 	if rts {
 		params.Flags |= dcbRTSControlEnable
 	}
@@ -327,13 +202,15 @@ func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
 }
 
 func createOverlappedEvent() (*syscall.Overlapped, error) {
-	h, err := createEvent(nil, true, false, nil)
-	return &syscall.Overlapped{HEvent: h}, err
+	if h, err := createEvent(nil, true, false, nil); err == nil {
+		return &syscall.Overlapped{HEvent: h}, nil
+	} else {
+		return nil, err
+	}
 }
 
 func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
-	portName = "\\\\.\\" + portName
-	path, err := syscall.UTF16PtrFromString(portName)
+	path, err := syscall.UTF16PtrFromString("\\\\.\\" + portName)
 	if err != nil {
 		return nil, err
 	}
@@ -355,21 +232,55 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 	}
 	// Create the serial port
 	port := &windowsPort{
+		name:   portName,
 		handle: handle,
+		mode:   mode,
+		timeouts: &commTimeouts{
+			// Legacy initial timeouts configuration: 1 sec read timeout
+			ReadIntervalTimeout:         0xFFFFFFFF,
+			ReadTotalTimeoutMultiplier:  0xFFFFFFFF,
+			ReadTotalTimeoutConstant:    1000,
+			WriteTotalTimeoutMultiplier: 0,
+			WriteTotalTimeoutConstant:   0,
+		},
 	}
 
-	// Set port parameters
-	if port.SetMode(mode) != nil {
+	if err = port.reconfigurePort(); err != nil {
+		return nil, err
+	}
+
+	return port, nil
+}
+
+var parityMap = map[Parity]byte{
+	NoParity:    0,
+	OddParity:   1,
+	EvenParity:  2,
+	MarkParity:  3,
+	SpaceParity: 4,
+}
+
+var stopBitsMap = map[StopBits]byte{
+	OneStopBit:           0,
+	OnePointFiveStopBits: 1,
+	TwoStopBits:          2,
+}
+
+func (port *windowsPort) reconfigurePort() error {
+	if err := setCommTimeouts(port.handle, port.timeouts); err != nil {
 		port.Close()
-		return nil, &PortError{code: InvalidSerialPort}
+		return &PortError{code: InvalidSerialPort, causedBy: err}
 	}
-
+	if err := setCommMask(port.handle, evErr); err != nil {
+		port.Close()
+		return &PortError{code: InvalidSerialPort, causedBy: err}
+	}
 	params := &dcb{}
-	if getCommState(port.handle, params) != nil {
+	if err := getCommState(port.handle, params); err != nil {
 		port.Close()
-		return nil, &PortError{code: InvalidSerialPort}
+		return &PortError{code: InvalidSerialPort, causedBy: err}
 	}
-	params.Flags &= dcbRTSControlDisbaleMask
+	params.Flags &= dcbRTSControlDisableMask
 	params.Flags |= dcbRTSControlEnable
 	params.Flags &= dcbDTRControlDisableMask
 	params.Flags |= dcbDTRControlEnable
@@ -386,23 +297,59 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 	params.XoffLim = 512
 	params.XonChar = 17  // DC1
 	params.XoffChar = 19 // C3
-	if setCommState(port.handle, params) != nil {
-		port.Close()
-		return nil, &PortError{code: InvalidSerialPort}
-	}
 
-	// Set timeouts to 1 second
-	timeouts := &commTimeouts{
-		ReadIntervalTimeout:         0xFFFFFFFF,
-		ReadTotalTimeoutMultiplier:  0xFFFFFFFF,
-		ReadTotalTimeoutConstant:    1000, // 1 sec
-		WriteTotalTimeoutConstant:   0,
-		WriteTotalTimeoutMultiplier: 0,
+	mode := port.mode
+	if mode.BaudRate == 0 {
+		params.BaudRate = 9600 // Default to 9600
+	} else {
+		params.BaudRate = uint32(mode.BaudRate)
 	}
-	if setCommTimeouts(port.handle, timeouts) != nil {
-		port.Close()
-		return nil, &PortError{code: InvalidSerialPort}
+	if mode.DataBits == 0 {
+		params.ByteSize = 8 // Default to 8 bits
+	} else {
+		params.ByteSize = byte(mode.DataBits)
 	}
+	params.StopBits = stopBitsMap[mode.StopBits]
+	params.Parity = parityMap[mode.Parity]
 
-	return port, nil
+	if err := setCommState(port.handle, params); err != nil {
+		port.Close()
+		return &PortError{code: InvalidSerialPort, causedBy: err}
+	}
+	return nil
+}
+
+func (port *windowsPort) SetInterbyteTimeout(t int) error {
+	if t > 0 {
+		port.timeouts.ReadIntervalTimeout = uint32(t)
+	} else {
+		port.timeouts.ReadIntervalTimeout = 0
+	}
+	return port.reconfigurePort()
+}
+
+func (port *windowsPort) SetReadTimeout(t int) error {
+	switch {
+	case t == 0:
+		port.timeouts.ReadIntervalTimeout = 0xFFFFFFFF
+		port.timeouts.ReadTotalTimeoutMultiplier = 0
+		port.timeouts.ReadTotalTimeoutConstant = 0
+	case t > 0:
+		port.timeouts.ReadTotalTimeoutMultiplier = 0
+		port.timeouts.ReadTotalTimeoutConstant = uint32(t)
+	case t < 0:
+		port.timeouts.ReadIntervalTimeout = 0
+		port.timeouts.ReadTotalTimeoutMultiplier = 0
+		port.timeouts.ReadTotalTimeoutConstant = 0
+	}
+	return port.reconfigurePort()
+}
+
+func (port *windowsPort) SetWriteTimeout(t int) error {
+	if t > 0 {
+		port.timeouts.WriteTotalTimeoutConstant = uint32(t)
+	} else {
+		port.timeouts.WriteTotalTimeoutConstant = 0
+	}
+	return port.reconfigurePort()
 }

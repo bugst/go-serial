@@ -41,11 +41,13 @@ var (
 	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
 
 	procRegEnumValueW       = modadvapi32.NewProc("RegEnumValueW")
+	procClearCommError      = modkernel32.NewProc("ClearCommError")
 	procGetCommState        = modkernel32.NewProc("GetCommState")
 	procSetCommState        = modkernel32.NewProc("SetCommState")
 	procSetCommTimeouts     = modkernel32.NewProc("SetCommTimeouts")
 	procEscapeCommFunction  = modkernel32.NewProc("EscapeCommFunction")
 	procGetCommModemStatus  = modkernel32.NewProc("GetCommModemStatus")
+	procSetCommMask         = modkernel32.NewProc("SetCommMask")
 	procCreateEventW        = modkernel32.NewProc("CreateEventW")
 	procResetEvent          = modkernel32.NewProc("ResetEvent")
 	procGetOverlappedResult = modkernel32.NewProc("GetOverlappedResult")
@@ -56,6 +58,18 @@ func regEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint3
 	r0, _, _ := syscall.Syscall9(procRegEnumValueW.Addr(), 8, uintptr(key), uintptr(index), uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(nameLen)), uintptr(unsafe.Pointer(reserved)), uintptr(unsafe.Pointer(class)), uintptr(unsafe.Pointer(value)), uintptr(unsafe.Pointer(valueLen)), 0)
 	if r0 != 0 {
 		regerrno = syscall.Errno(r0)
+	}
+	return
+}
+
+func clearCommError(handle syscall.Handle, lpErrors *uint32, lpStat *comstat) (err error) {
+	r1, _, e1 := syscall.Syscall(procClearCommError.Addr(), 3, uintptr(handle), uintptr(unsafe.Pointer(lpErrors)), uintptr(unsafe.Pointer(lpStat)))
+	if r1 == 0 {
+		if e1 != 0 {
+			err = errnoErr(e1)
+		} else {
+			err = syscall.EINVAL
+		}
 	}
 	return
 }
@@ -105,6 +119,18 @@ func escapeCommFunction(handle syscall.Handle, function uint32) (res bool) {
 func getCommModemStatus(handle syscall.Handle, bits *uint32) (res bool) {
 	r0, _, _ := syscall.Syscall(procGetCommModemStatus.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(bits)), 0)
 	res = r0 != 0
+	return
+}
+
+func setCommMask(handle syscall.Handle, mask uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procSetCommMask.Addr(), 2, uintptr(handle), uintptr(mask), 0)
+	if r1 == 0 {
+		if e1 != 0 {
+			err = errnoErr(e1)
+		} else {
+			err = syscall.EINVAL
+		}
+	}
 	return
 }
 
