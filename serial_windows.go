@@ -12,6 +12,10 @@ package serial // import "go.bug.st/serial.v1"
 // http://msdn.microsoft.com/en-us/library/ff802693.aspx
 // (alternative link) https://msdn.microsoft.com/en-us/library/ms810467.aspx
 
+// PySerial source code and docs:
+// https://github.com/pyserial/pyserial
+// https://pythonhosted.org/pyserial/
+
 // Arduino Playground article on serial communication with Windows API:
 // http://playground.arduino.cc/Interfacing/CPPWindows
 

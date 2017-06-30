@@ -69,8 +69,8 @@ func (port *unixPort) Read(p []byte) (int, error) {
 	fds := unixutils.NewFDSet(port.handle, port.closeSignal.ReadFD())
 	for read < rlen {
 		now := time.Now()
-		if !deadline.After(now) {
-			return 0, nil
+		if now.After(deadline) {
+			return read, nil
 		}
 		res, err := unixutils.Select(fds, nil, fds, deadline.Sub(now))
 		if err != nil {
@@ -80,7 +80,7 @@ func (port *unixPort) Read(p []byte) (int, error) {
 			return read, &PortError{code: PortClosed}
 		}
 		if !res.IsReadable(port.handle) {
-			return 0, nil
+			return read, nil
 		}
 		n, err := unix.Read(port.handle, p)
 		if err != nil {
@@ -108,34 +108,34 @@ func (port *unixPort) Write(p []byte) (int, error) {
 		written += n
 		switch {
 		case err != nil:
-			return 0, err
+			return written, err
 		case port.writeTimeout == 0:
-			return n, nil
+			return written, nil
 		case port.writeTimeout > 0:
 			now := time.Now()
-			if !deadline.After(now) {
-				return n, &PortError{code: Timeout}
+			if now.After(deadline) {
+				return written, nil
 			}
 			res, err := unixutils.Select(clFds, fds, fds, deadline.Sub(now))
 			if err != nil {
-				return n, err
+				return written, err
 			}
 			if res.IsReadable(port.closeSignal.ReadFD()) {
-				return n, &PortError{code: PortClosed}
+				return written, &PortError{code: PortClosed}
 			}
 			if !res.IsWritable(port.handle) {
-				return n, &PortError{code: Timeout}
+				return written, nil
 			}
 		default:
 			res, err := unixutils.Select(clFds, fds, fds, -1)
 			if err != nil {
-				return n, err
+				return written, err
 			}
 			if res.IsReadable(port.closeSignal.ReadFD()) {
-				return n, &PortError{code: PortClosed}
+				return written, &PortError{code: PortClosed}
 			}
 			if !res.IsWritable(port.handle) {
-				return n, &PortError{code: WriteFailed}
+				return written, &PortError{code: WriteFailed}
 			}
 		}
 	}

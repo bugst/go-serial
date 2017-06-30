@@ -155,8 +155,6 @@ const (
 	FunctionNotImplemented
 	// Operating system function error
 	OsError
-	// Port operation timed out
-	Timeout
 	// Port write failed
 	WriteFailed
 )
@@ -190,8 +188,6 @@ func (e PortError) EncodedErrorString() string {
 		return "Function not implemented"
 	case OsError:
 		return "Operating system error"
-	case Timeout:
-		return "Timeout"
 	case WriteFailed:
 		return "Write failed"
 	default:
