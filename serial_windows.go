@@ -95,7 +95,7 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 			return 0, &PortError{code: OsError, causedBy: err}
 		}
 		defer syscall.CloseHandle(overlappedEv.HEvent)
-		err = syscall.ReadFile(port.handle, p, &read, overlappedEv)
+		err = syscall.ReadFile(port.handle, p[:readSize], &read, overlappedEv)
 		if err != nil && err != syscall.ERROR_IO_PENDING {
 			return 0, &PortError{code: OsError, causedBy: err}
 		}
