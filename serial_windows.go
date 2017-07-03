@@ -61,18 +61,23 @@ func nativeGetPortsList() ([]string, error) {
 }
 
 func (port *windowsPort) Close() error {
-	return syscall.CloseHandle(port.handle)
+	h := port.handle
+	if h == syscall.InvalidHandle {
+		return nil
+	}
+	port.handle = syscall.InvalidHandle
+	return syscall.CloseHandle(h)
 }
 
 func (port *windowsPort) Read(p []byte) (int, error) {
 	if port.handle == syscall.InvalidHandle {
 		return 0, &PortError{code: PortClosed, causedBy: nil}
 	}
+	handle := port.handle
 
 	errs := new(uint32)
 	stat := new(comstat)
-	if err := clearCommError(port.handle, errs, stat); err != nil {
-		port.Close()
+	if err := clearCommError(handle, errs, stat); err != nil {
 		return 0, &PortError{code: InvalidSerialPort, causedBy: err}
 	}
 
@@ -88,18 +93,18 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 		readSize = size
 	}
 
-	var read uint32
 	if readSize > 0 {
-		overlappedEv, err := createOverlappedEvent()
+		var read uint32
+		overlapped, err := createOverlappedStruct()
 		if err != nil {
 			return 0, &PortError{code: OsError, causedBy: err}
 		}
-		defer syscall.CloseHandle(overlappedEv.HEvent)
-		err = syscall.ReadFile(port.handle, p[:readSize], &read, overlappedEv)
+		defer syscall.CloseHandle(overlapped.HEvent)
+		err = syscall.ReadFile(handle, p[:readSize], &read, overlapped)
 		if err != nil && err != syscall.ERROR_IO_PENDING {
 			return 0, &PortError{code: OsError, causedBy: err}
 		}
-		err = getOverlappedResult(port.handle, overlappedEv, &read, true)
+		err = getOverlappedResult(handle, overlapped, &read, true)
 		if err != nil && err != syscall.ERROR_OPERATION_ABORTED {
 			return 0, &PortError{code: OsError, causedBy: err}
 		}
@@ -110,15 +115,26 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 }
 
 func (port *windowsPort) Write(p []byte) (int, error) {
-	ev, err := createOverlappedEvent()
+	if port.handle == syscall.InvalidHandle {
+		return 0, &PortError{code: PortClosed, causedBy: nil}
+	}
+	handle := port.handle
+
+	errs := new(uint32)
+	stat := new(comstat)
+	if err := clearCommError(handle, errs, stat); err != nil {
+		return 0, &PortError{code: InvalidSerialPort, causedBy: err}
+	}
+
+	overlapped, err := createOverlappedStruct()
 	if err != nil {
 		return 0, err
 	}
-	defer syscall.CloseHandle(ev.HEvent)
+	defer syscall.CloseHandle(overlapped.HEvent)
 	var written uint32
-	err = syscall.WriteFile(port.handle, p, &written, ev)
+	err = syscall.WriteFile(handle, p, &written, overlapped)
 	if err == nil || err == syscall.ERROR_IO_PENDING || err == syscall.ERROR_OPERATION_ABORTED {
-		err = getOverlappedResult(port.handle, ev, &written, true)
+		err = getOverlappedResult(handle, overlapped, &written, true)
 		if err == nil || err == syscall.ERROR_OPERATION_ABORTED {
 			return int(written), nil
 		}
@@ -200,7 +216,7 @@ func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
 	}, nil
 }
 
-func createOverlappedEvent() (*syscall.Overlapped, error) {
+func createOverlappedStruct() (*syscall.Overlapped, error) {
 	if h, err := createEvent(nil, true, false, nil); err == nil {
 		return &syscall.Overlapped{HEvent: h}, nil
 	} else {
@@ -216,9 +232,10 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 	handle, err := syscall.CreateFile(
 		path,
 		syscall.GENERIC_READ|syscall.GENERIC_WRITE,
-		0, nil,
+		0,   // exclusive access
+		nil, // no security
 		syscall.OPEN_EXISTING,
-		syscall.FILE_FLAG_OVERLAPPED,
+		syscall.FILE_ATTRIBUTE_NORMAL|syscall.FILE_FLAG_OVERLAPPED,
 		0)
 	if err != nil {
 		switch err {
@@ -244,9 +261,9 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 	}
 
 	if err = port.reconfigurePort(); err != nil {
+		port.Close()
 		return nil, err
 	}
-
 	return port, nil
 }
 
