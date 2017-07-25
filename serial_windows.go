@@ -266,15 +266,41 @@ func (port *windowsPort) SetMode(mode *Mode) error {
 }
 
 func (port *windowsPort) SetDTR(dtr bool) error {
-	var res bool
+	// Like for RTS there are problems with the escapeCommFunction
+	// observed behaviour was that DTR is set from false -> true
+	// when setting RTS from true -> false
+	// 1) Connect 		-> RTS = true 	(low) 	DTR = true 	(low) 	OKAY
+	// 2) SetDTR(false) -> RTS = true 	(low) 	DTR = false (heigh)	OKAY
+	// 3) SetRTS(false)	-> RTS = false 	(heigh)	DTR = true 	(low) 	ERROR: DTR toggled
+	//
+	// In addition this way the CommState Flags are not updated
+	/*
+		var res bool
+		if dtr {
+			res = escapeCommFunction(port.handle, commFunctionSetDTR)
+		} else {
+			res = escapeCommFunction(port.handle, commFunctionClrDTR)
+		}
+		if !res {
+			return &PortError{}
+		}
+		return nil
+	*/
+
+	// The following seems a more reliable way to do it
+
+	params := &dcb{}
+	if err := getCommState(port.handle, params); err != nil {
+		return &PortError{causedBy: err}
+	}
+	params.Flags &= dcbDTRControlDisableMask
 	if dtr {
-		res = escapeCommFunction(port.handle, commFunctionSetDTR)
-	} else {
-		res = escapeCommFunction(port.handle, commFunctionClrDTR)
+		params.Flags |= dcbDTRControlEnable
 	}
-	if !res {
-		return &PortError{}
+	if err := setCommState(port.handle, params); err != nil {
+		return &PortError{causedBy: err}
 	}
+
 	return nil
 }
 
@@ -283,6 +309,8 @@ func (port *windowsPort) SetRTS(rts bool) error {
 	// it doesn't send USB control message when the RTS bit is
 	// changed, so the following code not always works with
 	// USB-to-serial adapters.
+	//
+	// In addition this way the CommState Flags are not updated
 
 	/*
 		var res bool
@@ -311,6 +339,34 @@ func (port *windowsPort) SetRTS(rts bool) error {
 		return &PortError{causedBy: err}
 	}
 	return nil
+}
+
+// GetRTS reads the RTS status from the control flags
+// TODO: This is not yet implemented for other OS and thus not in the Port interface
+func (port *windowsPort) GetRTS() (bool, error) {
+	params := dcb{}
+	if err := getCommState(port.handle, &params); err != nil {
+		return false, &PortError{causedBy: err}
+	}
+
+	if params.Flags&dcbRTSControlEnable != 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
+// GetDTR reads the DTR status from the control flags
+// TODO: This is not yet implemented for other OS and thus not in the Port interface
+func (port *windowsPort) GetDTR() (bool, error) {
+	params := dcb{}
+	if err := getCommState(port.handle, &params); err != nil {
+		return false, &PortError{causedBy: err}
+	}
+
+	if params.Flags&dcbDTRControlEnable != 0 {
+		return true, nil
+	}
+	return false, nil
 }
 
 func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
