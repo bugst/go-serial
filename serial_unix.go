@@ -77,6 +77,12 @@ func (port *unixPort) Read(p []byte) (int, error) {
 		if err == unix.EINTR {
 			continue
 		}
+		// Linux: when the port is disconnected during a read operation
+		// the port is left in a "readable with zero-length-data" state.
+		// https://stackoverflow.com/a/34945814/1655275
+		if n == 0 && err == nil {
+			return 0, &PortError{code: PortClosed}
+		}
 		if n < 0 { // Do not return -1 unix errors
 			n = 0
 		}
