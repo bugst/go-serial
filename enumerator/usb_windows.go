@@ -60,7 +60,7 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 //sys setupDiEnumDeviceInfo(set devicesSet, index uint32, info *devInfoData) (err error) = setupapi.SetupDiEnumDeviceInfo
 //sys setupDiGetDeviceInstanceId(set devicesSet, devInfo *devInfoData, devInstanceId unsafe.Pointer, devInstanceIdSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiGetDeviceInstanceIdW
 //sys setupDiOpenDevRegKey(set devicesSet, devInfo *devInfoData, scope dicsScope, hwProfile uint32, keyType uint32, samDesired regsam) (hkey syscall.Handle, err error) = setupapi.SetupDiOpenDevRegKey
-//sys setupDiGetDeviceRegistryProperty(set devicesSet, devInfo *devInfoData, property deviceProperty, propertyType *uint32, outValue *byte, outSize *uint32, reqSize *uint32) (res bool) = setupapi.SetupDiGetDeviceRegistryPropertyW
+//sys setupDiGetDeviceRegistryProperty(set devicesSet, devInfo *devInfoData, property deviceProperty, propertyType *uint32, outValue *byte, bufSize uint32, reqSize *uint32) (res bool) = setupapi.SetupDiGetDeviceRegistryPropertyW
 
 // Device registry property codes
 // (Codes marked as read-only (R) may only be used for
@@ -291,11 +291,15 @@ func retrievePortDetailsFromDevInfo(device *deviceInfo, details *PortDetails) er
 	}
 	parseDeviceID(deviceID, details)
 
-	var friendlyName [1024]uint16
-	friendlyNameP := (*byte)(unsafe.Pointer(&friendlyName[0]))
-	friendlyNameSize := uint32(len(friendlyName) * 2)
-	if setupDiGetDeviceRegistryProperty(device.set, &device.data, spdrpDeviceDesc /* spdrpFriendlyName */, nil, friendlyNameP, &friendlyNameSize, nil) {
-		//details.Product = syscall.UTF16ToString(friendlyName[:])
+	/*	spdrpDeviceDesc returns a generic name, e.g.: "CDC-ACM", which will be the same for 2 identical devices attached
+		while spdrpFriendlyName returns a specific name, e.g.: "CDC-ACM (COM44)",
+		the result of spdrpFriendlyName is therefore unique and suitable as an alternative string to for a port choice */
+	n := uint32(0)
+	setupDiGetDeviceRegistryProperty(device.set, &device.data, /* spdrpDeviceDesc */ spdrpFriendlyName, nil, nil, 0, &n)
+	buff := make([]uint16, n*2)
+	buffP := (*byte)(unsafe.Pointer(&buff[0]))
+	if setupDiGetDeviceRegistryProperty(device.set, &device.data, /* spdrpDeviceDesc */ spdrpFriendlyName, nil, buffP, n, &n) {
+		details.Product = syscall.UTF16ToString(buff[:])
 	}
 
 	return nil
