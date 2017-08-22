@@ -334,37 +334,53 @@ func (port *windowsPort) reconfigurePort() error {
 	return nil
 }
 
-func (port *windowsPort) SetInterbyteTimeout(t int) error {
-	if t > 0 {
-		port.timeouts.ReadIntervalTimeout = uint32(t)
-	} else {
-		port.timeouts.ReadIntervalTimeout = 0
-	}
-	return port.reconfigurePort()
-}
-
 func (port *windowsPort) SetReadTimeout(t int) error {
 	switch {
-	case t == 0:
+	case t < 0: // Block until the buffer is full.
+		port.timeouts.ReadIntervalTimeout = 0
+		port.timeouts.ReadTotalTimeoutMultiplier = 0
+		port.timeouts.ReadTotalTimeoutConstant = 0
+	case t == 0: // Return immediately with or without data.
 		port.timeouts.ReadIntervalTimeout = 0xFFFFFFFF
 		port.timeouts.ReadTotalTimeoutMultiplier = 0
 		port.timeouts.ReadTotalTimeoutConstant = 0
-	case t > 0:
-		port.timeouts.ReadTotalTimeoutMultiplier = 0
-		port.timeouts.ReadTotalTimeoutConstant = uint32(t)
-	case t < 0:
+	case t > 0: // Block until the buffer is full or timeout occurs.
 		port.timeouts.ReadIntervalTimeout = 0
 		port.timeouts.ReadTotalTimeoutMultiplier = 0
-		port.timeouts.ReadTotalTimeoutConstant = 0
+		port.timeouts.ReadTotalTimeoutConstant = uint32(t)
 	}
 	return port.reconfigurePort()
 }
 
-func (port *windowsPort) SetWriteTimeout(t int) error {
-	if t > 0 {
-		port.timeouts.WriteTotalTimeoutConstant = uint32(t)
+func (port *windowsPort) SetReadTimeoutEx(t, i uint32) error {
+	port.timeouts.ReadIntervalTimeout = i
+	port.timeouts.ReadTotalTimeoutMultiplier = 0
+	port.timeouts.ReadTotalTimeoutConstant = t
+	return port.reconfigurePort()
+}
+
+func (port *windowsPort) SetLegacyReadTimeout(t uint32) error {
+	if t > 0 && t < 0xFFFFFFFF {
+		port.timeouts.ReadIntervalTimeout = 0xFFFFFFFF
+		port.timeouts.ReadTotalTimeoutMultiplier = 0xFFFFFFFF
+		port.timeouts.ReadTotalTimeoutConstant = t
+		return port.reconfigurePort()
 	} else {
+		return &PortError{code: InvalidTimeoutValue}
+	}
+}
+
+func (port *windowsPort) SetWriteTimeout(t int) error {
+	switch {
+	case t < 0:
+		port.timeouts.WriteTotalTimeoutMultiplier = 0
 		port.timeouts.WriteTotalTimeoutConstant = 0
+	case t == 0:
+		port.timeouts.WriteTotalTimeoutMultiplier = 0
+		port.timeouts.WriteTotalTimeoutConstant = 0xFFFFFFFF
+	case t > 0:
+		port.timeouts.WriteTotalTimeoutMultiplier = 0
+		port.timeouts.WriteTotalTimeoutConstant = uint32(t)
 	}
 	return port.reconfigurePort()
 }
