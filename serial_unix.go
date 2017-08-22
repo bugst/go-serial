@@ -92,14 +92,15 @@ func (port *unixPort) Read(p []byte) (int, error) {
 }
 
 func (port *unixPort) Write(p []byte) (int, error) {
-	wlen := len(p)
-	written := 0
-
-	var deadline time.Time
-	if port.writeTimeout > 0 {
-		deadline = time.Now().Add(time.Duration(port.writeTimeout) * time.Millisecond)
+	port.closeLock.RLock()
+	defer port.closeLock.RUnlock()
+	if !port.opened {
+		return 0, &PortError{code: PortClosed}
 	}
 
+	wlen := len(p)
+	written := 0
+	deadline := time.Now().Add(time.Duration(port.writeTimeout) * time.Millisecond)
 	fds := unixutils.NewFDSet(port.handle)
 	clFds := unixutils.NewFDSet(port.closeSignal.ReadFD())
 
@@ -242,8 +243,10 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 		return nil, err
 	}
 	port := &unixPort{
-		handle: h,
-		opened: true,
+		handle:       h,
+		opened:       true,
+		readTimeout:  1000, // Backward compatible default value
+		writeTimeout: 0,
 	}
 
 	// Setup serial port

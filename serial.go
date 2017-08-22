@@ -15,22 +15,24 @@ type Port interface {
 
 	// Sets interbytes timeout
 	// Values:
-	//   x <= 0: disable interbyte timeout
-	//   x >  0: set iterbyte timeout ot x milliseconds
+	//   msec <= 0: disable interbyte timeout
+	//   msec >  0: set iterbyte timeout ot x milliseconds
 	SetInterbyteTimeout(msec int) error
 
 	// SetReadTimeout sets whole packet read timeout.
 	// Values:
-	//   x < 0: wait forever / until requested number of bytes are received.
-	//   x = 0: non-blocking mode, return immediately in any case, returning zero or more,
+	//   msec < 0: wait forever / until requested number of bytes are received.
+	//   msec = 0: non-blocking mode, return immediately in any case, returning zero or more,
 	//          up to the requested number of bytes.
 	//          NOTE: SetReadTimeout(0) for windows resets interbyte timeout to MAXDWORD
-	//   x > 0: set timeout to x milliseconds returns immediately when the requested number of bytes are available,
+	//   msec > 0: set timeout to x milliseconds, returns immediately when the requested number of bytes are available,
 	//          otherwise wait until the timeout expires and return all bytes that were received until then.
 	SetReadTimeout(msec int) error
 
 	// SetWriteTimeout set whole packet write timeout
-	// For possible values refer to the list for read timeout values above.
+	// Values:
+	//   msec <= 0: blocking mode (default).
+	//   msec > 0: set write timeout to `msec` milliseconds.
 	SetWriteTimeout(msec int) error
 
 	// Stores data received from the serial port into the provided byte array
