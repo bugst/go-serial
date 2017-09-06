@@ -33,8 +33,8 @@ var baudrateMap = map[int]uint32{
 	57600:  unix.B57600,
 	115200: unix.B115200,
 	230400: unix.B230400,
-	460800: unix.B460800,
-	921600: unix.B921600,
+	//460800: unix.B460800,
+	//921600: unix.B921600,
 }
 
 var databitsMap = map[int]uint32{
@@ -57,6 +57,6 @@ const ioctlTcgetattr = unix.TIOCGETA
 const ioctlTcsetattr = unix.TIOCSETA
 const ioctlTcflsh = unix.TIOCFLUSH
 
-func toTermiosSpeedType(speed uint32) uint32 {
-	return speed
+func toTermiosSpeedType(speed uint32) int32 {
+	return int32(speed)
 }

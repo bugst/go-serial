@@ -4,7 +4,7 @@
 // license that can be found in the LICENSE file.
 //
 
-// +build linux darwin freebsd
+// +build linux darwin freebsd openbsd
 
 package serial // import "go.bug.st/serial.v1"
 
@@ -380,8 +380,8 @@ func setTermSettingsBaudrate(speed int, settings *unix.Termios) error {
 	}
 	// set new baudrate
 	settings.Cflag |= baudrate
-	settings.Ispeed = baudrate
-	settings.Ospeed = baudrate
+	settings.Ispeed = toTermiosSpeedType(baudrate)
+	settings.Ospeed = toTermiosSpeedType(baudrate)
 	return nil
 }
 

@@ -15,11 +15,13 @@ env:
   - TEST_OS=darwin TEST_ARCH=386
   - TEST_OS=darwin TEST_ARCH=amd64
   - TEST_OS=freebsd TEST_ARCH=amd64
-  - TEST_OS=dragonfly TEST_ARCH=amd64
+  - TEST_OS=openbsd TEST_ARCH=amd64
+  - TEST_OS=openbsd TEST_ARCH=386
+  - TEST_OS=openbsd TEST_ARCH=arm
 
 matrix:
   allow_failures:
-    - env: TEST_OS=dragonfly TEST_ARCH=amd64
+    - env: TEST_OS=openbsd TEST_ARCH=arm
 
 before_install:
 
