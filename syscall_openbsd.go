@@ -6,11 +6,4 @@
 
 package serial // import "go.bug.st/serial.v1"
 
-import "golang.org/x/sys/unix"
-
-const devFolder = "/dev"
-const regexFilter = "^(cu|tty)\\..*"
-
-const ioctlTcgetattr = unix.TIOCGETA
-const ioctlTcsetattr = unix.TIOCSETA
-const ioctlTcflsh = unix.TIOCFLUSH
+//sys ioctl(fd int, req uint64, data uintptr) (err error)

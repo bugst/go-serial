@@ -152,13 +152,13 @@ func (me *C.io_registry_entry_t) GetStringProperty(key string) (string, error) {
 	}
 	defer C.CFRelease(property)
 
-	if ptr := C.CFStringGetCStringPtr(property, 0); ptr != nil {
+	if ptr := C.CFStringGetCStringPtr((C.CFStringRef)(unsafe.Pointer(property)), 0); ptr != nil {
 		return C.GoString(ptr), nil
 	}
 	// in certain circumstances CFStringGetCStringPtr may return NULL
 	// and we must retrieve the string by copy
 	buff := make([]C.char, 1024)
-	if C.CFStringGetCString(property, &buff[0], 1024, 0) != C.true {
+	if C.CFStringGetCString((C.CFStringRef)(property), &buff[0], 1024, 0) != C.true {
 		return "", fmt.Errorf("Property '%s' can't be converted", key)
 	}
 	return C.GoString(&buff[0]), nil
@@ -173,7 +173,7 @@ func (me *C.io_registry_entry_t) GetIntProperty(key string, intType C.CFNumberTy
 	}
 	defer C.CFRelease(property)
 	var res int
-	if C.CFNumberGetValue(property, intType, unsafe.Pointer(&res)) != C.true {
+	if C.CFNumberGetValue((C.CFNumberRef)(property), intType, unsafe.Pointer(&res)) != C.true {
 		return res, fmt.Errorf("Property '%s' can't be converted or has been truncated", key)
 	}
 	return res, nil

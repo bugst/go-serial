@@ -11,6 +11,31 @@ import (
 
 var _ unsafe.Pointer
 
+// Do the interface allocations only once for common
+// Errno values.
+const (
+	errnoERROR_IO_PENDING = 997
+)
+
+var (
+	errERROR_IO_PENDING error = syscall.Errno(errnoERROR_IO_PENDING)
+)
+
+// errnoErr returns common boxed Errno values, to prevent
+// allocations at runtime.
+func errnoErr(e syscall.Errno) error {
+	switch e {
+	case 0:
+		return nil
+	case errnoERROR_IO_PENDING:
+		return errERROR_IO_PENDING
+	}
+	// TODO: add more here, after collecting data on the common
+	// error values see on Windows. (perhaps when running
+	// all.bat?)
+	return e
+}
+
 var (
 	modadvapi32 = windows.NewLazySystemDLL("advapi32.dll")
 	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
@@ -24,6 +49,7 @@ var (
 	procCreateEventW        = modkernel32.NewProc("CreateEventW")
 	procResetEvent          = modkernel32.NewProc("ResetEvent")
 	procGetOverlappedResult = modkernel32.NewProc("GetOverlappedResult")
+	procPurgeComm           = modkernel32.NewProc("PurgeComm")
 )
 
 func regEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint32, reserved *uint32, class *uint16, value *uint16, valueLen *uint32) (regerrno error) {
@@ -38,7 +64,7 @@ func getCommState(handle syscall.Handle, dcb *dcb) (err error) {
 	r1, _, e1 := syscall.Syscall(procGetCommState.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(dcb)), 0)
 	if r1 == 0 {
 		if e1 != 0 {
-			err = error(e1)
+			err = errnoErr(e1)
 		} else {
 			err = syscall.EINVAL
 		}
@@ -50,7 +76,7 @@ func setCommState(handle syscall.Handle, dcb *dcb) (err error) {
 	r1, _, e1 := syscall.Syscall(procSetCommState.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(dcb)), 0)
 	if r1 == 0 {
 		if e1 != 0 {
-			err = error(e1)
+			err = errnoErr(e1)
 		} else {
 			err = syscall.EINVAL
 		}
@@ -62,7 +88,7 @@ func setCommTimeouts(handle syscall.Handle, timeouts *commTimeouts) (err error) 
 	r1, _, e1 := syscall.Syscall(procSetCommTimeouts.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(timeouts)), 0)
 	if r1 == 0 {
 		if e1 != 0 {
-			err = error(e1)
+			err = errnoErr(e1)
 		} else {
 			err = syscall.EINVAL
 		}
@@ -99,7 +125,7 @@ func createEvent(eventAttributes *uint32, manualReset bool, initialState bool, n
 	handle = syscall.Handle(r0)
 	if handle == 0 {
 		if e1 != 0 {
-			err = error(e1)
+			err = errnoErr(e1)
 		} else {
 			err = syscall.EINVAL
 		}
@@ -111,7 +137,7 @@ func resetEvent(handle syscall.Handle) (err error) {
 	r1, _, e1 := syscall.Syscall(procResetEvent.Addr(), 1, uintptr(handle), 0, 0)
 	if r1 == 0 {
 		if e1 != 0 {
-			err = error(e1)
+			err = errnoErr(e1)
 		} else {
 			err = syscall.EINVAL
 		}
@@ -129,7 +155,19 @@ func getOverlappedResult(handle syscall.Handle, overlapEvent *syscall.Overlapped
 	r1, _, e1 := syscall.Syscall6(procGetOverlappedResult.Addr(), 4, uintptr(handle), uintptr(unsafe.Pointer(overlapEvent)), uintptr(unsafe.Pointer(n)), uintptr(_p0), 0, 0)
 	if r1 == 0 {
 		if e1 != 0 {
-			err = error(e1)
+			err = errnoErr(e1)
+		} else {
+			err = syscall.EINVAL
+		}
+	}
+	return
+}
+
+func purgeComm(handle syscall.Handle, flags uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procPurgeComm.Addr(), 2, uintptr(handle), uintptr(flags), 0)
+	if r1 == 0 {
+		if e1 != 0 {
+			err = errnoErr(e1)
 		} else {
 			err = syscall.EINVAL
 		}

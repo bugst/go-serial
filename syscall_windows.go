@@ -23,3 +23,6 @@ package serial // import "go.bug.st/serial.v1"
 //sys resetEvent(handle syscall.Handle) (err error) = ResetEvent
 
 //sys getOverlappedResult(handle syscall.Handle, overlapEvent *syscall.Overlapped, n *uint32, wait bool) (err error) = GetOverlappedResult
+
+//sys purgeComm(handle syscall.Handle, flags uint32) (err error) = PurgeComm
+

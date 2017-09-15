@@ -6,7 +6,7 @@
 
 package serial // import "go.bug.st/serial.v1"
 
-//go:generate go run extras/mksyscall_windows.go -output zsyscall_windows.go syscall_windows.go
+//go:generate go run $GOROOT/src/syscall/mksyscall_windows.go -output zsyscall_windows.go syscall_windows.go
 
 // Port is the interface for a serial Port
 type Port interface {
@@ -23,6 +23,12 @@ type Port interface {
 	// Send the content of the data byte array to the serial port.
 	// Returns the number of bytes written.
 	Write(p []byte) (n int, err error)
+
+	// ResetInputBuffer Purges port read buffer
+	ResetInputBuffer() error
+
+	// ResetOutputBuffer Purges port write buffer
+	ResetOutputBuffer() error
 
 	// SetDTR sets the modem status bit DataTerminalReady
 	SetDTR(dtr bool) error
