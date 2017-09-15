@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"unsafe"
 
@@ -24,16 +25,18 @@ type unixPort struct {
 
 	closeLock   sync.RWMutex
 	closeSignal *unixutils.Pipe
-	opened      bool
+	opened      uint32
 }
 
 func (port *unixPort) Close() error {
+	if !atomic.CompareAndSwapUint32(&port.opened, 1, 0) {
+		return &PortError{code: PortClosed}
+	}
 	// Close port
 	port.releaseExclusiveAccess()
 	if err := syscall.Close(port.handle); err != nil {
 		return err
 	}
-	port.opened = false
 
 	if port.closeSignal != nil {
 		// Send close signal to all pending reads (if any)
@@ -54,7 +57,7 @@ func (port *unixPort) Close() error {
 func (port *unixPort) Read(p []byte) (n int, err error) {
 	port.closeLock.RLock()
 	defer port.closeLock.RUnlock()
-	if !port.opened {
+	if atomic.LoadUint32(&port.opened) != 1 {
 		return 0, &PortError{code: PortClosed}
 	}
 
@@ -145,7 +148,7 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	}
 	port := &unixPort{
 		handle: h,
-		opened: true,
+		opened: 1,
 	}
 
 	// Setup serial port
