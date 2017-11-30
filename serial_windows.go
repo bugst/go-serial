@@ -17,9 +17,13 @@ package serial
 
 */
 
-import ("syscall")
+import (
+	"syscall"
+	"sync"
+)
 
 type windowsPort struct {
+	mu sync.Mutex
 	handle syscall.Handle
 }
 
@@ -58,8 +62,10 @@ func nativeGetPortsList() ([]string, error) {
 }
 
 func (port *windowsPort) Close() error {
+	port.mu.Lock()
 	defer func() {
 		port.handle = 0
+		port.mu.Unlock()
 	}()
 	if port.handle == 0 {
 		return nil
