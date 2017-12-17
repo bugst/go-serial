@@ -24,9 +24,9 @@ import (
 type unixPort struct {
 	handle int
 
-	legacyTimeout bool
-	readTimeout   int
-	writeTimeout  int
+	firstByteTimeout bool
+	readTimeout      int
+	writeTimeout     int
 
 	closeLock   sync.RWMutex
 	closeSignal *unixutils.Pipe
@@ -94,7 +94,7 @@ func (port *unixPort) Read(p []byte) (int, error) {
 		read += n
 
 		now = time.Now()
-		if !now.Before(deadline) || port.legacyTimeout {
+		if !now.Before(deadline) || port.firstByteTimeout {
 			break
 		}
 	}
@@ -196,7 +196,7 @@ func (port *unixPort) SetRTS(rts bool) error {
 }
 
 func (port *unixPort) SetReadTimeout(t int) error {
-	port.legacyTimeout = false
+	port.firstByteTimeout = false
 	port.readTimeout = t
 	return nil // timeout is done via select
 }
@@ -208,7 +208,7 @@ func (port *unixPort) SetReadTimeoutEx(t, i uint32) error {
 		return &PortError{code: PortClosed}
 	}
 
-	port.legacyTimeout = false
+	port.firstByteTimeout = false
 	port.readTimeout = int(t)
 	settings, err := port.getTermSettings()
 	if err != nil {
@@ -220,9 +220,9 @@ func (port *unixPort) SetReadTimeoutEx(t, i uint32) error {
 	return port.setTermSettings(settings)
 }
 
-func (port *unixPort) SetLegacyReadTimeout(t uint32) error {
+func (port *unixPort) SetFirstByteReadTimeout(t uint32) error {
 	if t > 0 && t < 0xFFFFFFFF {
-		port.legacyTimeout = true
+		port.firstByteTimeout = true
 		port.readTimeout = int(t)
 		return nil
 	} else {
@@ -263,9 +263,9 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 		handle: h,
 		opened: true,
 
-		legacyTimeout: true,
-		readTimeout:   1000, // Backward compatible default value
-		writeTimeout:  0,
+		firstByteTimeout: true,
+		readTimeout:      1000, // Backward compatible default value
+		writeTimeout:     0,
 	}
 
 	// Setup serial port

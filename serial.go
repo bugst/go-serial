@@ -38,7 +38,7 @@ type Port interface {
 	// If no bytes arrive within the time specified by ReadTotalTimeoutConstant, ReadFile times out.
 	//
 	// Use it to configure read timeout in legacy manner. (Legacy for this library).
-	SetLegacyReadTimeout(t uint32) error
+	SetFirstByteReadTimeout(t uint32) error
 
 	// SetWriteTimeout set whole packet write timeout
 	// Values:

@@ -387,7 +387,7 @@ func (port *windowsPort) SetReadTimeoutEx(t, i uint32) error {
 	return port.reconfigurePort()
 }
 
-func (port *windowsPort) SetLegacyReadTimeout(t uint32) error {
+func (port *windowsPort) SetFirstByteReadTimeout(t uint32) error {
 	if t > 0 && t < 0xFFFFFFFF {
 		port.timeouts.ReadIntervalTimeout = 0xFFFFFFFF
 		port.timeouts.ReadTotalTimeoutMultiplier = 0xFFFFFFFF
