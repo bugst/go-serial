@@ -195,23 +195,6 @@ func (port *unixPort) SetRTS(rts bool) error {
 	return port.setModemBitsStatus(status)
 }
 
-func (port *unixPort) SetInterbyteTimeout(timeout int) error {
-	port.closeLock.RLock()
-	defer port.closeLock.RUnlock()
-	if !port.opened {
-		return &PortError{code: PortClosed}
-	}
-
-	settings, err := port.getTermSettings()
-	if err != nil {
-		return err
-	}
-	if err := setTermSettingsInterbyteTimeout(timeout, settings); err != nil {
-		return err
-	}
-	return port.setTermSettings(settings)
-}
-
 func (port *unixPort) SetReadTimeout(t int) error {
 	port.legacyTimeout = false
 	port.readTimeout = t
