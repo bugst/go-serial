@@ -8,7 +8,7 @@
 
 package enumerator // import "go.bug.st/serial.v1/enumerator"
 
-// #cgo LDFLAGS: -framework CoreFoundation -framework IOKit -fconstant-cfstrings
+// #cgo LDFLAGS: -framework CoreFoundation -framework IOKit
 // #include <IOKit/IOKitLib.h>
 // #include <CoreFoundation/CoreFoundation.h>
 // #include <stdlib.h>
