@@ -131,6 +131,12 @@ func (ref C.CFStringRef) Release() {
 	C.CFRelease(C.CFTypeRef(ref))
 }
 
+// CFTypeRef
+
+func (ref C.CFTypeRef) Release() {
+	C.CFRelease(ref)
+}
+
 // io_registry_entry_t
 
 func (me *C.io_registry_entry_t) GetParent(plane string) (C.io_registry_entry_t, error) {
@@ -151,7 +157,7 @@ func (me *C.io_registry_entry_t) GetStringProperty(key string) (string, error) {
 	if property == 0 {
 		return "", errors.New("Property not found: " + key)
 	}
-	defer C.CFRelease(property)
+	defer property.Release()
 
 	if ptr := C.CFStringGetCStringPtr(C.CFStringRef(property), 0); ptr != nil {
 		return C.GoString(ptr), nil
@@ -172,7 +178,7 @@ func (me *C.io_registry_entry_t) GetIntProperty(key string, intType C.CFNumberTy
 	if property == 0 {
 		return 0, errors.New("Property not found: " + key)
 	}
-	defer C.CFRelease(property)
+	defer property.Release()
 	var res int
 	if C.CFNumberGetValue((C.CFNumberRef)(property), intType, unsafe.Pointer(&res)) != C.true {
 		return res, fmt.Errorf("Property '%s' can't be converted or has been truncated", key)
