@@ -151,12 +151,20 @@ func (me *C.io_registry_entry_t) GetParent(plane string) (C.io_registry_entry_t,
 	return parent, nil
 }
 
-func (me *C.io_registry_entry_t) GetStringProperty(key string) (string, error) {
+func (me *C.io_registry_entry_t) CreateCFProperty(key string) (C.CFTypeRef, error) {
 	k := cfStringCreateWithString(key)
 	defer k.Release()
 	property := C.IORegistryEntryCreateCFProperty(*me, k, C.kCFAllocatorDefault, 0)
 	if property == 0 {
-		return "", errors.New("Property not found: " + key)
+		return 0, errors.New("Property not found: " + key)
+	}
+	return property, nil
+}
+
+func (me *C.io_registry_entry_t) GetStringProperty(key string) (string, error) {
+	property, err := me.CreateCFProperty(key)
+	if err != nil {
+		return "", err
 	}
 	defer property.Release()
 
@@ -173,11 +181,9 @@ func (me *C.io_registry_entry_t) GetStringProperty(key string) (string, error) {
 }
 
 func (me *C.io_registry_entry_t) GetIntProperty(key string, intType C.CFNumberType) (int, error) {
-	k := cfStringCreateWithString(key)
-	defer k.Release()
-	property := C.IORegistryEntryCreateCFProperty(*me, k, C.kCFAllocatorDefault, 0)
-	if property == 0 {
-		return 0, errors.New("Property not found: " + key)
+	property, err := me.CreateCFProperty(key)
+	if err != nil {
+		return 0, err
 	}
 	defer property.Release()
 	var res int
