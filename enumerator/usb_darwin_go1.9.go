@@ -4,11 +4,24 @@
 // license that can be found in the LICENSE file.
 //
 
-// +build go1.10
+// +build !go1.10,darwin
+
+// This file is here to keep compatibility with the older versions of go
+// and is no more maintained or bugfixed, please update your go version
+// to at least 1.10 to get the latest updates.
+
+// Supported versions on MacOSX
+// - any go version earlier than 1.8
+// - go1.8.x series from 1.8.0 to 1.8.6
+// - go1.9.x series from 1.9.0 to 1.9.3
+
+// Versions NOT supported on MacOSX
+// - go1.8.x series starting from 1.8.7
+// - go1.9.x series starting from 1.9.4
 
 package enumerator // import "go.bug.st/serial.v1/enumerator"
 
-// #cgo LDFLAGS: -framework CoreFoundation -framework IOKit
+// #cgo LDFLAGS: -framework CoreFoundation -framework IOKit -fconstant-cfstrings
 // #include <IOKit/IOKitLib.h>
 // #include <CoreFoundation/CoreFoundation.h>
 // #include <stdlib.h>
@@ -48,13 +61,12 @@ func extractPortInfo(service C.io_registry_entry_t) (*PortDetails, error) {
 	port.IsUSB = false
 
 	usbDevice := service
-	var searchErr error
 	for usbDevice.GetClass() != "IOUSBDevice" {
-		if usbDevice, searchErr = usbDevice.GetParent("IOService"); searchErr != nil {
+		if usbDevice, err = usbDevice.GetParent("IOService"); err != nil {
 			break
 		}
 	}
-	if searchErr == nil {
+	if err == nil {
 		// It's an IOUSBDevice
 		vid, _ := usbDevice.GetIntProperty("idVendor", C.kCFNumberSInt16Type)
 		pid, _ := usbDevice.GetIntProperty("idProduct", C.kCFNumberSInt16Type)
@@ -128,16 +140,6 @@ func cfStringCreateWithString(s string) C.CFStringRef {
 		C.kCFAllocatorDefault, c, C.kCFStringEncodingMacRoman)
 }
 
-func (ref C.CFStringRef) Release() {
-	C.CFRelease(C.CFTypeRef(ref))
-}
-
-// CFTypeRef
-
-func (ref C.CFTypeRef) Release() {
-	C.CFRelease(ref)
-}
-
 // io_registry_entry_t
 
 func (me *C.io_registry_entry_t) GetParent(plane string) (C.io_registry_entry_t, error) {
@@ -151,41 +153,40 @@ func (me *C.io_registry_entry_t) GetParent(plane string) (C.io_registry_entry_t,
 	return parent, nil
 }
 
-func (me *C.io_registry_entry_t) CreateCFProperty(key string) (C.CFTypeRef, error) {
-	k := cfStringCreateWithString(key)
-	defer k.Release()
-	property := C.IORegistryEntryCreateCFProperty(*me, k, C.kCFAllocatorDefault, 0)
-	if property == 0 {
-		return 0, errors.New("Property not found: " + key)
-	}
-	return property, nil
+func (me *C.io_registry_entry_t) GetClass() string {
+	obj := (*C.io_object_t)(me)
+	return obj.GetClass()
 }
 
 func (me *C.io_registry_entry_t) GetStringProperty(key string) (string, error) {
-	property, err := me.CreateCFProperty(key)
-	if err != nil {
-		return "", err
+	k := cfStringCreateWithString(key)
+	defer C.CFRelease(C.CFTypeRef(k))
+	property := C.IORegistryEntryCreateCFProperty(*me, k, C.kCFAllocatorDefault, 0)
+	if property == nil {
+		return "", errors.New("Property not found: " + key)
 	}
-	defer property.Release()
+	defer C.CFRelease(property)
 
-	if ptr := C.CFStringGetCStringPtr(C.CFStringRef(property), 0); ptr != nil {
+	if ptr := C.CFStringGetCStringPtr((C.CFStringRef)(unsafe.Pointer(property)), 0); ptr != nil {
 		return C.GoString(ptr), nil
 	}
 	// in certain circumstances CFStringGetCStringPtr may return NULL
 	// and we must retrieve the string by copy
 	buff := make([]C.char, 1024)
-	if C.CFStringGetCString(C.CFStringRef(property), &buff[0], 1024, 0) != C.true {
+	if C.CFStringGetCString((C.CFStringRef)(property), &buff[0], 1024, 0) != C.true {
 		return "", fmt.Errorf("Property '%s' can't be converted", key)
 	}
 	return C.GoString(&buff[0]), nil
 }
 
 func (me *C.io_registry_entry_t) GetIntProperty(key string, intType C.CFNumberType) (int, error) {
-	property, err := me.CreateCFProperty(key)
-	if err != nil {
-		return 0, err
+	k := cfStringCreateWithString(key)
+	defer C.CFRelease(C.CFTypeRef(k))
+	property := C.IORegistryEntryCreateCFProperty(*me, k, C.kCFAllocatorDefault, 0)
+	if property == nil {
+		return 0, errors.New("Property not found: " + key)
 	}
-	defer property.Release()
+	defer C.CFRelease(property)
 	var res int
 	if C.CFNumberGetValue((C.CFNumberRef)(property), intType, unsafe.Pointer(&res)) != C.true {
 		return res, fmt.Errorf("Property '%s' can't be converted or has been truncated", key)
@@ -211,6 +212,10 @@ func (me *C.io_iterator_t) Reset() {
 func (me *C.io_iterator_t) Next() (C.io_object_t, bool) {
 	res := C.IOIteratorNext(*me)
 	return res, res != 0
+}
+
+func (me *C.io_iterator_t) Release() {
+	C.IOObjectRelease(C.io_object_t(*me))
 }
 
 // io_object_t
