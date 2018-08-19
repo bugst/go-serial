@@ -9,10 +9,6 @@ go:
   - 1.8.x
   - 1.9.x
   - 1.10.x
-  # from go 1.8.7, 1.9.4, 1.10rc2 there is a restriction on CGO see https://github.com/bugst/go-serial/issues/50
-  # this restriction has some consequences on darwin build
-  - 1.8.6
-  - 1.9.3
 
 go_import_path: go.bug.st/serial.v1
 
@@ -31,14 +27,6 @@ env:
 
 matrix:
   exclude:
-  - os: linux # no point in testing go1.8.6 on Linux
-    go: 1.8.6
-  - os: linux # no point in testing go1.9.3 on Linux
-    go: 1.9.3
-  - os: osx   # go1.8.x after 1.8.6 is not supported on OSX
-    go: 1.8.x
-  - os: osx   # go1.9.x after 1.9.3 is not supported on OSX
-    go: 1.9.x
   - os: linux
     env: TEST_OS=darwin TEST_ARCH=386
   - os: linux

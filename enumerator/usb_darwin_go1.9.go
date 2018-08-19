@@ -10,18 +10,9 @@
 // and is no more maintained or bugfixed, please update your go version
 // to at least 1.10 to get the latest updates.
 
-// Supported versions on MacOSX
-// - any go version earlier than 1.8
-// - go1.8.x series from 1.8.0 to 1.8.6
-// - go1.9.x series from 1.9.0 to 1.9.3
-
-// Versions NOT supported on MacOSX
-// - go1.8.x series starting from 1.8.7
-// - go1.9.x series starting from 1.9.4
-
 package enumerator // import "go.bug.st/serial.v1/enumerator"
 
-// #cgo LDFLAGS: -framework CoreFoundation -framework IOKit -fconstant-cfstrings
+// #cgo LDFLAGS: -framework CoreFoundation -framework IOKit
 // #include <IOKit/IOKitLib.h>
 // #include <CoreFoundation/CoreFoundation.h>
 // #include <stdlib.h>
