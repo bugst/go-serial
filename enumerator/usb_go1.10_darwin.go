@@ -165,7 +165,7 @@ func (me *C.io_registry_entry_t) GetStringProperty(key string) (string, error) {
 	// in certain circumstances CFStringGetCStringPtr may return NULL
 	// and we must retrieve the string by copy
 	buff := make([]C.char, 1024)
-	if C.CFStringGetCString((C.CFStringRef)(property), &buff[0], 1024, 0) != C.true {
+	if C.CFStringGetCString(C.CFStringRef(property), &buff[0], 1024, 0) != C.true {
 		return "", fmt.Errorf("Property '%s' can't be converted", key)
 	}
 	return C.GoString(&buff[0]), nil
