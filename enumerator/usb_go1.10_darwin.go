@@ -48,12 +48,13 @@ func extractPortInfo(service C.io_registry_entry_t) (*PortDetails, error) {
 	port.IsUSB = false
 
 	usbDevice := service
+	var searchErr error
 	for usbDevice.GetClass() != "IOUSBDevice" {
-		if usbDevice, err = usbDevice.GetParent("IOService"); err != nil {
+		if usbDevice, searchErr = usbDevice.GetParent("IOService"); searchErr != nil {
 			break
 		}
 	}
-	if err == nil {
+	if searchErr == nil {
 		// It's an IOUSBDevice
 		vid, _ := usbDevice.GetIntProperty("idVendor", C.kCFNumberSInt16Type)
 		pid, _ := usbDevice.GetIntProperty("idProduct", C.kCFNumberSInt16Type)
