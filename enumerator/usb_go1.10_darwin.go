@@ -140,11 +140,6 @@ func (me *C.io_registry_entry_t) GetParent(plane string) (C.io_registry_entry_t,
 	return parent, nil
 }
 
-func (me *C.io_registry_entry_t) GetClass() string {
-	obj := (*C.io_object_t)(me)
-	return obj.GetClass()
-}
-
 func (me *C.io_registry_entry_t) GetStringProperty(key string) (string, error) {
 	k := cfStringCreateWithString(key)
 	defer C.CFRelease(C.CFTypeRef(k))
@@ -199,10 +194,6 @@ func (me *C.io_iterator_t) Reset() {
 func (me *C.io_iterator_t) Next() (C.io_object_t, bool) {
 	res := C.IOIteratorNext(*me)
 	return res, res != 0
-}
-
-func (me *C.io_iterator_t) Release() {
-	C.IOObjectRelease(C.io_object_t(*me))
 }
 
 // io_object_t
