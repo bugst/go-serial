@@ -127,6 +127,10 @@ func cfStringCreateWithString(s string) C.CFStringRef {
 		C.kCFAllocatorDefault, c, C.kCFStringEncodingMacRoman)
 }
 
+func (ref C.CFStringRef) Release() {
+	C.CFRelease(C.CFTypeRef(ref))
+}
+
 // io_registry_entry_t
 
 func (me *C.io_registry_entry_t) GetParent(plane string) (C.io_registry_entry_t, error) {
@@ -142,7 +146,7 @@ func (me *C.io_registry_entry_t) GetParent(plane string) (C.io_registry_entry_t,
 
 func (me *C.io_registry_entry_t) GetStringProperty(key string) (string, error) {
 	k := cfStringCreateWithString(key)
-	defer C.CFRelease(C.CFTypeRef(k))
+	defer k.Release()
 	property := C.IORegistryEntryCreateCFProperty(*me, k, C.kCFAllocatorDefault, 0)
 	if property == 0 {
 		return "", errors.New("Property not found: " + key)
@@ -163,7 +167,7 @@ func (me *C.io_registry_entry_t) GetStringProperty(key string) (string, error) {
 
 func (me *C.io_registry_entry_t) GetIntProperty(key string, intType C.CFNumberType) (int, error) {
 	k := cfStringCreateWithString(key)
-	defer C.CFRelease(C.CFTypeRef(k))
+	defer k.Release()
 	property := C.IORegistryEntryCreateCFProperty(*me, k, C.kCFAllocatorDefault, 0)
 	if property == 0 {
 		return 0, errors.New("Property not found: " + key)
