@@ -144,12 +144,12 @@ func (me *C.io_registry_entry_t) GetStringProperty(key string) (string, error) {
 	k := cfStringCreateWithString(key)
 	defer C.CFRelease(C.CFTypeRef(k))
 	property := C.IORegistryEntryCreateCFProperty(*me, k, C.kCFAllocatorDefault, 0)
-	if property == nil {
+	if property == 0 {
 		return "", errors.New("Property not found: " + key)
 	}
 	defer C.CFRelease(property)
 
-	if ptr := C.CFStringGetCStringPtr((C.CFStringRef)(unsafe.Pointer(property)), 0); ptr != nil {
+	if ptr := C.CFStringGetCStringPtr(C.CFStringRef(property), 0); ptr != nil {
 		return C.GoString(ptr), nil
 	}
 	// in certain circumstances CFStringGetCStringPtr may return NULL
@@ -165,7 +165,7 @@ func (me *C.io_registry_entry_t) GetIntProperty(key string, intType C.CFNumberTy
 	k := cfStringCreateWithString(key)
 	defer C.CFRelease(C.CFTypeRef(k))
 	property := C.IORegistryEntryCreateCFProperty(*me, k, C.kCFAllocatorDefault, 0)
-	if property == nil {
+	if property == 0 {
 		return 0, errors.New("Property not found: " + key)
 	}
 	defer C.CFRelease(property)
