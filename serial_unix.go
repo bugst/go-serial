@@ -74,12 +74,19 @@ func (port *unixPort) Read(p []byte) (int, error) {
 		if err == unix.EINTR {
 			continue
 		}
+		if n < 0 { // Do not return -1 unix errors
+			n = 0
+		}
 		return n, err
 	}
 }
 
 func (port *unixPort) Write(p []byte) (n int, err error) {
-	return unix.Write(port.handle, p)
+	n, err = unix.Write(port.handle, p)
+	if n < 0 { // Do not return -1 unix errors
+		n = 0
+	}
+	return
 }
 
 func (port *unixPort) ResetInputBuffer() error {
