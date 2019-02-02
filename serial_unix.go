@@ -67,11 +67,19 @@ func (port *unixPort) Read(p []byte) (n int, err error) {
 	if res.IsReadable(port.closeSignal.ReadFD()) {
 		return 0, &PortError{code: PortClosed}
 	}
-	return unix.Read(port.handle, p)
+	n, err = unix.Read(port.handle, p)
+	if n < 0 {
+		n = 0
+	}
+	return
 }
 
 func (port *unixPort) Write(p []byte) (n int, err error) {
-	return unix.Write(port.handle, p)
+	n, err = unix.Write(port.handle, p)
+	if n < 0 {
+		n = 0
+	}
+	return
 }
 
 func (port *unixPort) ResetInputBuffer() error {
