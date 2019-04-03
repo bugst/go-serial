@@ -23,40 +23,67 @@ import (
 type unixPort struct {
 	handle int
 
-	closeLock   sync.RWMutex
+	readLock    sync.Mutex
+	closeLock   sync.Mutex
 	closeSignal *unixutils.Pipe
-	opened      bool
+	isClosed    bool
 }
 
 func (port *unixPort) Close() error {
-	// Close port
+	if err := port.closeFD(); err != nil {
+		return err
+	}
+	_ = port.sendCloseSignal()
+	return nil
+}
+
+func (port *unixPort) closeFD() error {
+	port.closeLock.Lock()
+	defer port.closeLock.Unlock()
+
+	if port.isClosed {
+		return &PortError{code: PortClosed}
+	}
+
 	_ = port.releaseExclusiveAccess()
 	if err := unix.Close(port.handle); err != nil {
 		return err
 	}
-	port.opened = false
 
-	if port.closeSignal != nil {
-		// Send close signal to all pending reads (if any)
-		_, _ = port.closeSignal.Write([]byte{0})
-
-		// Wait for all readers to complete
-		port.closeLock.Lock()
-		defer port.closeLock.Unlock()
-
-		// Close signaling pipe
-		if err := port.closeSignal.Close(); err != nil {
-			return err
-		}
-	}
+	port.isClosed = true
 	return nil
 }
 
-func (port *unixPort) Read(p []byte) (n int, err error) {
-	port.closeLock.RLock()
-	defer port.closeLock.RUnlock()
+func (port *unixPort) checkClosed() bool {
+	port.closeLock.Lock()
+	defer port.closeLock.Unlock()
 
-	if !port.opened {
+	return port.isClosed
+}
+
+func (port *unixPort) sendCloseSignal() error {
+	if port.closeSignal == nil {
+		return nil
+	}
+
+	// Send close signal to pending read (if there is one)
+	if _, err := port.closeSignal.Write([]byte{0}); err != nil {
+		return err
+	}
+
+	// Wait for reader to complete
+	port.readLock.Lock()
+	port.readLock.Unlock()
+
+	// Close signaling pipe
+	return port.closeSignal.Close()
+}
+
+func (port *unixPort) Read(p []byte) (n int, err error) {
+	port.readLock.Lock()
+	defer port.readLock.Unlock()
+
+	if port.checkClosed() {
 		return 0, &PortError{code: PortClosed}
 	}
 
@@ -163,7 +190,6 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	}
 	port := &unixPort{
 		handle: h,
-		opened: true,
 	}
 
 	// Setup serial port
