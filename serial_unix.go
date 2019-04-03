@@ -30,7 +30,7 @@ type unixPort struct {
 
 func (port *unixPort) Close() error {
 	// Close port
-	port.releaseExclusiveAccess()
+	_ = port.releaseExclusiveAccess()
 	if err := unix.Close(port.handle); err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func (port *unixPort) Close() error {
 
 	if port.closeSignal != nil {
 		// Send close signal to all pending reads (if any)
-		port.closeSignal.Write([]byte{0})
+		_, _ = port.closeSignal.Write([]byte{0})
 
 		// Wait for all readers to complete
 		port.closeLock.Lock()
@@ -55,6 +55,7 @@ func (port *unixPort) Close() error {
 func (port *unixPort) Read(p []byte) (n int, err error) {
 	port.closeLock.RLock()
 	defer port.closeLock.RUnlock()
+
 	if !port.opened {
 		return 0, &PortError{code: PortClosed}
 	}
@@ -188,9 +189,9 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 		return nil, &PortError{code: InvalidSerialPort}
 	}
 
-	unix.SetNonblock(h, false)
+	_ = unix.SetNonblock(h, false)
 
-	port.acquireExclusiveAccess()
+	_ = port.acquireExclusiveAccess()
 
 	// This pipe is used as a signal to cancel blocking Read
 	pipe := &unixutils.Pipe{}
@@ -201,6 +202,21 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	port.closeSignal = pipe
 
 	return port, nil
+}
+
+func isIODevice(portName string) bool {
+	fd, err := unix.Open(portName, unix.O_RDWR|unix.O_NOCTTY|unix.O_NDELAY, 0)
+	if err != nil {
+		return false
+	}
+	defer unix.Close(fd)
+
+	settings := &unix.Termios{}
+	if err := ioctl(fd, ioctlTcgetattr, uintptr(unsafe.Pointer(settings))); err != nil {
+		return false
+	}
+
+	return true
 }
 
 func nativeGetPortsList() ([]string, error) {
@@ -229,14 +245,8 @@ func nativeGetPortsList() ([]string, error) {
 
 		// Check if serial port is real or is a placeholder serial port "ttySxx"
 		if strings.HasPrefix(f.Name(), "ttyS") {
-			port, err := nativeOpen(portName, &Mode{})
-			if err != nil {
-				serr, ok := err.(*PortError)
-				if ok && serr.Code() == InvalidSerialPort {
-					continue
-				}
-			} else {
-				port.Close()
+			if !isIODevice(portName) {
+				continue
 			}
 		}
 
