@@ -6,7 +6,7 @@
 
 // +build linux darwin freebsd openbsd
 
-package serial // import "go.bug.st/serial.v1"
+package serial
 
 import (
 	"io/ioutil"
@@ -16,8 +16,7 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/unix"
-
-	"go.bug.st/serial.v1/unixutils"
+	"go.bug.st/serial/unixutils"
 )
 
 type unixPort struct {

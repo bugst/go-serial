@@ -8,7 +8,7 @@
 //   mksyscall.pl serial_openbsd.go
 // The generated stub is modified to make it compile under the "serial" package
 
-package serial // import "go.bug.st/serial.v1"
+package serial
 
 import "syscall"
 

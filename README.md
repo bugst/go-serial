@@ -1,22 +1,22 @@
 [![Build Status](https://travis-ci.org/bugst/go-serial.svg?branch=v1)](https://travis-ci.org/bugst/go-serial)
 
-# go.bug.st/serial.v1
+# go.bug.st/serial
 
 A cross-platform serial library for go-lang.
 
 ## Documentation and examples
 
-See the godoc here: https://godoc.org/go.bug.st/serial.v1
+See the godoc here: https://godoc.org/go.bug.st/serial
 
 ## Development
 
-If you want to contribute to the development of this library, you must clone this git repository directly into your `src` folder under `src/go.bug.st/serial.v1` and checkout the branch `v1`.
+If you want to contribute to the development of this library, you must clone this git repository directly into your `src` folder under `src/go.bug.st/serial` and checkout the branch `v1`.
 
 ```
 cd $GOPATH
 mkdir -p src/go.bug.st/
-git clone https://github.com/bugst/go-serial.git -b v1 src/go.bug.st/serial.v1
-go test go.bug.st/serial.v1
+git clone https://github.com/bugst/go-serial.git -b v1 src/go.bug.st/serial
+go test go.bug.st/serial
 ```
 
 ## What's new in v1
@@ -32,4 +32,3 @@ https://github.com/bugst/go-serial/pull/5/files
 The software is release under a BSD 3-clause license
 
 https://github.com/bugst/go-serial/blob/v1/LICENSE
-

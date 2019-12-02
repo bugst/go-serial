@@ -8,7 +8,7 @@ package serial_test
 
 import "fmt"
 import "log"
-import "go.bug.st/serial.v1"
+import "go.bug.st/serial"
 
 // This example prints the list of serial ports and use the first one
 // to send a string "10,20,30" and prints the response on the screen.

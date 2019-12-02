@@ -18,4 +18,4 @@ required in order to access the IOKit Framework. This means that the library
 cannot be easily cross compiled for GOOS=darwing targets.
 
 */
-package enumerator // import "go.bug.st/serial.v1/enumerator"
+package enumerator

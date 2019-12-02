@@ -10,7 +10,7 @@
 // and is no more maintained or bugfixed, please update your go version
 // to at least 1.10 to get the latest updates.
 
-package enumerator // import "go.bug.st/serial.v1/enumerator"
+package enumerator
 
 // #cgo LDFLAGS: -framework CoreFoundation -framework IOKit
 // #include <IOKit/IOKitLib.h>
