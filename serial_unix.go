@@ -15,8 +15,8 @@ import (
 	"sync"
 	"unsafe"
 
-	"golang.org/x/sys/unix"
 	"go.bug.st/serial/unixutils"
+	"golang.org/x/sys/unix"
 )
 
 type unixPort struct {
@@ -51,7 +51,7 @@ func (port *unixPort) Close() error {
 	return nil
 }
 
-func (port *unixPort) Read(p []byte) (n int, err error) {
+func (port *unixPort) Read(p []byte) (int, error) {
 	port.closeLock.RLock()
 	defer port.closeLock.RUnlock()
 	if !port.opened {
@@ -59,14 +59,23 @@ func (port *unixPort) Read(p []byte) (n int, err error) {
 	}
 
 	fds := unixutils.NewFDSet(port.handle, port.closeSignal.ReadFD())
-	res, err := unixutils.Select(fds, nil, fds, -1)
-	if err != nil {
-		return 0, err
+	for {
+		res, err := unixutils.Select(fds, nil, fds, -1)
+		if err == unix.EINTR {
+			continue
+		}
+		if err != nil {
+			return 0, err
+		}
+		if res.IsReadable(port.closeSignal.ReadFD()) {
+			return 0, &PortError{code: PortClosed}
+		}
+		n, err := unix.Read(port.handle, p)
+		if err == unix.EINTR {
+			continue
+		}
+		return n, err
 	}
-	if res.IsReadable(port.closeSignal.ReadFD()) {
-		return 0, &PortError{code: PortClosed}
-	}
-	return unix.Read(port.handle, p)
 }
 
 func (port *unixPort) Write(p []byte) (n int, err error) {
