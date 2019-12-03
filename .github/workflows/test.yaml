@@ -1,0 +1,29 @@
+name: test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  linux-build:
+    # operating-system: [ubuntu-latest, windows-latest, macOS-latest]
+
+    runs-on: ubuntu-latest
+
+    steps:
+      #- name: Checkout
+      #  uses: actions/checkout@master
+
+      - name: Install Go
+        uses: actions/setup-go@v1
+        #with:
+        #  go-version: '1.13'
+
+      - name: Build
+        run: go build -v
+
+      - name: Run unit tests
+        run: go test -c -v
+
