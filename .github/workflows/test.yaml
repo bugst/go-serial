@@ -7,21 +7,30 @@ on:
   pull_request:
 
 jobs:
-  native-build:
+  native-os-build:
     strategy:
       matrix:
-        operating-system: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu-latest, windows-latest, macOS-latest]
 
-    runs-on: ${{ matrix.operating-system }}
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v1
       - uses: actions/setup-go@v1
         with:
-          go-version: '1.13'
-      - name: Build
-        run: |
-          go build -v ./...
+          go-version: "1.13"
+      - name: Build native
+        run: GOARCH=amd64 go build -v ./...
+        shell: bash
       - name: Run unit tests
         run: go test -v ./...
+        shell: bash
+      - name: Cross-build for 386
+        if: matrix.os != 'macOS-latest'
+        run: GOARCH=386 go build -v ./...
+        shell: bash
+      - name: Cross-build for arm
+        if: matrix.os != 'macOS-latest'
+        run: GOARCH=arm go build -v ./...
+        shell: bash
 
