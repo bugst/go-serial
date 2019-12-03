@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/bugst/go-serial.svg?branch=master)](https://travis-ci.org/bugst/go-serial)
+[![Build Status](https://github.com/bugst/go-serial/workflows/test/badge.svg)](https://github.com/bugst/go-serial/actions?workflow=test)
 
 # go.bug.st/serial
 
