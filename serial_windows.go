@@ -449,3 +449,12 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 
 	return port, nil
 }
+
+// enableRS485 enables RS485 functionality of driver via an ioctl if the config says so
+func (port *windowsPort) enableRS485(config *RS485Config) error {
+	if !config.Enabled {
+		return &PortError{code: NoPlatformSupportForRS485, causedBy: nil}
+	}
+
+	return nil
+}
