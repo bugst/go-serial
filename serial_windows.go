@@ -30,7 +30,10 @@ func nativeGetPortsList() ([]string, error) {
 	}
 
 	var h syscall.Handle
-	if syscall.RegOpenKeyEx(syscall.HKEY_LOCAL_MACHINE, subKey, 0, syscall.KEY_READ, &h) != nil {
+	if err := syscall.RegOpenKeyEx(syscall.HKEY_LOCAL_MACHINE, subKey, 0, syscall.KEY_READ, &h); err != nil {
+		if errno, isErrno := err.(syscall.Errno); isErrno && errno == syscall.ERROR_FILE_NOT_FOUND {
+			return []string{}, nil
+		}
 		return nil, &PortError{code: ErrorEnumeratingPorts}
 	}
 	defer syscall.RegCloseKey(h)
