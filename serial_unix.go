@@ -30,8 +30,9 @@ type unixPort struct {
 
 func (port *unixPort) Close() error {
 	if !atomic.CompareAndSwapUint32(&port.opened, 1, 0) {
-		return &PortError{code: PortClosed}
+		return nil
 	}
+
 	// Close port
 	port.releaseExclusiveAccess()
 	if err := unix.Close(port.handle); err != nil {

@@ -39,3 +39,18 @@ func TestSerialReadAndCloseConcurrency(t *testing.T) {
 	time.Sleep(time.Millisecond * 1)
 	port.Close()
 }
+
+func TestDoubleCloseIsNoop(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "socat", "STDIO", "pty,link=/tmp/faketty")
+	require.NoError(t, cmd.Start())
+	go cmd.Wait()
+	// let our fake serial port node to appear
+	time.Sleep(time.Millisecond * 100)
+
+	port, err := Open("/tmp/faketty", &Mode{})
+	require.NoError(t, err)
+	require.NoError(t, port.Close())
+	require.NoError(t, port.Close())
+}
