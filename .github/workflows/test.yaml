@@ -22,8 +22,12 @@ jobs:
       - name: Build native
         run: GOARCH=amd64 go build -v ./...
         shell: bash
+      - name: Install socat
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install socat
+        shell: bash
       - name: Run unit tests
-        run: go test -v ./...
+        run: go test -v -race ./...
         shell: bash
       - name: Cross-build for 386
         if: matrix.os != 'macOS-latest'
