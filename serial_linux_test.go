@@ -18,6 +18,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func startSocatAndWaitForPort(t *testing.T, ctx context.Context) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "socat", "-D", "STDIO", "pty,link=/tmp/faketty")
+	r, err := cmd.StderrPipe()
+	require.NoError(t, err)
+	require.NoError(t, cmd.Start())
+	// Let our fake serial port node appear.
+	// socat will write to stderr before starting transfer phase;
+	// we don't really care what, just that it did, because then it's ready.
+	buf := make([]byte, 1024)
+	_, err = r.Read(buf)
+	require.NoError(t, err)
+	return cmd
+}
+
 func TestSerialReadAndCloseConcurrency(t *testing.T) {
 
 	// Run this test with race detector to actually test that
@@ -25,11 +39,8 @@ func TestSerialReadAndCloseConcurrency(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "socat", "STDIO", "pty,link=/tmp/faketty")
-	require.NoError(t, cmd.Start())
+	cmd := startSocatAndWaitForPort(t, ctx)
 	go cmd.Wait()
-	// let our fake serial port node to appear
-	time.Sleep(time.Millisecond * 100)
 
 	port, err := Open("/tmp/faketty", &Mode{})
 	require.NoError(t, err)
@@ -43,11 +54,8 @@ func TestSerialReadAndCloseConcurrency(t *testing.T) {
 func TestDoubleCloseIsNoop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "socat", "STDIO", "pty,link=/tmp/faketty")
-	require.NoError(t, cmd.Start())
+	cmd := startSocatAndWaitForPort(t, ctx)
 	go cmd.Wait()
-	// let our fake serial port node to appear
-	time.Sleep(time.Millisecond * 100)
 
 	port, err := Open("/tmp/faketty", &Mode{})
 	require.NoError(t, err)
