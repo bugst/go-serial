@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"go.bug.st/serial/unixutils"
@@ -22,6 +23,7 @@ import (
 
 type unixPort struct {
 	handle int
+	mode   *Mode
 
 	closeLock   sync.RWMutex
 	closeSignal *unixutils.Pipe
@@ -62,9 +64,14 @@ func (port *unixPort) Read(p []byte) (int, error) {
 		return 0, &PortError{code: PortClosed}
 	}
 
+	var timeout time.Duration = -1
+	if port.mode.ReadTimeout > 0 {
+		timeout = port.mode.ReadTimeout
+	}
+
 	fds := unixutils.NewFDSet(port.handle, port.closeSignal.ReadFD())
 	for {
-		res, err := unixutils.Select(fds, nil, fds, -1)
+		res, err := unixutils.Select(fds, nil, fds, timeout)
 		if err == unix.EINTR {
 			continue
 		}
@@ -118,7 +125,16 @@ func (port *unixPort) SetMode(mode *Mode) error {
 	if err := setTermSettingsStopBits(mode.StopBits, settings); err != nil {
 		return err
 	}
-	return port.setTermSettings(settings)
+	if err := setTermTimeouts(mode.ReadTimeout, settings); err != nil {
+		return err
+	}
+
+	if err := port.setTermSettings(settings); err != nil {
+		return err
+	}
+
+	port.mode = mode
+	return nil
 }
 
 func (port *unixPort) SetDTR(dtr bool) error {
@@ -341,6 +357,23 @@ func setTermSettingsStopBits(bits StopBits, settings *unix.Termios) error {
 	return nil
 }
 
+func setTermTimeouts(readTimeout time.Duration, settings *unix.Termios) error {
+	vmin := uint8(1)
+	vtime := uint8(0)
+	if readTimeout > 0 {
+		vmin = 0
+		vtime = uint8(readTimeout.Milliseconds() / 100)
+		if vtime < 1 || vtime > 255 {
+			return &PortError{code: InvalidTimeoutValue}
+		}
+	}
+
+	settings.Cc[unix.VMIN] = vmin
+	settings.Cc[unix.VTIME] = vtime
+
+	return nil
+}
+
 func setTermSettingsCtsRts(enable bool, settings *unix.Termios) {
 	if enable {
 		settings.Cflag |= tcCRTSCTS
@@ -381,10 +414,6 @@ func setRawMode(settings *unix.Termios) {
 	settings.Iflag &^= tcIUCLC
 
 	settings.Oflag &^= unix.OPOST
-
-	// Block reads until at least one char is available (no timeout)
-	settings.Cc[unix.VMIN] = 1
-	settings.Cc[unix.VTIME] = 0
 }
 
 // native syscall wrapper functions

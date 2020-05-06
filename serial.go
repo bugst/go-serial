@@ -6,6 +6,8 @@
 
 package serial
 
+import "time"
+
 //go:generate go run $GOROOT/src/syscall/mksyscall_windows.go -output zsyscall_windows.go syscall_windows.go
 
 // Port is the interface for a serial Port
@@ -69,6 +71,23 @@ type Mode struct {
 	DataBits int      // Size of the character (must be 5, 6, 7 or 8)
 	Parity   Parity   // Parity (see Parity type for more info)
 	StopBits StopBits // Stop bits (see StopBits type for more info)
+
+	// A call to Read() that otherwise may block waiting for more data
+	// will return immediately if the specified amount of time elapses
+	// between successive bytes received from the device.
+	//
+	// ReadTimeout = 0 (the default):
+	//   Calls to Read() return only when at least MinimumReadSize bytes are
+	//   available. The inter-character timer is not used.
+	//
+	// ReadTimeout > 0:
+	//   If data is already available on the read queue, it is transferred to
+	//   the caller's buffer and the Read() call returns immediately.
+	//   Otherwise, the call blocks until some data arrives or the
+	//   InterCharacterTimeout milliseconds elapse from the start of the call.
+	//   Note that in this configuration, InterCharacterTimeout must be at
+	//   least 100 ms.
+	ReadTimeout time.Duration
 }
 
 // Parity describes a serial port parity setting
@@ -125,6 +144,8 @@ const (
 	InvalidParity
 	// InvalidStopBits the selected number of stop bits is not valid or not supported
 	InvalidStopBits
+	// Invalid timeout value passed
+	InvalidTimeoutValue
 	// ErrorEnumeratingPorts an error occurred while listing serial port
 	ErrorEnumeratingPorts
 	// PortClosed the port has been closed while the operation is in progress
@@ -152,6 +173,8 @@ func (e PortError) EncodedErrorString() string {
 		return "Port parity invalid or not supported"
 	case InvalidStopBits:
 		return "Port stop bits invalid or not supported"
+	case InvalidTimeoutValue:
+		return "Timeout value invalid or not supported"
 	case ErrorEnumeratingPorts:
 		return "Could not enumerate serial ports"
 	case PortClosed:

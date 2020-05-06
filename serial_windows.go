@@ -18,12 +18,12 @@ package serial
 */
 
 import (
-	"syscall"
 	"sync"
+	"syscall"
 )
 
 type windowsPort struct {
-	mu sync.Mutex
+	mu     sync.Mutex
 	handle syscall.Handle
 }
 
@@ -277,6 +277,46 @@ func (port *windowsPort) SetMode(mode *Mode) error {
 		port.Close()
 		return &PortError{code: InvalidSerialPort}
 	}
+
+	/* From http://msdn.microsoft.com/en-us/library/aa363190(v=VS.85).aspx
+		 If an application sets ReadIntervalTimeout and
+		 ReadTotalTimeoutMultiplier to MAXDWORD and sets
+		 ReadTotalTimeoutConstant to a value greater than zero and
+		 less than MAXDWORD, one of the following occurs when the
+		 ReadFile function is called:
+
+		 If there are any bytes in the input buffer, ReadFile returns
+		       immediately with the bytes in the buffer.
+
+		 If there are no bytes in the input buffer, ReadFile waits
+	               until a byte arrives and then returns immediately.
+
+		 If no bytes arrive within the time specified by
+		       ReadTotalTimeoutConstant, ReadFile times out.
+	*/
+
+	const maxDWORD = 0xFFFFFFFF
+	timeouts := &commTimeouts{
+		// Set legacy initial timeouts configuration
+		ReadIntervalTimeout:         maxDWORD,
+		ReadTotalTimeoutMultiplier:  maxDWORD,
+		ReadTotalTimeoutConstant:    1000, // 1 sec
+		WriteTotalTimeoutMultiplier: 0,
+		WriteTotalTimeoutConstant:   0,
+	}
+
+	timeout := uint32(mode.ReadTimeout.Milliseconds())
+	if timeout > maxDWORD {
+		return &PortError{code: InvalidTimeoutValue}
+	} else if timeout > 0 {
+		timeouts.ReadTotalTimeoutConstant = timeout
+	}
+
+	if setCommTimeouts(port.handle, timeouts) != nil {
+		port.Close()
+		return &PortError{code: InvalidSerialPort}
+	}
+
 	return nil
 }
 
@@ -430,19 +470,6 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 	params.XonChar = 17  // DC1
 	params.XoffChar = 19 // C3
 	if setCommState(port.handle, params) != nil {
-		port.Close()
-		return nil, &PortError{code: InvalidSerialPort}
-	}
-
-	// Set timeouts to 1 second
-	timeouts := &commTimeouts{
-		ReadIntervalTimeout:         0xFFFFFFFF,
-		ReadTotalTimeoutMultiplier:  0xFFFFFFFF,
-		ReadTotalTimeoutConstant:    1000, // 1 sec
-		WriteTotalTimeoutConstant:   0,
-		WriteTotalTimeoutMultiplier: 0,
-	}
-	if setCommTimeouts(port.handle, timeouts) != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort}
 	}

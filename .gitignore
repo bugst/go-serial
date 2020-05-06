@@ -1,0 +1,15 @@
+# JetBrains IDEs: IntelliJ, GoLand and etc
+*.iws
+.idea/
+.idea_modules/
+*.iml
+
+# Eclipse
+.project
+.settings
+
+# VSCode
+.vscode
+
+# Other
+.DS_Store
