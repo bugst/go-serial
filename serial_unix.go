@@ -38,11 +38,11 @@ const (
 )
 
 // rs485_ioctl_opts is used to configure RS485 options in the driver
-type rs485_ioctl_opts struct {
-	flags                 uint32
-	delay_rts_before_send uint32
-	delay_rts_after_send  uint32
-	padding               [5]uint32
+type rs485IoctlOpts struct {
+	flags              uint32
+	delayRtsBeforeSend uint32
+	delayRtsAfterSend  uint32
+	padding            [5]uint32
 }
 
 func (port *unixPort) Close() error {
@@ -445,7 +445,7 @@ func (port *unixPort) enableRS485(config *RS485Config) error {
 	if !config.Enabled {
 		return nil
 	}
-	rs485 := rs485_ioctl_opts{
+	rs485 := rs485IoctlOpts{
 		rs485Enabled,
 		uint32(config.DelayRtsBeforeSend / time.Millisecond),
 		uint32(config.DelayRtsAfterSend / time.Millisecond),
