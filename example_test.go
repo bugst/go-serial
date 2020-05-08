@@ -58,7 +58,6 @@ func Example_sendAndReceive() {
 		n, err := port.Read(buff)
 		if err != nil {
 			log.Fatal(err)
-
 		}
 		if n == 0 {
 			fmt.Println("\nEOF")
