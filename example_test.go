@@ -64,11 +64,11 @@ func Example_sendAndReceive() {
 			break
 		}
 
-		if strings.Contains(string(buff[:n]), "\n\r") { //if we receive a newline and carriage return, stop reading
+		fmt.Printf("%s", string(buff[:n]))
 
-			fmt.Printf("%v", string(buff)) //Print the data we received
+		// If we receive a newline stop reading
+		if strings.Contains(string(buff[:n]), "\n") {
 			break
 		}
-
 	}
 }
