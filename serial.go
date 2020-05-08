@@ -6,6 +6,8 @@
 
 package serial
 
+import "time"
+
 //go:generate go run $GOROOT/src/syscall/mksyscall_windows.go -output zsyscall_windows.go syscall_windows.go
 
 // Port is the interface for a serial Port
@@ -69,6 +71,8 @@ type Mode struct {
 	DataBits int      // Size of the character (must be 5, 6, 7 or 8)
 	Parity   Parity   // Parity (see Parity type for more info)
 	StopBits StopBits // Stop bits (see StopBits type for more info)
+
+	RS485 RS485Config // RS485 configuration
 }
 
 // Parity describes a serial port parity setting
@@ -98,6 +102,22 @@ const (
 	// TwoStopBits sets 2 stop bits
 	TwoStopBits
 )
+
+// RS485Config -- platform independent RS485 config. Thie structure is ignored unless Enable is true.
+type RS485Config struct {
+	// Enable RS485 support
+	Enabled bool
+	// Delay RTS prior to send
+	DelayRtsBeforeSend time.Duration
+	// Delay RTS after send
+	DelayRtsAfterSend time.Duration
+	// Set RTS high during send
+	RtsHighDuringSend bool
+	// Set RTS high after send
+	RtsHighAfterSend bool
+	// Rx during Tx
+	RxDuringTx bool
+}
 
 // PortError is a platform independent error type for serial ports
 type PortError struct {
@@ -131,6 +151,12 @@ const (
 	PortClosed
 	// FunctionNotImplemented the requested function is not implemented
 	FunctionNotImplemented
+	// ReadFailed indicates the read failed
+	ReadFailed
+	// ConfigureRS485Error indicates an error configuring RS485 on the platform
+	ConfigureRS485Error
+	// NoPlatformSupportForRS485 indicates no platform support for RS485
+	NoPlatformSupportForRS485
 )
 
 // EncodedErrorString returns a string explaining the error code
@@ -158,6 +184,12 @@ func (e PortError) EncodedErrorString() string {
 		return "Port has been closed"
 	case FunctionNotImplemented:
 		return "Function not implemented"
+	case ReadFailed:
+		return "Read failed"
+	case ConfigureRS485Error:
+		return "Error configuring RS485 on the platform"
+	case NoPlatformSupportForRS485:
+		return "Platform does not support RS485"
 	default:
 		return "Other error"
 	}
