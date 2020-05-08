@@ -6,7 +6,10 @@
 
 package serial_test
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 import "log"
 import "go.bug.st/serial"
 
@@ -48,18 +51,25 @@ func Example_sendAndReceive() {
 	fmt.Printf("Sent %v bytes\n", n)
 
 	// Read and print the response
+
 	buff := make([]byte, 100)
 	for {
 		// Reads up to 100 bytes
 		n, err := port.Read(buff)
 		if err != nil {
 			log.Fatal(err)
-			break
+
 		}
 		if n == 0 {
 			fmt.Println("\nEOF")
 			break
 		}
-		fmt.Printf("%v", string(buff[:n]))
+
+		if strings.Contains(string(buff[:n]), "\n\r") { //if we receive a newline and carriage return, stop reading
+
+			fmt.Printf("%v", string(buff)) //Print the data we received
+			break
+		}
+
 	}
 }
