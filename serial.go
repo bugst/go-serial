@@ -26,6 +26,9 @@ type Port interface {
 	// Returns the number of bytes written.
 	Write(p []byte) (n int, err error)
 
+	// Wait until all data in the buffer are sent
+	Drain() error
+
 	// ResetInputBuffer Purges port read buffer
 	ResetInputBuffer() error
 

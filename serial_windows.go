@@ -119,6 +119,10 @@ func (port *windowsPort) Write(p []byte) (int, error) {
 	return int(writed), err
 }
 
+func (port *windowsPort) Drain() (err error) {
+	return syscall.FlushFileBuffers(port.handle)
+}
+
 const (
 	purgeRxAbort uint32 = 0x0002
 	purgeRxClear        = 0x0008
