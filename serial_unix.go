@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"go.bug.st/serial/unixutils"
 	"golang.org/x/sys/unix"
@@ -22,6 +23,7 @@ import (
 type unixPort struct {
 	handle int
 
+	readTimeout time.Duration
 	closeLock   sync.RWMutex
 	closeSignal *unixutils.Pipe
 	opened      uint32
@@ -61,9 +63,18 @@ func (port *unixPort) Read(p []byte) (int, error) {
 		return 0, &PortError{code: PortClosed}
 	}
 
+	var deadline time.Time
+	if port.readTimeout != NoTimeout {
+		deadline = time.Now().Add(port.readTimeout)
+	}
+
 	fds := unixutils.NewFDSet(port.handle, port.closeSignal.ReadFD())
 	for {
-		res, err := unixutils.Select(fds, nil, fds, -1)
+		timeout := time.Duration(-1)
+		if port.readTimeout != NoTimeout {
+			timeout = deadline.Sub(time.Now())
+		}
+		res, err := unixutils.Select(fds, nil, fds, timeout)
 		if err == unix.EINTR {
 			continue
 		}
@@ -72,6 +83,10 @@ func (port *unixPort) Read(p []byte) (int, error) {
 		}
 		if res.IsReadable(port.closeSignal.ReadFD()) {
 			return 0, &PortError{code: PortClosed}
+		}
+		if !res.IsReadable(port.handle) {
+			// Timeout happened
+			return 0, nil
 		}
 		n, err := unix.Read(port.handle, p)
 		if err == unix.EINTR {
@@ -152,6 +167,14 @@ func (port *unixPort) SetRTS(rts bool) error {
 	return port.setModemBitsStatus(status)
 }
 
+func (port *unixPort) SetReadTimeout(timeout time.Duration) error {
+	if timeout < 0 && timeout != NoTimeout {
+		return &PortError{code: InvalidTimeoutValue}
+	}
+	port.readTimeout = timeout
+	return nil
+}
+
 func (port *unixPort) GetModemStatusBits() (*ModemStatusBits, error) {
 	status, err := port.getModemBitsStatus()
 	if err != nil {
@@ -177,8 +200,9 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 		return nil, err
 	}
 	port := &unixPort{
-		handle: h,
-		opened: 1,
+		handle:      h,
+		opened:      1,
+		readTimeout: NoTimeout,
 	}
 
 	// Setup serial port
