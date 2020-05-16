@@ -147,7 +147,7 @@ const (
 	dcbInX                          = 0x00000200
 	dcbErrorChar                    = 0x00000400
 	dcbNull                         = 0x00000800
-	dcbRTSControlDisbaleMask        = ^uint32(0x00003000)
+	dcbRTSControlDisableMask        = ^uint32(0x00003000)
 	dcbRTSControlEnable             = 0x00001000
 	dcbRTSControlHandshake          = 0x00002000
 	dcbRTSControlToggle             = 0x00003000
@@ -334,7 +334,7 @@ func (port *windowsPort) SetRTS(rts bool) error {
 	if err := getCommState(port.handle, params); err != nil {
 		return &PortError{causedBy: err}
 	}
-	params.Flags &= dcbRTSControlDisbaleMask
+	params.Flags &= dcbRTSControlDisableMask
 	if rts {
 		params.Flags |= dcbRTSControlEnable
 	}
@@ -345,15 +345,22 @@ func (port *windowsPort) SetRTS(rts bool) error {
 }
 
 func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
-	var bits uint32
-	if !getCommModemStatus(port.handle, &bits) {
+	var modemStatus uint32
+	if !getCommModemStatus(port.handle, &modemStatus) {
 		return nil, &PortError{}
 	}
+	var commState dcb
+	if err := getCommState(port.handle, &commState); err != nil {
+		return nil, &PortError{causedBy: err}
+	}
+
 	return &ModemStatusBits{
-		CTS: (bits & msCTSOn) != 0,
-		DCD: (bits & msRLSDOn) != 0,
-		DSR: (bits & msDSROn) != 0,
-		RI:  (bits & msRingOn) != 0,
+		CTS: (modemStatus & msCTSOn) != 0,
+		DCD: (modemStatus & msRLSDOn) != 0,
+		DSR: (modemStatus & msDSROn) != 0,
+		RI:  (modemStatus & msRingOn) != 0,
+		RTS: (commState.Flags & dcbRTSControlEnable) != 0,
+		DTR: (commState.Flags & dcbDTRControlEnable) != 0,
 	}, nil
 }
 
@@ -400,7 +407,7 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort}
 	}
-	params.Flags &= dcbRTSControlDisbaleMask
+	params.Flags &= dcbRTSControlDisableMask
 	params.Flags |= dcbRTSControlEnable
 	params.Flags &= dcbDTRControlDisableMask
 	params.Flags |= dcbDTRControlEnable

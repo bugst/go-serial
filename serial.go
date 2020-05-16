@@ -51,6 +51,8 @@ type ModemStatusBits struct {
 	DSR bool // DataSetReady status
 	RI  bool // RingIndicator status
 	DCD bool // DataCarrierDetect status
+	RTS bool // ReadyToSend status (outgoing)
+	DTR bool // DataTerminalReady status (outgoing)
 }
 
 // Open opens the serial port using the specified modes
