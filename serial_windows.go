@@ -18,12 +18,12 @@ package serial
 */
 
 import (
-	"syscall"
 	"sync"
+	"syscall"
 )
 
 type windowsPort struct {
-	mu sync.Mutex
+	mu     sync.Mutex
 	handle syscall.Handle
 }
 
@@ -385,7 +385,7 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 		syscall.GENERIC_READ|syscall.GENERIC_WRITE,
 		0, nil,
 		syscall.OPEN_EXISTING,
-		syscall.FILE_FLAG_OVERLAPPED,
+		0,
 		0)
 	if err != nil {
 		switch err {
