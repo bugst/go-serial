@@ -18,6 +18,7 @@ package serial
 */
 
 import (
+	"fmt"
 	"sync"
 	"syscall"
 )
@@ -98,6 +99,9 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 
 		if readed > 0 {
 			return int(readed), nil
+		}
+		if readed == 0 && err == nil {
+			return 0, fmt.Errorf("read from serial port: i/o timeout")
 		}
 		if err := resetEvent(ev.HEvent); err != nil {
 			return 0, err
