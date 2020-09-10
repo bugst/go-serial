@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"unsafe"
 
 	"go.bug.st/serial/unixutils"
 	"golang.org/x/sys/unix"
@@ -94,11 +93,11 @@ func (port *unixPort) Write(p []byte) (n int, err error) {
 }
 
 func (port *unixPort) ResetInputBuffer() error {
-	return ioctl(port.handle, ioctlTcflsh, unix.TCIFLUSH)
+	return unix.IoctlSetInt(port.handle, ioctlTcflsh, unix.TCIFLUSH)
 }
 
 func (port *unixPort) ResetOutputBuffer() error {
-	return ioctl(port.handle, ioctlTcflsh, unix.TCOFLUSH)
+	return unix.IoctlSetInt(port.handle, ioctlTcflsh, unix.TCOFLUSH)
 }
 
 func (port *unixPort) SetMode(mode *Mode) error {
@@ -390,29 +389,25 @@ func setRawMode(settings *unix.Termios) {
 // native syscall wrapper functions
 
 func (port *unixPort) getTermSettings() (*unix.Termios, error) {
-	settings := &unix.Termios{}
-	err := ioctl(port.handle, ioctlTcgetattr, uintptr(unsafe.Pointer(settings)))
-	return settings, err
+	return unix.IoctlGetTermios(port.handle, ioctlTcgetattr)
 }
 
 func (port *unixPort) setTermSettings(settings *unix.Termios) error {
-	return ioctl(port.handle, ioctlTcsetattr, uintptr(unsafe.Pointer(settings)))
+	return unix.IoctlSetTermios(port.handle, ioctlTcsetattr, settings)
 }
 
 func (port *unixPort) getModemBitsStatus() (int, error) {
-	var status int
-	err := ioctl(port.handle, unix.TIOCMGET, uintptr(unsafe.Pointer(&status)))
-	return status, err
+	return unix.IoctlGetInt(port.handle, unix.TIOCMGET)
 }
 
 func (port *unixPort) setModemBitsStatus(status int) error {
-	return ioctl(port.handle, unix.TIOCMSET, uintptr(unsafe.Pointer(&status)))
+	return unix.IoctlSetPointerInt(port.handle, unix.TIOCMSET, status)
 }
 
 func (port *unixPort) acquireExclusiveAccess() error {
-	return ioctl(port.handle, unix.TIOCEXCL, 0)
+	return unix.IoctlSetInt(port.handle, unix.TIOCEXCL, 0)
 }
 
 func (port *unixPort) releaseExclusiveAccess() error {
-	return ioctl(port.handle, unix.TIOCNXCL, 0)
+	return unix.IoctlSetInt(port.handle, unix.TIOCNXCL, 0)
 }
