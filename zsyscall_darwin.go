@@ -13,8 +13,8 @@ package serial
 import "golang.org/x/sys/unix"
 
 func ioctl(fd int, req uint64, data uintptr) (err error) {
-	_, _, e1 := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), uintptr(req), uintptr(data))
-	if e1 != 0 {
+	_, e1 := unix.IoctlGetTermios(fd, req)
+	if e1 != nil {
 		err = e1
 	}
 	return
