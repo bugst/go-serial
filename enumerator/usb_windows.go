@@ -102,7 +102,7 @@ const (
 	spdrpExclusive                               = 0x0000001A // Device is exclusive-access = R/W
 	spdrpCharacteristics                         = 0x0000001B // Device Characteristics = R/W
 	spdrpAddress                                 = 0x0000001C // Device Address = R
-	spdrpUINumberDescFormat                      = 0X0000001D // UiNumberDescFormat = R/W
+	spdrpUINumberDescFormat                      = 0x0000001D // UiNumberDescFormat = R/W
 	spdrpDevicePowerData                         = 0x0000001E // Device Power Data = R
 	spdrpRemovalPolicy                           = 0x0000001F // Removal Policy = R
 	spdrpRemovalPolicyHWDefault                  = 0x00000020 // Hardware Removal Policy = R
@@ -295,10 +295,10 @@ func retrievePortDetailsFromDevInfo(device *deviceInfo, details *PortDetails) er
 		while spdrpFriendlyName returns a specific name, e.g.: "CDC-ACM (COM44)",
 		the result of spdrpFriendlyName is therefore unique and suitable as an alternative string to for a port choice */
 	n := uint32(0)
-	setupDiGetDeviceRegistryProperty(device.set, &device.data, /* spdrpDeviceDesc */ spdrpFriendlyName, nil, nil, 0, &n)
+	setupDiGetDeviceRegistryProperty(device.set, &device.data, spdrpFriendlyName /* spdrpDeviceDesc */, nil, nil, 0, &n)
 	buff := make([]uint16, n*2)
 	buffP := (*byte)(unsafe.Pointer(&buff[0]))
-	if setupDiGetDeviceRegistryProperty(device.set, &device.data, /* spdrpDeviceDesc */ spdrpFriendlyName, nil, buffP, n, &n) {
+	if setupDiGetDeviceRegistryProperty(device.set, &device.data, spdrpFriendlyName /* spdrpDeviceDesc */, nil, buffP, n, &n) {
 		details.Product = syscall.UTF16ToString(buff[:])
 	}
 
