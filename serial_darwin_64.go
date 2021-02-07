@@ -1,3 +1,6 @@
+// +build darwin
+// +build amd64 arm64
+
 //
 // Copyright 2014-2020 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
