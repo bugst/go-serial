@@ -38,6 +38,7 @@ func errnoErr(e syscall.Errno) error {
 
 var (
 	modsetupapi = windows.NewLazySystemDLL("setupapi.dll")
+	modcfgmgr32 = windows.NewLazySystemDLL("cfgmgr32.dll")
 
 	procSetupDiClassGuidsFromNameW        = modsetupapi.NewProc("SetupDiClassGuidsFromNameW")
 	procSetupDiGetClassDevsW              = modsetupapi.NewProc("SetupDiGetClassDevsW")
@@ -46,6 +47,10 @@ var (
 	procSetupDiGetDeviceInstanceIdW       = modsetupapi.NewProc("SetupDiGetDeviceInstanceIdW")
 	procSetupDiOpenDevRegKey              = modsetupapi.NewProc("SetupDiOpenDevRegKey")
 	procSetupDiGetDeviceRegistryPropertyW = modsetupapi.NewProc("SetupDiGetDeviceRegistryPropertyW")
+	procCM_Get_Parent                     = modcfgmgr32.NewProc("CM_Get_Parent")
+	procCM_Get_Device_ID_Size             = modcfgmgr32.NewProc("CM_Get_Device_ID_Size")
+	procCM_Get_Device_IDW                 = modcfgmgr32.NewProc("CM_Get_Device_IDW")
+	procCM_MapCrToWin32Err                = modcfgmgr32.NewProc("CM_MapCrToWin32Err")
 )
 
 func setupDiClassGuidsFromNameInternal(class string, guid *guid, guidSize uint32, requiredSize *uint32) (err error) {
@@ -134,5 +139,29 @@ func setupDiOpenDevRegKey(set devicesSet, devInfo *devInfoData, scope dicsScope,
 func setupDiGetDeviceRegistryProperty(set devicesSet, devInfo *devInfoData, property deviceProperty, propertyType *uint32, outValue *byte, bufSize uint32, reqSize *uint32) (res bool) {
 	r0, _, _ := syscall.Syscall9(procSetupDiGetDeviceRegistryPropertyW.Addr(), 7, uintptr(set), uintptr(unsafe.Pointer(devInfo)), uintptr(property), uintptr(unsafe.Pointer(propertyType)), uintptr(unsafe.Pointer(outValue)), uintptr(bufSize), uintptr(unsafe.Pointer(reqSize)), 0, 0)
 	res = r0 != 0
+	return
+}
+
+func cmGetParent(outParentDev *devInstance, dev devInstance, flags uint32) (cmErr cmError) {
+	r0, _, _ := syscall.Syscall(procCM_Get_Parent.Addr(), 3, uintptr(unsafe.Pointer(outParentDev)), uintptr(dev), uintptr(flags))
+	cmErr = cmError(r0)
+	return
+}
+
+func cmGetDeviceIDSize(outLen *uint32, dev devInstance, flags uint32) (cmErr cmError) {
+	r0, _, _ := syscall.Syscall(procCM_Get_Device_ID_Size.Addr(), 3, uintptr(unsafe.Pointer(outLen)), uintptr(dev), uintptr(flags))
+	cmErr = cmError(r0)
+	return
+}
+
+func cmGetDeviceID(dev devInstance, buffer unsafe.Pointer, bufferSize uint32, flags uint32) (err cmError) {
+	r0, _, _ := syscall.Syscall6(procCM_Get_Device_IDW.Addr(), 4, uintptr(dev), uintptr(buffer), uintptr(bufferSize), uintptr(flags), 0, 0)
+	err = cmError(r0)
+	return
+}
+
+func cmMapCrToWin32Err(cmErr cmError, defaultErr uint32) (err uint32) {
+	r0, _, _ := syscall.Syscall(procCM_MapCrToWin32Err.Addr(), 2, uintptr(cmErr), uintptr(defaultErr), 0)
+	err = uint32(r0)
 	return
 }

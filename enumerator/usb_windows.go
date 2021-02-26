@@ -62,6 +62,11 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 //sys setupDiOpenDevRegKey(set devicesSet, devInfo *devInfoData, scope dicsScope, hwProfile uint32, keyType uint32, samDesired regsam) (hkey syscall.Handle, err error) = setupapi.SetupDiOpenDevRegKey
 //sys setupDiGetDeviceRegistryProperty(set devicesSet, devInfo *devInfoData, property deviceProperty, propertyType *uint32, outValue *byte, bufSize uint32, reqSize *uint32) (res bool) = setupapi.SetupDiGetDeviceRegistryPropertyW
 
+//sys cmGetParent(outParentDev *devInstance, dev devInstance, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Parent
+//sys cmGetDeviceIDSize(outLen *uint32, dev devInstance, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Device_ID_Size
+//sys cmGetDeviceID(dev devInstance, buffer unsafe.Pointer, bufferSize uint32, flags uint32) (err cmError) = cfgmgr32.CM_Get_Device_IDW
+//sys cmMapCrToWin32Err(cmErr cmError, defaultErr uint32) (err uint32) = cfgmgr32.CM_MapCrToWin32Err
+
 // Device registry property codes
 // (Codes marked as read-only (R) may only be used for
 // SetupDiGetDeviceRegistryProperty)
@@ -102,7 +107,7 @@ const (
 	spdrpExclusive                               = 0x0000001A // Device is exclusive-access = R/W
 	spdrpCharacteristics                         = 0x0000001B // Device Characteristics = R/W
 	spdrpAddress                                 = 0x0000001C // Device Address = R
-	spdrpUINumberDescFormat                      = 0X0000001D // UiNumberDescFormat = R/W
+	spdrpUINumberDescFormat                      = 0x0000001D // UiNumberDescFormat = R/W
 	spdrpDevicePowerData                         = 0x0000001E // Device Power Data = R
 	spdrpRemovalPolicy                           = 0x0000001F // Removal Policy = R
 	spdrpRemovalPolicyHWDefault                  = 0x00000020 // Hardware Removal Policy = R
@@ -194,12 +199,44 @@ func (set devicesSet) destroy() {
 	setupDiDestroyDeviceInfoList(set)
 }
 
+type cmError uint32
+
 // https://msdn.microsoft.com/en-us/library/windows/hardware/ff552344(v=vs.85).aspx
 type devInfoData struct {
 	size     uint32
 	guid     guid
-	devInst  uint32
+	devInst  devInstance
 	reserved uintptr
+}
+
+type devInstance uint32
+
+func cmConvertError(cmErr cmError) error {
+	if cmErr == 0 {
+		return nil
+	}
+	winErr := cmMapCrToWin32Err(cmErr, 0)
+	return fmt.Errorf("error %d", winErr)
+}
+
+func (dev devInstance) getParent() (devInstance, error) {
+	var res devInstance
+	errN := cmGetParent(&res, dev, 0)
+	return res, cmConvertError(errN)
+}
+
+func (dev devInstance) GetDeviceID() (string, error) {
+	var size uint32
+	cmErr := cmGetDeviceIDSize(&size, dev, 0)
+	if err := cmConvertError(cmErr); err != nil {
+		return "", err
+	}
+	buff := make([]uint16, size)
+	cmErr = cmGetDeviceID(dev, unsafe.Pointer(&buff[0]), uint32(len(buff)), 0)
+	if err := cmConvertError(cmErr); err != nil {
+		return "", err
+	}
+	return windows.UTF16ToString(buff[:]), nil
 }
 
 type deviceInfo struct {
@@ -291,14 +328,28 @@ func retrievePortDetailsFromDevInfo(device *deviceInfo, details *PortDetails) er
 	}
 	parseDeviceID(deviceID, details)
 
+	// On composite USB devices the serial number is usually reported on the parent
+	// device, so let's navigate up one level and see if we can get this information
+	if details.IsUSB && details.SerialNumber == "" {
+		if parentInfo, err := device.data.devInst.getParent(); err == nil {
+			if parentDeviceID, err := parentInfo.GetDeviceID(); err == nil {
+				d := &PortDetails{}
+				parseDeviceID(parentDeviceID, d)
+				if details.VID == d.VID && details.PID == d.PID {
+					details.SerialNumber = d.SerialNumber
+				}
+			}
+		}
+	}
+
 	/*	spdrpDeviceDesc returns a generic name, e.g.: "CDC-ACM", which will be the same for 2 identical devices attached
 		while spdrpFriendlyName returns a specific name, e.g.: "CDC-ACM (COM44)",
 		the result of spdrpFriendlyName is therefore unique and suitable as an alternative string to for a port choice */
 	n := uint32(0)
-	setupDiGetDeviceRegistryProperty(device.set, &device.data, /* spdrpDeviceDesc */ spdrpFriendlyName, nil, nil, 0, &n)
+	setupDiGetDeviceRegistryProperty(device.set, &device.data, spdrpFriendlyName /* spdrpDeviceDesc */, nil, nil, 0, &n)
 	buff := make([]uint16, n*2)
 	buffP := (*byte)(unsafe.Pointer(&buff[0]))
-	if setupDiGetDeviceRegistryProperty(device.set, &device.data, /* spdrpDeviceDesc */ spdrpFriendlyName, nil, buffP, n, &n) {
+	if setupDiGetDeviceRegistryProperty(device.set, &device.data, spdrpFriendlyName /* spdrpDeviceDesc */, nil, buffP, n, &n) {
 		details.Product = syscall.UTF16ToString(buff[:])
 	}
 
