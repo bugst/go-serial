@@ -47,9 +47,13 @@ func extractPortInfo(service C.io_registry_entry_t) (*PortDetails, error) {
 	port.Name = name
 	port.IsUSB = false
 
+	validUSBDeviceClass := map[string]bool{
+		"IOUSBDevice":     true,
+		"IOUSBHostDevice": true,
+	}
 	usbDevice := service
 	var searchErr error
-	for usbDevice.GetClass() != "IOUSBDevice" {
+	for !validUSBDeviceClass[usbDevice.GetClass()] {
 		if usbDevice, searchErr = usbDevice.GetParent("IOService"); searchErr != nil {
 			break
 		}
