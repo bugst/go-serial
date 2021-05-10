@@ -60,3 +60,5 @@ const ioctlTcflsh = unix.TIOCFLUSH
 func toTermiosSpeedType(speed uint32) int32 {
 	return int32(speed)
 }
+
+const kIOSSIOSPEED = 0x0
