@@ -146,6 +146,16 @@ func (port *unixPort) SetRTS(rts bool) error {
 	return port.setModemBitsStatus(status)
 }
 
+func (port *unixPort) SetBreak(brk bool) error {
+	var cmd uint
+	if !brk {
+		cmd = unix.TIOCSBRK
+	} else {
+		cmd = unix.TIOCCBRK
+	}
+	return unix.IoctlSetInt(port.handle, cmd, 0)
+}
+
 func (port *unixPort) GetModemStatusBits() (*ModemStatusBits, error) {
 	status, err := port.getModemBitsStatus()
 	if err != nil {
@@ -196,6 +206,15 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	if port.setTermSettings(settings) != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort}
+	}
+
+	// non standard baud used. set baud
+	if kIOSSIOSPEED != 0x0 {
+		if _, ok := baudrateMap[mode.BaudRate]; !ok {
+			if err := unix.IoctlSetPointerInt(port.handle, kIOSSIOSPEED, mode.BaudRate); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	unix.SetNonblock(h, false)
@@ -261,7 +280,9 @@ func nativeGetPortsList() ([]string, error) {
 
 func setTermSettingsBaudrate(speed int, settings *unix.Termios) error {
 	baudrate, ok := baudrateMap[speed]
-	if !ok {
+	if !ok && kIOSSIOSPEED != 0x0 { // non-standard baud. Set an arbitrary baud. We'll set the real one later.
+		baudrate, _ = baudrateMap[9600]
+	} else if !ok {
 		return &PortError{code: InvalidSpeed}
 	}
 	// revert old baudrate

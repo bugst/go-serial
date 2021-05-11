@@ -36,6 +36,9 @@ type Port interface {
 	// SetRTS sets the modem status bit RequestToSend
 	SetRTS(rts bool) error
 
+	// SetBreak sets the modem break signal
+	SetBreak(brk bool) error
+
 	// GetModemStatusBits returns a ModemStatusBits structure containing the
 	// modem status bits for the serial port (CTS, DSR, etc...)
 	GetModemStatusBits() (*ModemStatusBits, error)
