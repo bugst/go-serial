@@ -220,6 +220,10 @@ func nativeGetPortsList() ([]string, error) {
 	}
 
 	ports := make([]string, 0, len(files))
+	regex, err := regexp.Compile(regexFilter)
+	if err != nil {
+		return nil, err
+	}
 	for _, f := range files {
 		// Skip folders
 		if f.IsDir() {
@@ -227,11 +231,7 @@ func nativeGetPortsList() ([]string, error) {
 		}
 
 		// Keep only devices with the correct name
-		match, err := regexp.MatchString(regexFilter, f.Name())
-		if err != nil {
-			return nil, err
-		}
-		if !match {
+		if !regex.MatchString(f.Name()) {
 			continue
 		}
 
