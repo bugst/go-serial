@@ -60,3 +60,26 @@ const ioctlTcflsh = unix.TIOCFLUSH
 func toTermiosSpeedType(speed uint32) int32 {
 	return int32(speed)
 }
+
+func setTermSettingsBaudrate(speed int, settings *unix.Termios) (error, bool) {
+	baudrate, ok := baudrateMap[speed]
+	if !ok {
+		return nil, true
+	}
+	// XXX: Is Cflag really needed
+	// revert old baudrate
+	for _, rate := range baudrateMap {
+		settings.Cflag &^= rate
+	}
+	// set new baudrate
+	settings.Cflag |= baudrate
+
+	settings.Ispeed = toTermiosSpeedType(baudrate)
+	settings.Ospeed = toTermiosSpeedType(baudrate)
+	return nil, false
+}
+
+func (port *unixPort) setSpecialBaudrate(speed uint32) error {
+	// TODO: unimplemented
+	return &PortError{code: InvalidSpeed}
+}
