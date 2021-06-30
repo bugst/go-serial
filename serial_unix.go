@@ -126,9 +126,6 @@ func (port *unixPort) SetMode(mode *Mode) error {
 	if err != nil {
 		return err
 	}
-	if err := setTermSettingsBaudrate(mode.BaudRate, settings); err != nil {
-		return err
-	}
 	if err := setTermSettingsParity(mode.Parity, settings); err != nil {
 		return err
 	}
@@ -138,7 +135,21 @@ func (port *unixPort) SetMode(mode *Mode) error {
 	if err := setTermSettingsStopBits(mode.StopBits, settings); err != nil {
 		return err
 	}
-	return port.setTermSettings(settings)
+	requireSpecialBaudrate := false
+	if err, special := setTermSettingsBaudrate(mode.BaudRate, settings); err != nil {
+		return err
+	} else if special {
+		requireSpecialBaudrate = true
+	}
+	if err := port.setTermSettings(settings); err != nil {
+		return err
+	}
+	if requireSpecialBaudrate {
+		if err := port.setSpecialBaudrate(uint32(mode.BaudRate)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (port *unixPort) SetDTR(dtr bool) error {
@@ -288,22 +299,6 @@ func nativeGetPortsList() ([]string, error) {
 }
 
 // termios manipulation functions
-
-func setTermSettingsBaudrate(speed int, settings *unix.Termios) error {
-	baudrate, ok := baudrateMap[speed]
-	if !ok {
-		return &PortError{code: InvalidSpeed}
-	}
-	// revert old baudrate
-	for _, rate := range baudrateMap {
-		settings.Cflag &^= rate
-	}
-	// set new baudrate
-	settings.Cflag |= baudrate
-	settings.Ispeed = toTermiosSpeedType(baudrate)
-	settings.Ospeed = toTermiosSpeedType(baudrate)
-	return nil
-}
 
 func setTermSettingsParity(parity Parity, settings *unix.Termios) error {
 	switch parity {

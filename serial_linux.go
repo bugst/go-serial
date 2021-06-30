@@ -67,3 +67,31 @@ const ioctlTcflsh = unix.TCFLSH
 func toTermiosSpeedType(speed uint32) uint32 {
 	return speed
 }
+
+func setTermSettingsBaudrate(speed int, settings *unix.Termios) (error, bool) {
+	baudrate, ok := baudrateMap[speed]
+	if !ok {
+		return nil, true
+	}
+	// revert old baudrate
+	for _, rate := range baudrateMap {
+		settings.Cflag &^= rate
+	}
+	// set new baudrate
+	settings.Cflag |= baudrate
+	settings.Ispeed = toTermiosSpeedType(baudrate)
+	settings.Ospeed = toTermiosSpeedType(baudrate)
+	return nil, false
+}
+
+func (port *unixPort) setSpecialBaudrate(speed uint32) error {
+	settings, err := unix.IoctlGetTermios(port.handle, unix.TCGETS2)
+	if err != nil {
+		return err
+	}
+	settings.Cflag &^= unix.CBAUD
+	settings.Cflag |= unix.BOTHER
+	settings.Ispeed = speed
+	settings.Ospeed = speed
+	return unix.IoctlSetTermios(port.handle, unix.TCSETS2, settings)
+}

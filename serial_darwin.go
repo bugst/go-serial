@@ -14,3 +14,18 @@ const regexFilter = "^(cu|tty)\\..*"
 const ioctlTcgetattr = unix.TIOCGETA
 const ioctlTcsetattr = unix.TIOCSETA
 const ioctlTcflsh = unix.TIOCFLUSH
+
+func setTermSettingsBaudrate(speed int, settings *unix.Termios) (error, bool) {
+	baudrate, ok := baudrateMap[speed]
+	if !ok {
+		return nil, true
+	}
+	settings.Ispeed = toTermiosSpeedType(baudrate)
+	settings.Ospeed = toTermiosSpeedType(baudrate)
+	return nil, false
+}
+
+func (port *unixPort) setSpecialBaudrate(speed uint32) error {
+	const kIOSSIOSPEED = 0x80045402
+	return unix.IoctlSetPointerInt(port.handle, kIOSSIOSPEED, int(speed))
+}
