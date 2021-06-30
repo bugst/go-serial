@@ -145,6 +145,8 @@ func (port *unixPort) SetMode(mode *Mode) error {
 		return err
 	}
 	if requireSpecialBaudrate {
+		// MacOSX require this one to be the last operation otherwise an
+		// 'Invalid serial port' error is produced.
 		if err := port.setSpecialBaudrate(uint32(mode.BaudRate)); err != nil {
 			return err
 		}
@@ -217,11 +219,6 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	}
 
 	// Setup serial port
-	if port.SetMode(mode) != nil {
-		port.Close()
-		return nil, &PortError{code: InvalidSerialPort}
-	}
-
 	settings, err := port.getTermSettings()
 	if err != nil {
 		port.Close()
@@ -235,6 +232,13 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	setTermSettingsCtsRts(false, settings)
 
 	if port.setTermSettings(settings) != nil {
+		port.Close()
+		return nil, &PortError{code: InvalidSerialPort}
+	}
+
+	// MacOSX require that this operation is the last one otherwise an
+	// 'Invalid serial port' error is returned... don't know why...
+	if port.SetMode(mode) != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort}
 	}
