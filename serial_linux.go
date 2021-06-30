@@ -6,7 +6,10 @@
 
 package serial
 
-import "golang.org/x/sys/unix"
+import (
+	"golang.org/x/sys/unix"
+	"unsafe"
+)
 
 const devFolder = "/dev"
 const regexFilter = "(ttyS|ttyUSB|ttyACM|ttyAMA|rfcomm|ttyO)[0-9]{1,3}"
@@ -66,4 +69,14 @@ const ioctlTcflsh = unix.TCFLSH
 
 func toTermiosSpeedType(speed uint32) uint32 {
 	return speed
+}
+
+func (port *unixPort) Drain() error {
+	// simulate drain with change settings with TCSETSW
+	settings, err := port.getTermSettings()
+	if err != nil {
+		return err
+	}
+
+	return ioctl(port.handle, unix.TCSETSW, uintptr(unsafe.Pointer(settings)))
 }
