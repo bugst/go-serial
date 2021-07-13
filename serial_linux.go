@@ -83,15 +83,3 @@ func setTermSettingsBaudrate(speed int, settings *unix.Termios) (error, bool) {
 	settings.Ospeed = toTermiosSpeedType(baudrate)
 	return nil, false
 }
-
-func (port *unixPort) setSpecialBaudrate(speed uint32) error {
-	settings, err := unix.IoctlGetTermios(port.handle, unix.TCGETS2)
-	if err != nil {
-		return err
-	}
-	settings.Cflag &^= unix.CBAUD
-	settings.Cflag |= unix.BOTHER
-	settings.Ispeed = speed
-	settings.Ospeed = speed
-	return unix.IoctlSetTermios(port.handle, unix.TCSETS2, settings)
-}
