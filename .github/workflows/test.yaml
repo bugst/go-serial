@@ -46,6 +46,7 @@ jobs:
           - "openbsd amd64"
           - "openbsd 386"
           - "openbsd arm"
+          - "linux ppc64le"
 
     runs-on: "ubuntu-latest"
 
