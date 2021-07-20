@@ -1,15 +1,18 @@
 //
-// Copyright 2014-2020 Cristian Maglie. All rights reserved.
+// Copyright 2014-2021 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
 
 package serial_test
 
-import "log"
-import "go.bug.st/serial"
-import "fmt"
-import "time"
+import (
+	"fmt"
+	"log"
+	"time"
+
+	"go.bug.st/serial"
+)
 
 func ExampleGetSetModemBits() {
 	// Open the first serial port detected at 9600bps N81
