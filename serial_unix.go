@@ -4,11 +4,13 @@
 // license that can be found in the LICENSE file.
 //
 
+//go:build linux || darwin || freebsd || openbsd
 // +build linux darwin freebsd openbsd
 
 package serial
 
 import (
+	"context"
 	"io/ioutil"
 	"regexp"
 	"strings"
@@ -57,18 +59,36 @@ func (port *unixPort) Close() error {
 }
 
 func (port *unixPort) Read(p []byte) (int, error) {
+	return port.ReadContext(context.Background(), p)
+}
+
+func (port *unixPort) ReadContext(ctx context.Context, p []byte) (int, error) {
 	port.closeLock.RLock()
 	defer port.closeLock.RUnlock()
 	if atomic.LoadUint32(&port.opened) != 1 {
 		return 0, &PortError{code: PortClosed}
 	}
 
+	cancelSignal := &unixutils.Pipe{}
+	if err := cancelSignal.Open(); err != nil {
+		port.Close()
+		return 0, &PortError{code: PortClosed, causedBy: err}
+	}
+	defer cancelSignal.Close()
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		<-ctx.Done()
+		cancelSignal.Write([]byte{0})
+	}()
+
 	var deadline time.Time
 	if port.readTimeout != NoTimeout {
 		deadline = time.Now().Add(port.readTimeout)
 	}
 
-	fds := unixutils.NewFDSet(port.handle, port.closeSignal.ReadFD())
+	fds := unixutils.NewFDSet(port.handle, port.closeSignal.ReadFD(), cancelSignal.ReadFD())
 	for {
 		timeout := time.Duration(-1)
 		if port.readTimeout != NoTimeout {
@@ -83,6 +103,9 @@ func (port *unixPort) Read(p []byte) (int, error) {
 		}
 		if res.IsReadable(port.closeSignal.ReadFD()) {
 			return 0, &PortError{code: PortClosed}
+		}
+		if res.IsReadable(cancelSignal.ReadFD()) {
+			return 0, &PortError{code: ReadCanceled, causedBy: ctx.Err()}
 		}
 		if !res.IsReadable(port.handle) {
 			// Timeout happened
@@ -247,7 +270,8 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 
 	port.acquireExclusiveAccess()
 
-	// This pipe is used as a signal to cancel blocking Read
+	// This pipe is used as a signal to cancel blocking Read when the port is
+	// closed
 	pipe := &unixutils.Pipe{}
 	if err := pipe.Open(); err != nil {
 		port.Close()
