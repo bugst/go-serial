@@ -15,6 +15,7 @@ type PortDetails struct {
 	IsUSB        bool
 	VID          string
 	PID          string
+        MI           string
 	SerialNumber string
 
 	// Manufacturer string
