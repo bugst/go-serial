@@ -4,8 +4,6 @@
 // license that can be found in the LICENSE file.
 //
 
-// +build go1.10,darwin
-
 package enumerator
 
 // #cgo LDFLAGS: -framework CoreFoundation -framework IOKit
