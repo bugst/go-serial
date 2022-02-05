@@ -110,8 +110,8 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 		if port.readTimeoutCycles != -1 {
 			cycles++
 			if cycles == port.readTimeoutCycles {
-				// Timeout
-				return 0, nil
+				// Timeout happened
+				return 0, &PortError{code: Timeout}
 			}
 		}
 

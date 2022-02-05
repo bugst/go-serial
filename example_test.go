@@ -9,7 +9,9 @@ package serial_test
 import (
 	"fmt"
 	"log"
+	"os"
 	"strings"
+	"time"
 
 	"go.bug.st/serial"
 )
@@ -53,11 +55,20 @@ func Example_sendAndReceive() {
 
 	// Read and print the response
 
+	if err := port.SetReadTimeout(1 * time.Minute); err != nil {
+		fmt.Printf("failed to set read timeout: %v\n", err)
+	}
+
 	buff := make([]byte, 100)
 	for {
 		// Reads up to 100 bytes
 		n, err := port.Read(buff)
 		if err != nil {
+			if os.IsTimeout(err) {
+				fmt.Println("timeout")
+				// TODO do something on read timeout
+				continue
+			}
 			log.Fatal(err)
 		}
 		if n == 0 {
