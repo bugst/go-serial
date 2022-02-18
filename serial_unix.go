@@ -286,10 +286,7 @@ func nativeGetPortsList() ([]string, error) {
 		if strings.HasPrefix(f.Name(), "ttyS") {
 			port, err := nativeOpen(portName, &Mode{})
 			if err != nil {
-				serr, ok := err.(*PortError)
-				if ok && serr.Code() == InvalidSerialPort {
-					continue
-				}
+				continue
 			} else {
 				port.Close()
 			}
