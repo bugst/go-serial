@@ -72,7 +72,11 @@ func (port *unixPort) Read(p []byte) (int, error) {
 	for {
 		timeout := time.Duration(-1)
 		if port.readTimeout != NoTimeout {
-			timeout = deadline.Sub(time.Now())
+			timeout = time.Until(deadline)
+			if timeout < 0 {
+				// a negative timeout means "no-timeout" in Select(...)
+				timeout = 0
+			}
 		}
 		res, err := unixutils.Select(fds, nil, fds, timeout)
 		if err == unix.EINTR {
