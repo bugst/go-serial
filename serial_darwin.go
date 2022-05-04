@@ -14,6 +14,8 @@ const regexFilter = "^(cu|tty)\\..*"
 const ioctlTcgetattr = unix.TIOCGETA
 const ioctlTcsetattr = unix.TIOCSETA
 const ioctlTcflsh = unix.TIOCFLUSH
+const ioctlTioccbrk = unix.TIOCCBRK
+const ioctlTiocsbrk = unix.TIOCSBRK
 
 func setTermSettingsBaudrate(speed int, settings *unix.Termios) (error, bool) {
 	baudrate, ok := baudrateMap[speed]
