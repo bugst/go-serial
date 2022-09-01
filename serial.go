@@ -53,13 +53,20 @@ type Port interface {
 // NoTimeout should be used as a parameter to SetReadTimeout to disable timeout.
 var NoTimeout time.Duration = -1
 
-// ModemStatusBits contains all the modem status bits for a serial port (CTS, DSR, etc...).
+// ModemStatusBits contains all the modem input status bits for a serial port (CTS, DSR, etc...).
 // It can be retrieved with the Port.GetModemStatusBits() method.
 type ModemStatusBits struct {
 	CTS bool // ClearToSend status
 	DSR bool // DataSetReady status
 	RI  bool // RingIndicator status
 	DCD bool // DataCarrierDetect status
+}
+
+// ModemOutputBits contains all the modem output bits for a serial port.
+// This is used in the Mode.InitialStatusBits struct to specify the initial status of the bits.
+type ModemOutputBits struct {
+	RTS bool // ReadyToSend status
+	DTR bool // DataTerminalReady status
 }
 
 // Open opens the serial port using the specified modes
@@ -74,12 +81,11 @@ func GetPortsList() ([]string, error) {
 
 // Mode describes a serial port configuration.
 type Mode struct {
-	BaudRate   int      // The serial port bitrate (aka Baudrate)
-	DataBits   int      // Size of the character (must be 5, 6, 7 or 8)
-	Parity     Parity   // Parity (see Parity type for more info)
-	StopBits   StopBits // Stop bits (see StopBits type for more info)
-	InitialRTS bool     // Initial state for RTS
-	InitialDTR bool     // Initial state for DTR
+	BaudRate          int              // The serial port bitrate (aka Baudrate)
+	DataBits          int              // Size of the character (must be 5, 6, 7 or 8)
+	Parity            Parity           // Parity (see Parity type for more info)
+	StopBits          StopBits         // Stop bits (see StopBits type for more info)
+	InitialStatusBits *ModemOutputBits // Initial output modem bits status (if nil defaults to DTR=true and RTS=true)
 }
 
 // Parity describes a serial port parity setting
