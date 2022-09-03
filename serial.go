@@ -64,6 +64,9 @@ type ModemStatusBits struct {
 
 // ModemOutputBits contains all the modem output bits for a serial port.
 // This is used in the Mode.InitialStatusBits struct to specify the initial status of the bits.
+// Note: Linux and MacOSX (and basically all unix-based systems) can not set the status bits
+// before opening the port, even if the initial state of the bit is set to false they will go
+// anyway to true for a few milliseconds, resulting in a small pulse.
 type ModemOutputBits struct {
 	RTS bool // ReadyToSend status
 	DTR bool // DataTerminalReady status
