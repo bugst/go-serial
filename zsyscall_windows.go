@@ -42,6 +42,7 @@ var (
 	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
 
 	procRegEnumValueW       = modadvapi32.NewProc("RegEnumValueW")
+	procClearCommBreak      = modkernel32.NewProc("ClearCommBreak")
 	procCreateEventW        = modkernel32.NewProc("CreateEventW")
 	procEscapeCommFunction  = modkernel32.NewProc("EscapeCommFunction")
 	procGetCommModemStatus  = modkernel32.NewProc("GetCommModemStatus")
@@ -49,6 +50,7 @@ var (
 	procGetOverlappedResult = modkernel32.NewProc("GetOverlappedResult")
 	procPurgeComm           = modkernel32.NewProc("PurgeComm")
 	procResetEvent          = modkernel32.NewProc("ResetEvent")
+	procSetCommBreak        = modkernel32.NewProc("SetCommBreak")
 	procSetCommState        = modkernel32.NewProc("SetCommState")
 	procSetCommTimeouts     = modkernel32.NewProc("SetCommTimeouts")
 )
@@ -57,6 +59,14 @@ func regEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint3
 	r0, _, _ := syscall.Syscall9(procRegEnumValueW.Addr(), 8, uintptr(key), uintptr(index), uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(nameLen)), uintptr(unsafe.Pointer(reserved)), uintptr(unsafe.Pointer(class)), uintptr(unsafe.Pointer(value)), uintptr(unsafe.Pointer(valueLen)), 0)
 	if r0 != 0 {
 		regerrno = syscall.Errno(r0)
+	}
+	return
+}
+
+func clearCommBreak(handle syscall.Handle) (err error) {
+	r1, _, e1 := syscall.Syscall(procClearCommBreak.Addr(), 1, uintptr(handle), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
 	}
 	return
 }
@@ -120,6 +130,14 @@ func purgeComm(handle syscall.Handle, flags uint32) (err error) {
 
 func resetEvent(handle syscall.Handle) (err error) {
 	r1, _, e1 := syscall.Syscall(procResetEvent.Addr(), 1, uintptr(handle), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func setCommBreak(handle syscall.Handle) (err error) {
+	r1, _, e1 := syscall.Syscall(procSetCommBreak.Addr(), 1, uintptr(handle), 0, 0)
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
