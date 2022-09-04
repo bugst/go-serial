@@ -450,10 +450,19 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort}
 	}
-	params.Flags &= dcbRTSControlDisbaleMask
-	params.Flags |= dcbRTSControlEnable
 	params.Flags &= dcbDTRControlDisableMask
-	params.Flags |= dcbDTRControlEnable
+	params.Flags &= dcbRTSControlDisbaleMask
+	if mode.InitialStatusBits == nil {
+		params.Flags |= dcbDTRControlEnable
+		params.Flags |= dcbRTSControlEnable
+	} else {
+		if mode.InitialStatusBits.DTR {
+			params.Flags |= dcbDTRControlEnable
+		}
+		if mode.InitialStatusBits.RTS {
+			params.Flags |= dcbRTSControlEnable
+		}
+	}
 	params.Flags &^= dcbOutXCTSFlow
 	params.Flags &^= dcbOutXDSRFlow
 	params.Flags &^= dcbDSRSensitivity

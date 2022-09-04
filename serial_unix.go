@@ -240,6 +240,26 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 		return nil, &PortError{code: InvalidSerialPort}
 	}
 
+	if mode.InitialStatusBits != nil {
+		status, err := port.getModemBitsStatus()
+		if err != nil {
+			return nil, &PortError{code: InvalidSerialPort, causedBy: err}
+		}
+		if mode.InitialStatusBits.DTR {
+			status |= unix.TIOCM_DTR
+		} else {
+			status &^= unix.TIOCM_DTR
+		}
+		if mode.InitialStatusBits.RTS {
+			status |= unix.TIOCM_RTS
+		} else {
+			status &^= unix.TIOCM_RTS
+		}
+		if err := port.setModemBitsStatus(status); err != nil {
+			return nil, &PortError{code: InvalidSerialPort, causedBy: err}
+		}
+	}
+
 	// MacOSX require that this operation is the last one otherwise an
 	// 'Invalid serial port' error is returned... don't know why...
 	if port.SetMode(mode) != nil {
