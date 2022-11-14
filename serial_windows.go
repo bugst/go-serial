@@ -114,17 +114,6 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 				return 0, nil
 			}
 		}
-
-		// At the moment it seems that the only reliable way to check if
-		// a serial port is alive in Windows is to check if the SetCommState
-		// function fails.
-
-		params := &dcb{}
-		getCommState(port.handle, params)
-		if err := setCommState(port.handle, params); err != nil {
-			port.Close()
-			return 0, err
-		}
 	}
 }
 
