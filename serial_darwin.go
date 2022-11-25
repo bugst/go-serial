@@ -29,3 +29,11 @@ func (port *unixPort) setSpecialBaudrate(speed uint32) error {
 	const kIOSSIOSPEED = 0x80045402
 	return unix.IoctlSetPointerInt(port.handle, kIOSSIOSPEED, int(speed))
 }
+
+func (port *unixPort) ResetInputBuffer() error {
+	return unix.IoctlSetPointerInt(port.handle, ioctlTcflsh, unix.TCIFLUSH)
+}
+
+func (port *unixPort) ResetOutputBuffer() error {
+	return unix.IoctlSetPointerInt(port.handle, ioctlTcflsh, unix.TCOFLUSH)
+}
