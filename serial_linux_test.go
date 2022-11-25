@@ -11,6 +11,9 @@ package serial
 
 import (
 	"context"
+	"errors"
+	"io"
+	"os"
 	"os/exec"
 	"testing"
 	"time"
@@ -18,18 +21,41 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func startSocatAndWaitForPort(t *testing.T, ctx context.Context) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, "socat", "-D", "STDIO", "pty,link=/tmp/faketty")
-	r, err := cmd.StderrPipe()
-	require.NoError(t, err)
+const ttyPath = "/tmp/faketty"
+
+type ttyProc struct {
+	t   *testing.T
+	cmd *exec.Cmd
+}
+
+func (tp *ttyProc) Close() error {
+	err := tp.cmd.Process.Signal(os.Interrupt)
+	require.NoError(tp.t, err)
+	return tp.cmd.Wait()
+}
+
+func (tp *ttyProc) waitForPort() {
+	for {
+		_, err := os.Stat(ttyPath)
+		if err == nil {
+			return
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			require.NoError(tp.t, err)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func startSocatAndWaitForPort(t *testing.T, ctx context.Context) io.Closer {
+	cmd := exec.CommandContext(ctx, "socat", "STDIO", "pty,link="+ttyPath)
 	require.NoError(t, cmd.Start())
-	// Let our fake serial port node appear.
-	// socat will write to stderr before starting transfer phase;
-	// we don't really care what, just that it did, because then it's ready.
-	buf := make([]byte, 1024)
-	_, err = r.Read(buf)
-	require.NoError(t, err)
-	return cmd
+	socat := &ttyProc{
+		t:   t,
+		cmd: cmd,
+	}
+	socat.waitForPort()
+	return socat
 }
 
 func TestSerialReadAndCloseConcurrency(t *testing.T) {
@@ -39,26 +65,71 @@ func TestSerialReadAndCloseConcurrency(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cmd := startSocatAndWaitForPort(t, ctx)
-	go cmd.Wait()
+	socat := startSocatAndWaitForPort(t, ctx)
+	defer socat.Close()
 
-	port, err := Open("/tmp/faketty", &Mode{})
+	port, err := Open(ttyPath, &Mode{})
 	require.NoError(t, err)
+	defer port.Close()
+
 	buf := make([]byte, 100)
 	go port.Read(buf)
 	// let port.Read to start
 	time.Sleep(time.Millisecond * 1)
-	port.Close()
 }
 
 func TestDoubleCloseIsNoop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cmd := startSocatAndWaitForPort(t, ctx)
-	go cmd.Wait()
+	socat := startSocatAndWaitForPort(t, ctx)
+	defer socat.Close()
 
-	port, err := Open("/tmp/faketty", &Mode{})
+	port, err := Open(ttyPath, &Mode{})
 	require.NoError(t, err)
 	require.NoError(t, port.Close())
 	require.NoError(t, port.Close())
+}
+
+func TestCancelStopsRead(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	socat := startSocatAndWaitForPort(t, ctx)
+	defer socat.Close()
+
+	port, err := Open(ttyPath, &Mode{})
+	require.NoError(t, err)
+	defer port.Close()
+
+	readCtx, readCancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	var readErr error
+	go func() {
+		buf := make([]byte, 100)
+		_, readErr = port.ReadContext(readCtx, buf)
+		close(done)
+	}()
+
+	time.Sleep(time.Millisecond)
+	select {
+	case <-done:
+		require.NoError(t, readErr)
+		require.Fail(t, "expected reading to be in-progress")
+	default:
+	}
+
+	readCancel()
+
+	time.Sleep(time.Millisecond)
+	select {
+	case <-done:
+	default:
+		require.Fail(t, "expected reading to be finished")
+
+	}
+
+	var portErr *PortError
+	if !errors.As(readErr, &portErr) {
+		require.Fail(t, "expected read error to be a port error")
+	}
+	require.Equal(t, portErr.Code(), ReadCanceled)
 }

@@ -18,6 +18,7 @@ package serial
 */
 
 import (
+	"context"
 	"sync"
 	"syscall"
 	"time"
@@ -76,12 +77,23 @@ func (port *windowsPort) Close() error {
 }
 
 func (port *windowsPort) Read(p []byte) (int, error) {
+	return port.ReadContext(context.Background(), p)
+}
+
+func (port *windowsPort) ReadContext(ctx context.Context, p []byte) (int, error) {
 	var readed uint32
 	ev, err := createOverlappedEvent()
 	if err != nil {
 		return 0, err
 	}
 	defer syscall.CloseHandle(ev.HEvent)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		<-ctx.Done()
+		syscall.CancelIoEx(port.handle, ev)
+	}()
 
 	cycles := int64(0)
 	for {
@@ -93,8 +105,12 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 		case nil:
 			// operation completed successfully
 		case syscall.ERROR_OPERATION_ABORTED:
-			// port may have been closed
-			return int(readed), &PortError{code: PortClosed, causedBy: err}
+			if port.handle == 0 {
+				// port may have been closed
+				return int(readed), &PortError{code: PortClosed, causedBy: err}
+			}
+			// read was canceled
+			return int(readed), &PortError{code: ReadCanceled, causedBy: err}
 		default:
 			// error happened
 			return int(readed), err

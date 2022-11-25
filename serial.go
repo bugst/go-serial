@@ -6,7 +6,10 @@
 
 package serial
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 //go:generate go run golang.org/x/sys/windows/mkwinsyscall -output zsyscall_windows.go syscall_windows.go
 
@@ -21,6 +24,13 @@ type Port interface {
 	// The Read function blocks until (at least) one byte is received from
 	// the serial port or an error occurs.
 	Read(p []byte) (n int, err error)
+
+	// Stores data received from the serial port into the provided byte array
+	// buffer. The function returns the number of bytes read.
+	//
+	// The Read function blocks until (at least) one byte is received from
+	// the serial port, an error occurs, or ctx is canceled.
+	ReadContext(ctx context.Context, p []byte) (n int, err error)
 
 	// Send the content of the data byte array to the serial port.
 	// Returns the number of bytes written.
@@ -153,6 +163,8 @@ const (
 	PortClosed
 	// FunctionNotImplemented the requested function is not implemented
 	FunctionNotImplemented
+	// ReadCanceled the read was canceled
+	ReadCanceled
 )
 
 // EncodedErrorString returns a string explaining the error code
@@ -182,6 +194,8 @@ func (e PortError) EncodedErrorString() string {
 		return "Port has been closed"
 	case FunctionNotImplemented:
 		return "Function not implemented"
+	case ReadCanceled:
+		return "Read was canceled"
 	default:
 		return "Other error"
 	}
