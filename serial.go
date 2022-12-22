@@ -200,12 +200,10 @@ func (e PortError) Code() PortErrorCode {
 	return e.code
 }
 
-// ModeFromString turns a string description of a serial mode (such as "8N1") into
-// the appropriate Mode structure. The default of 8N1 will be used if any values
-// are not specified.
+// ModeFromString uses a string description of a serial mode (such as "8N1")
+// to partially populate a Mode structure.
 // See https://en.wikipedia.org/wiki/8-N-1 for details
-func ModeFromString(smode string) (*Mode, error) {
-	mode := &Mode{DataBits: 8, Parity: NoParity, StopBits: OneStopBit}
+func ModeFromString(smode string, mode *Mode) error {
 	if len(smode) > 0 {
 		switch smode[0] {
 		case '8':
@@ -217,7 +215,7 @@ func ModeFromString(smode string) (*Mode, error) {
 		case '5':
 			mode.DataBits = 5
 		default:
-			return nil, &PortError{code: InvalidDataBits}
+			return &PortError{code: InvalidDataBits}
 		}
 	}
 	if len(smode) > 1 {
@@ -233,7 +231,7 @@ func ModeFromString(smode string) (*Mode, error) {
 		case 'S':
 			mode.Parity = SpaceParity
 		default:
-			return nil, &PortError{code: InvalidParity}
+			return &PortError{code: InvalidParity}
 		}
 	}
 	if len(smode) > 2 {
@@ -243,8 +241,8 @@ func ModeFromString(smode string) (*Mode, error) {
 		case '2':
 			mode.StopBits = TwoStopBits
 		default:
-			return nil, &PortError{code: InvalidStopBits}
+			return &PortError{code: InvalidStopBits}
 		}
 	}
-	return mode, nil
+	return nil
 }

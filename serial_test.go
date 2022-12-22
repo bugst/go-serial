@@ -19,18 +19,20 @@ func TestModeFromString(t *testing.T) {
 	}
 
 	for s, m := range good_cases {
-		res, err := ModeFromString(s)
+		mode := &Mode{}
+		err := ModeFromString(s, mode)
 		if err != nil {
 			t.Errorf("Failed to convert mode %q: %s", s, err)
-		} else if !reflect.DeepEqual(res, m) {
-			t.Errorf("Mode %q should convert to %+v, got %+v", s, m, res)
+		} else if !reflect.DeepEqual(mode, m) {
+			t.Errorf("Mode %q should convert to %+v, got %+v", s, m, mode)
 		}
 	}
 
 	for s, e := range bad_cases {
-		res, err := ModeFromString(s)
+		mode := &Mode{}
+		err := ModeFromString(s, mode)
 		if err == nil {
-			t.Errorf("Mode %q should be invalid, got %v", s, res)
+			t.Errorf("Mode %q should be invalid, got %v", s, mode)
 		} else if errors.Is(err, e) {
 			t.Errorf("Mode %q should fail with %v, got %v", s, e, err)
 		}
