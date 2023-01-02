@@ -48,6 +48,9 @@ type Port interface {
 
 	// Close the serial port
 	Close() error
+
+	// Break sends a break for a determined time
+	Break(time.Duration) error
 }
 
 // NoTimeout should be used as a parameter to SetReadTimeout to disable timeout.

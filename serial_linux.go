@@ -63,6 +63,8 @@ const tcCRTSCTS uint32 = unix.CRTSCTS
 const ioctlTcgetattr = unix.TCGETS
 const ioctlTcsetattr = unix.TCSETS
 const ioctlTcflsh = unix.TCFLSH
+const ioctlTioccbrk = unix.TIOCCBRK
+const ioctlTiocsbrk = unix.TIOCSBRK
 
 func toTermiosSpeedType(speed uint32) uint32 {
 	return speed

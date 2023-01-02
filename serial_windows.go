@@ -381,6 +381,20 @@ func (port *windowsPort) SetReadTimeout(timeout time.Duration) error {
 	return nil
 }
 
+func (port *windowsPort) Break(d time.Duration) error {
+	if err := setCommBreak(port.handle); err != nil {
+		return &PortError{causedBy: err}
+	}
+
+	time.Sleep(d)
+
+	if err := clearCommBreak(port.handle); err != nil {
+		return &PortError{causedBy: err}
+	}
+
+	return nil
+}
+
 func createOverlappedEvent() (*syscall.Overlapped, error) {
 	h, err := createEvent(nil, true, false, nil)
 	return &syscall.Overlapped{HEvent: h}, err

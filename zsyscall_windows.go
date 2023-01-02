@@ -19,6 +19,7 @@ const (
 
 var (
 	errERROR_IO_PENDING error = syscall.Errno(errnoERROR_IO_PENDING)
+	errERROR_EINVAL     error = syscall.EINVAL
 )
 
 // errnoErr returns common boxed Errno values, to prevent
@@ -26,7 +27,7 @@ var (
 func errnoErr(e syscall.Errno) error {
 	switch e {
 	case 0:
-		return nil
+		return errERROR_EINVAL
 	case errnoERROR_IO_PENDING:
 		return errERROR_IO_PENDING
 	}
@@ -41,15 +42,17 @@ var (
 	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
 
 	procRegEnumValueW       = modadvapi32.NewProc("RegEnumValueW")
-	procGetCommState        = modkernel32.NewProc("GetCommState")
-	procSetCommState        = modkernel32.NewProc("SetCommState")
-	procSetCommTimeouts     = modkernel32.NewProc("SetCommTimeouts")
+	procClearCommBreak      = modkernel32.NewProc("ClearCommBreak")
+	procCreateEventW        = modkernel32.NewProc("CreateEventW")
 	procEscapeCommFunction  = modkernel32.NewProc("EscapeCommFunction")
 	procGetCommModemStatus  = modkernel32.NewProc("GetCommModemStatus")
-	procCreateEventW        = modkernel32.NewProc("CreateEventW")
-	procResetEvent          = modkernel32.NewProc("ResetEvent")
+	procGetCommState        = modkernel32.NewProc("GetCommState")
 	procGetOverlappedResult = modkernel32.NewProc("GetOverlappedResult")
 	procPurgeComm           = modkernel32.NewProc("PurgeComm")
+	procResetEvent          = modkernel32.NewProc("ResetEvent")
+	procSetCommBreak        = modkernel32.NewProc("SetCommBreak")
+	procSetCommState        = modkernel32.NewProc("SetCommState")
+	procSetCommTimeouts     = modkernel32.NewProc("SetCommTimeouts")
 )
 
 func regEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint32, reserved *uint32, class *uint16, value *uint16, valueLen *uint32) (regerrno error) {
@@ -60,38 +63,27 @@ func regEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint3
 	return
 }
 
-func getCommState(handle syscall.Handle, dcb *dcb) (err error) {
-	r1, _, e1 := syscall.Syscall(procGetCommState.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(dcb)), 0)
+func clearCommBreak(handle syscall.Handle) (err error) {
+	r1, _, e1 := syscall.Syscall(procClearCommBreak.Addr(), 1, uintptr(handle), 0, 0)
 	if r1 == 0 {
-		if e1 != 0 {
-			err = errnoErr(e1)
-		} else {
-			err = syscall.EINVAL
-		}
+		err = errnoErr(e1)
 	}
 	return
 }
 
-func setCommState(handle syscall.Handle, dcb *dcb) (err error) {
-	r1, _, e1 := syscall.Syscall(procSetCommState.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(dcb)), 0)
-	if r1 == 0 {
-		if e1 != 0 {
-			err = errnoErr(e1)
-		} else {
-			err = syscall.EINVAL
-		}
+func createEvent(eventAttributes *uint32, manualReset bool, initialState bool, name *uint16) (handle syscall.Handle, err error) {
+	var _p0 uint32
+	if manualReset {
+		_p0 = 1
 	}
-	return
-}
-
-func setCommTimeouts(handle syscall.Handle, timeouts *commTimeouts) (err error) {
-	r1, _, e1 := syscall.Syscall(procSetCommTimeouts.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(timeouts)), 0)
-	if r1 == 0 {
-		if e1 != 0 {
-			err = errnoErr(e1)
-		} else {
-			err = syscall.EINVAL
-		}
+	var _p1 uint32
+	if initialState {
+		_p1 = 1
+	}
+	r0, _, e1 := syscall.Syscall6(procCreateEventW.Addr(), 4, uintptr(unsafe.Pointer(eventAttributes)), uintptr(_p0), uintptr(_p1), uintptr(unsafe.Pointer(name)), 0, 0)
+	handle = syscall.Handle(r0)
+	if handle == 0 {
+		err = errnoErr(e1)
 	}
 	return
 }
@@ -108,39 +100,10 @@ func getCommModemStatus(handle syscall.Handle, bits *uint32) (res bool) {
 	return
 }
 
-func createEvent(eventAttributes *uint32, manualReset bool, initialState bool, name *uint16) (handle syscall.Handle, err error) {
-	var _p0 uint32
-	if manualReset {
-		_p0 = 1
-	} else {
-		_p0 = 0
-	}
-	var _p1 uint32
-	if initialState {
-		_p1 = 1
-	} else {
-		_p1 = 0
-	}
-	r0, _, e1 := syscall.Syscall6(procCreateEventW.Addr(), 4, uintptr(unsafe.Pointer(eventAttributes)), uintptr(_p0), uintptr(_p1), uintptr(unsafe.Pointer(name)), 0, 0)
-	handle = syscall.Handle(r0)
-	if handle == 0 {
-		if e1 != 0 {
-			err = errnoErr(e1)
-		} else {
-			err = syscall.EINVAL
-		}
-	}
-	return
-}
-
-func resetEvent(handle syscall.Handle) (err error) {
-	r1, _, e1 := syscall.Syscall(procResetEvent.Addr(), 1, uintptr(handle), 0, 0)
+func getCommState(handle syscall.Handle, dcb *dcb) (err error) {
+	r1, _, e1 := syscall.Syscall(procGetCommState.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(dcb)), 0)
 	if r1 == 0 {
-		if e1 != 0 {
-			err = errnoErr(e1)
-		} else {
-			err = syscall.EINVAL
-		}
+		err = errnoErr(e1)
 	}
 	return
 }
@@ -149,16 +112,10 @@ func getOverlappedResult(handle syscall.Handle, overlapEvent *syscall.Overlapped
 	var _p0 uint32
 	if wait {
 		_p0 = 1
-	} else {
-		_p0 = 0
 	}
 	r1, _, e1 := syscall.Syscall6(procGetOverlappedResult.Addr(), 4, uintptr(handle), uintptr(unsafe.Pointer(overlapEvent)), uintptr(unsafe.Pointer(n)), uintptr(_p0), 0, 0)
 	if r1 == 0 {
-		if e1 != 0 {
-			err = errnoErr(e1)
-		} else {
-			err = syscall.EINVAL
-		}
+		err = errnoErr(e1)
 	}
 	return
 }
@@ -166,11 +123,39 @@ func getOverlappedResult(handle syscall.Handle, overlapEvent *syscall.Overlapped
 func purgeComm(handle syscall.Handle, flags uint32) (err error) {
 	r1, _, e1 := syscall.Syscall(procPurgeComm.Addr(), 2, uintptr(handle), uintptr(flags), 0)
 	if r1 == 0 {
-		if e1 != 0 {
-			err = errnoErr(e1)
-		} else {
-			err = syscall.EINVAL
-		}
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func resetEvent(handle syscall.Handle) (err error) {
+	r1, _, e1 := syscall.Syscall(procResetEvent.Addr(), 1, uintptr(handle), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func setCommBreak(handle syscall.Handle) (err error) {
+	r1, _, e1 := syscall.Syscall(procSetCommBreak.Addr(), 1, uintptr(handle), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func setCommState(handle syscall.Handle, dcb *dcb) (err error) {
+	r1, _, e1 := syscall.Syscall(procSetCommState.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(dcb)), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func setCommTimeouts(handle syscall.Handle, timeouts *commTimeouts) (err error) {
+	r1, _, e1 := syscall.Syscall(procSetCommTimeouts.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(timeouts)), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
 	}
 	return
 }

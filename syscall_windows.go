@@ -25,3 +25,7 @@ package serial
 //sys getOverlappedResult(handle syscall.Handle, overlapEvent *syscall.Overlapped, n *uint32, wait bool) (err error) = GetOverlappedResult
 
 //sys purgeComm(handle syscall.Handle, flags uint32) (err error) = PurgeComm
+
+//sys setCommBreak(handle syscall.Handle) (err error) = SetCommBreak
+
+//sys clearCommBreak(handle syscall.Handle) (err error) = ClearCommBreak

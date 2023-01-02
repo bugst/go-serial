@@ -4,6 +4,7 @@
 // license that can be found in the LICENSE file.
 //
 
+//go:build linux || darwin || freebsd || openbsd
 // +build linux darwin freebsd openbsd
 
 package serial
@@ -115,6 +116,20 @@ func (port *unixPort) Write(p []byte) (n int, err error) {
 		n = 0
 	}
 	return
+}
+
+func (port *unixPort) Break(t time.Duration) error {
+	if err := unix.IoctlSetInt(port.handle, ioctlTiocsbrk, 0); err != nil {
+		return err
+	}
+
+	time.Sleep(t)
+
+	if err := unix.IoctlSetInt(port.handle, ioctlTioccbrk, 0); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (port *unixPort) SetMode(mode *Mode) error {
