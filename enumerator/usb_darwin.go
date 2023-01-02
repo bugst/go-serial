@@ -14,6 +14,7 @@ import "C"
 import (
 	"errors"
 	"fmt"
+	"time"
 	"unsafe"
 )
 
@@ -37,12 +38,20 @@ func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 }
 
 func extractPortInfo(service C.io_registry_entry_t) (*PortDetails, error) {
-	name, err := service.GetStringProperty("IOCalloutDevice")
-	if err != nil {
-		return nil, fmt.Errorf("Error extracting port info from device: %s", err.Error())
-	}
 	port := &PortDetails{}
-	port.Name = name
+	// If called too early the port may still not be ready or fully enumerated
+	// so we retry 5 times before returning error.
+	for retries := 5; retries > 0; retries-- {
+		name, err := service.GetStringProperty("IOCalloutDevice")
+		if err == nil {
+			port.Name = name
+			break
+		}
+		if retries == 0 {
+			return nil, fmt.Errorf("error extracting port info from device: %w", err)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 	port.IsUSB = false
 
 	validUSBDeviceClass := map[string]bool{
