@@ -1,7 +1,6 @@
 package serial
 
 import (
-	"errors"
 	"reflect"
 	"testing"
 )
@@ -12,10 +11,10 @@ func TestModeFromString(t *testing.T) {
 		"7S2": {DataBits: 7, Parity: SpaceParity, StopBits: TwoStopBits},
 	}
 
-	bad_cases := map[string]error{
-		"9N1": &PortError{code: InvalidDataBits},
-		"8N3": &PortError{code: InvalidStopBits},
-		"8R1": &PortError{code: InvalidParity},
+	bad_cases := map[string]*PortError{
+		"9N1": {code: InvalidDataBits},
+		"8N3": {code: InvalidStopBits},
+		"8R1": {code: InvalidParity},
 	}
 
 	for s, m := range good_cases {
@@ -33,8 +32,16 @@ func TestModeFromString(t *testing.T) {
 		err := ModeFromString(s, mode)
 		if err == nil {
 			t.Errorf("Mode %q should be invalid, got %v", s, mode)
-		} else if errors.Is(err, e) {
-			t.Errorf("Mode %q should fail with %v, got %v", s, e, err)
+		} else {
+			switch pe := err.(type) {
+			case *PortError:
+				if pe.code != e.code {
+					t.Errorf("Mode %q should fail with %v, got %v", s, e, err)
+
+				}
+			default:
+				t.Errorf("Mode %q should fail with %v, got %v", s, e, err)
+			}
 		}
 	}
 }
