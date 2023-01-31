@@ -32,16 +32,8 @@ func TestModeFromString(t *testing.T) {
 		err := ModeFromString(s, mode)
 		if err == nil {
 			t.Errorf("Mode %q should be invalid, got %v", s, mode)
-		} else {
-			switch pe := err.(type) {
-			case *PortError:
-				if pe.code != e.code {
-					t.Errorf("Mode %q should fail with %v, got %v", s, e, err)
-
-				}
-			default:
-				t.Errorf("Mode %q should fail with %v, got %v", s, e, err)
-			}
+		} else if pe, ok := err.(*PortError); !ok || pe.code != e.code {
+			t.Errorf("Mode %q should fail with %v, got %v", s, e, err)
 		}
 	}
 }
