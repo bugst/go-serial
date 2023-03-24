@@ -87,11 +87,5 @@ func setTermSettingsBaudrate(speed int, settings *unix.Termios) (error, bool) {
 }
 
 func (port *unixPort) Drain() error {
-	// simulate drain with change settings with TCSETSW
-	settings, err := port.getTermSettings()
-	if err != nil {
-		return err
-	}
-
-	return unix.IoctlSetTermios(port.handle, unix.TCSETSW, settings)
+	return unix.IoctlSetInt(port.handle, unix.TCSBRK, 1)
 }
