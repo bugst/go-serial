@@ -18,6 +18,26 @@ import (
 	"unsafe"
 )
 
+type io_iterator_t struct {
+	ioiterator C.io_iterator_t
+}
+
+type io_object_t struct {
+	ioobject C.io_object_t
+}
+
+type io_registry_entry_t struct {
+	ioregistryentry C.io_registry_entry_t
+}
+
+type cfStringRef struct {
+	cfs C.CFStringRef
+}
+
+type cfTypeRef struct {
+	cft C.CFTypeRef
+}
+
 func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 	var ports []*PortDetails
 
@@ -28,7 +48,7 @@ func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 	for _, service := range services {
 		defer service.Release()
 
-		port, err := extractPortInfo(C.io_registry_entry_t(service))
+		port, err := extractPortInfo(&io_registry_entry_t{ioregistryentry: service.ioobject})
 		if err != nil {
 			return nil, &PortEnumerationError{causedBy: err}
 		}
@@ -37,7 +57,7 @@ func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 	return ports, nil
 }
 
-func extractPortInfo(service C.io_registry_entry_t) (*PortDetails, error) {
+func extractPortInfo(service *io_registry_entry_t) (*PortDetails, error) {
 	port := &PortDetails{}
 	// If called too early the port may still not be ready or fully enumerated
 	// so we retry 5 times before returning error.
@@ -58,12 +78,18 @@ func extractPortInfo(service C.io_registry_entry_t) (*PortDetails, error) {
 		"IOUSBDevice":     true,
 		"IOUSBHostDevice": true,
 	}
-	usbDevice := service
-	var searchErr error
-	for !validUSBDeviceClass[usbDevice.GetClass()] {
+
+	var (
+		usbDevice    = io_registry_entry_t{service.ioregistryentry}
+		usbDeviceObj = io_object_t{usbDevice.ioregistryentry}
+		searchErr    error
+	)
+
+	for !validUSBDeviceClass[usbDeviceObj.GetClass()] {
 		if usbDevice, searchErr = usbDevice.GetParent("IOService"); searchErr != nil {
 			break
 		}
+		usbDeviceObj = io_object_t{usbDevice.ioregistryentry}
 	}
 	if searchErr == nil {
 		// It's an IOUSBDevice
@@ -82,19 +108,19 @@ func extractPortInfo(service C.io_registry_entry_t) (*PortDetails, error) {
 	return port, nil
 }
 
-func getAllServices(serviceType string) ([]C.io_object_t, error) {
+func getAllServices(serviceType string) ([]io_object_t, error) {
 	i, err := getMatchingServices(serviceMatching(serviceType))
 	if err != nil {
 		return nil, err
 	}
 	defer i.Release()
 
-	var services []C.io_object_t
+	var services []io_object_t
 	tries := 0
 	for tries < 5 {
 		// Extract all elements from iterator
 		if service, ok := i.Next(); ok {
-			services = append(services, service)
+			services = append(services, *service)
 			continue
 		}
 		// If iterator is still valid return the result
@@ -105,7 +131,7 @@ func getAllServices(serviceType string) ([]C.io_object_t, error) {
 		for _, s := range services {
 			s.Release()
 		}
-		services = []C.io_object_t{}
+		services = []io_object_t{}
 		i.Reset()
 		tries++
 	}
@@ -121,84 +147,86 @@ func serviceMatching(serviceType string) C.CFMutableDictionaryRef {
 }
 
 // getMatchingServices look up registered IOService objects that match a matching dictionary.
-func getMatchingServices(matcher C.CFMutableDictionaryRef) (C.io_iterator_t, error) {
+func getMatchingServices(matcher C.CFMutableDictionaryRef) (io_iterator_t, error) {
 	var i C.io_iterator_t
 	err := C.IOServiceGetMatchingServices(C.kIOMasterPortDefault, C.CFDictionaryRef(matcher), &i)
 	if err != C.KERN_SUCCESS {
-		return 0, fmt.Errorf("IOServiceGetMatchingServices failed (code %d)", err)
+		return io_iterator_t{}, fmt.Errorf("IOServiceGetMatchingServices failed (code %d)", err)
 	}
-	return i, nil
+	return io_iterator_t{i}, nil
 }
 
-// CFStringRef
+// cfStringRef
 
-func cfStringCreateWithString(s string) C.CFStringRef {
+func CFStringCreateWithString(s string) cfStringRef {
 	c := C.CString(s)
 	defer C.free(unsafe.Pointer(c))
-	return C.CFStringCreateWithCString(
+	val := C.CFStringCreateWithCString(
 		C.kCFAllocatorDefault, c, C.kCFStringEncodingMacRoman)
+	return cfStringRef{val}
 }
 
-func (ref C.CFStringRef) Release() {
-	C.CFRelease(C.CFTypeRef(ref))
+func (ref cfStringRef) Release() {
+	C.CFRelease(C.CFTypeRef(ref.cfs))
 }
 
 // CFTypeRef
 
-func (ref C.CFTypeRef) Release() {
-	C.CFRelease(ref)
+func (ref cfTypeRef) Release() {
+	C.CFRelease(C.CFTypeRef(ref.cft))
 }
 
 // io_registry_entry_t
 
-func (me *C.io_registry_entry_t) GetParent(plane string) (C.io_registry_entry_t, error) {
+func (me *io_registry_entry_t) GetParent(plane string) (io_registry_entry_t, error) {
 	cPlane := C.CString(plane)
 	defer C.free(unsafe.Pointer(cPlane))
 	var parent C.io_registry_entry_t
-	err := C.IORegistryEntryGetParentEntry(*me, cPlane, &parent)
+	err := C.IORegistryEntryGetParentEntry(me.ioregistryentry, cPlane, &parent)
 	if err != 0 {
-		return 0, errors.New("No parent device available")
+		return io_registry_entry_t{}, errors.New("No parent device available")
 	}
-	return parent, nil
+	return io_registry_entry_t{parent}, nil
 }
 
-func (me *C.io_registry_entry_t) CreateCFProperty(key string) (C.CFTypeRef, error) {
-	k := cfStringCreateWithString(key)
+func (me *io_registry_entry_t) CreateCFProperty(key string) (cfTypeRef, error) {
+	k := CFStringCreateWithString(key)
 	defer k.Release()
-	property := C.IORegistryEntryCreateCFProperty(*me, k, C.kCFAllocatorDefault, 0)
+	property := C.IORegistryEntryCreateCFProperty(me.ioregistryentry, k.cfs, C.kCFAllocatorDefault, 0)
 	if property == 0 {
-		return 0, errors.New("Property not found: " + key)
+		return cfTypeRef{}, errors.New("Property not found: " + key)
 	}
-	return property, nil
+	return cfTypeRef{property}, nil
 }
 
-func (me *C.io_registry_entry_t) GetStringProperty(key string) (string, error) {
+func (me *io_registry_entry_t) GetStringProperty(key string) (string, error) {
 	property, err := me.CreateCFProperty(key)
 	if err != nil {
+		fmt.Println(err)
 		return "", err
 	}
 	defer property.Release()
 
-	if ptr := C.CFStringGetCStringPtr(C.CFStringRef(property), 0); ptr != nil {
+	if ptr := C.CFStringGetCStringPtr(C.CFStringRef(property.cft), 0); ptr != nil {
 		return C.GoString(ptr), nil
 	}
 	// in certain circumstances CFStringGetCStringPtr may return NULL
 	// and we must retrieve the string by copy
 	buff := make([]C.char, 1024)
-	if C.CFStringGetCString(C.CFStringRef(property), &buff[0], 1024, 0) != C.true {
+	if C.CFStringGetCString(C.CFStringRef(property.cft), &buff[0], 1024, 0) != C.true {
 		return "", fmt.Errorf("Property '%s' can't be converted", key)
 	}
 	return C.GoString(&buff[0]), nil
 }
 
-func (me *C.io_registry_entry_t) GetIntProperty(key string, intType C.CFNumberType) (int, error) {
+func (me *io_registry_entry_t) GetIntProperty(key string, intType C.CFNumberType) (int, error) {
 	property, err := me.CreateCFProperty(key)
 	if err != nil {
 		return 0, err
 	}
 	defer property.Release()
 	var res int
-	if C.CFNumberGetValue((C.CFNumberRef)(property), intType, unsafe.Pointer(&res)) != C.true {
+	if C.CFNumberGetValue((C.CFNumberRef)(property.cft), intType, unsafe.Pointer(&res)) != C.true {
 		return res, fmt.Errorf("Property '%s' can't be converted or has been truncated", key)
 	}
 	return res, nil
@@ -211,27 +239,31 @@ func (me *C.io_registry_entry_t) GetIntProperty(key string, intType C.CFNumberTy
 // structure they are iterating over. This function checks the iterator
 // is still valid and should be called when Next returns zero.
 // An invalid iterator can be Reset and the iteration restarted.
-func (me *C.io_iterator_t) IsValid() bool {
-	return C.IOIteratorIsValid(*me) == C.true
+func (me *io_iterator_t) IsValid() bool {
+	return C.IOIteratorIsValid(me.ioiterator) == C.true
 }
 
-func (me *C.io_iterator_t) Reset() {
-	C.IOIteratorReset(*me)
+func (me *io_iterator_t) Reset() {
+	C.IOIteratorReset(me.ioiterator)
 }
 
-func (me *C.io_iterator_t) Next() (C.io_object_t, bool) {
-	res := C.IOIteratorNext(*me)
-	return res, res != 0
+func (me *io_iterator_t) Next() (*io_object_t, bool) {
+	res := C.IOIteratorNext(me.ioiterator)
+	return &io_object_t{res}, res != 0
+}
+
+func (me *io_iterator_t) Release() {
+	C.IOObjectRelease(me.ioiterator)
 }
 
 // io_object_t
 
-func (me *C.io_object_t) Release() {
-	C.IOObjectRelease(*me)
+func (me *io_object_t) Release() {
+	C.IOObjectRelease(me.ioobject)
 }
 
-func (me *C.io_object_t) GetClass() string {
+func (me *io_object_t) GetClass() string {
 	class := make([]C.char, 1024)
-	C.IOObjectGetClass(*me, &class[0])
+	C.IOObjectGetClass(me.ioobject, &class[0])
 	return C.GoString(&class[0])
 }
