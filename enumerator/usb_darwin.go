@@ -18,26 +18,6 @@ import (
 	"unsafe"
 )
 
-type io_iterator_t struct {
-	ioiterator C.io_iterator_t
-}
-
-type io_object_t struct {
-	ioobject C.io_object_t
-}
-
-type io_registry_entry_t struct {
-	ioregistryentry C.io_registry_entry_t
-}
-
-type cfStringRef struct {
-	cfs C.CFStringRef
-}
-
-type cfTypeRef struct {
-	cft C.CFTypeRef
-}
-
 func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 	var ports []*PortDetails
 
@@ -158,6 +138,10 @@ func getMatchingServices(matcher C.CFMutableDictionaryRef) (io_iterator_t, error
 
 // cfStringRef
 
+type cfStringRef struct {
+	cfs C.CFStringRef
+}
+
 func CFStringCreateWithString(s string) cfStringRef {
 	c := C.CString(s)
 	defer C.free(unsafe.Pointer(c))
@@ -172,11 +156,19 @@ func (ref cfStringRef) Release() {
 
 // CFTypeRef
 
+type cfTypeRef struct {
+	cft C.CFTypeRef
+}
+
 func (ref cfTypeRef) Release() {
 	C.CFRelease(C.CFTypeRef(ref.cft))
 }
 
 // io_registry_entry_t
+
+type io_registry_entry_t struct {
+	ioregistryentry C.io_registry_entry_t
+}
 
 func (me *io_registry_entry_t) GetParent(plane string) (io_registry_entry_t, error) {
 	cPlane := C.CString(plane)
@@ -234,6 +226,10 @@ func (me *io_registry_entry_t) GetIntProperty(key string, intType C.CFNumberType
 
 // io_iterator_t
 
+type io_iterator_t struct {
+	ioiterator C.io_iterator_t
+}
+
 // IsValid checks if an iterator is still valid.
 // Some iterators will be made invalid if changes are made to the
 // structure they are iterating over. This function checks the iterator
@@ -257,6 +253,10 @@ func (me *io_iterator_t) Release() {
 }
 
 // io_object_t
+
+type io_object_t struct {
+	ioobject C.io_object_t
+}
 
 func (me *io_object_t) Release() {
 	C.IOObjectRelease(me.ioobject)
