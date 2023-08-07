@@ -181,7 +181,6 @@ func (me *io_registry_entry_t) CreateCFProperty(key string) (cfTypeRef, error) {
 func (me *io_registry_entry_t) GetStringProperty(key string) (string, error) {
 	property, err := me.CreateCFProperty(key)
 	if err != nil {
-		fmt.Println(err)
 		return "", err
 	}
 	defer property.Release()
