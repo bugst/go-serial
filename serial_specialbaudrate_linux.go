@@ -1,11 +1,10 @@
-// +build linux
-// +build !ppc64le
-
 //
 // Copyright 2014-2021 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
+
+//go:build linux && !ppc64le
 
 package serial
 
