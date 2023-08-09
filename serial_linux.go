@@ -85,3 +85,10 @@ func setTermSettingsBaudrate(speed int, settings *unix.Termios) (error, bool) {
 	settings.Ospeed = toTermiosSpeedType(baudrate)
 	return nil, false
 }
+
+func (port *unixPort) Drain() error {
+	// It's not super well documented, but this is the same as calling tcdrain:
+	// - https://git.musl-libc.org/cgit/musl/tree/src/termios/tcdrain.c
+	// - https://elixir.bootlin.com/linux/v6.2.8/source/drivers/tty/tty_io.c#L2673
+	return unix.IoctlSetInt(port.handle, unix.TCSBRK, 1)
+}
