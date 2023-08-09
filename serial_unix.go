@@ -313,8 +313,8 @@ func nativeGetPortsList() ([]string, error) {
 
 		portName := devFolder + "/" + f.Name()
 
-		// Check if serial port is real or is a placeholder serial port "ttySxx"
-		if strings.HasPrefix(f.Name(), "ttyS") {
+		// Check if serial port is real or is a placeholder serial port "ttySxx" or "ttyHSxx"
+		if strings.HasPrefix(f.Name(), "ttyS") || strings.HasPrefix(f.Name(), "ttyHS") {
 			port, err := nativeOpen(portName, &Mode{})
 			if err != nil {
 				continue
