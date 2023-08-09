@@ -1,11 +1,11 @@
 //
-// Copyright 2014-2021 Cristian Maglie. All rights reserved.
+// Copyright 2014-2023 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
+
 // Testing code idea and fix thanks to @angri
 // https://github.com/bugst/go-serial/pull/42
-//
 
 package serial
 
