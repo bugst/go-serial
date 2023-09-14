@@ -97,8 +97,8 @@ func getAllServices(serviceType string) ([]io_object_t, error) {
 			services = append(services, service)
 			continue
 		}
-		// If iterator is still valid return the result
-		if i.IsValid() {
+		// If the list of services is empty or the iterator is still valid return the result
+		if len(services) == 0 || i.IsValid() {
 			return services, nil
 		}
 		// Otherwise empty the result and retry
