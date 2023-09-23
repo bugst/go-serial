@@ -275,7 +275,9 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 
 	unix.SetNonblock(h, false)
 
-	port.acquireExclusiveAccess()
+	if mode.AccessMode == Exclusive {
+		port.acquireExclusiveAccess()
+	}
 
 	// This pipe is used as a signal to cancel blocking Read
 	pipe := &unixutils.Pipe{}
