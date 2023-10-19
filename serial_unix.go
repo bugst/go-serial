@@ -198,6 +198,12 @@ func (port *unixPort) SetReadTimeout(timeout time.Duration) error {
 	return nil
 }
 
+func (port *unixPort) SetBufferSize(rxSize, txSize int) error {
+	// Unix does not provide any means to change the buffer size from 4096 bytes.
+	// The only reported way to do so is the kernel recompilation.
+	return &PortError{code: FunctionNotImplemented, causedBy: nil}
+}
+
 func (port *unixPort) GetModemStatusBits() (*ModemStatusBits, error) {
 	status, err := port.getModemBitsStatus()
 	if err != nil {
