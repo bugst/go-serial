@@ -118,16 +118,33 @@ func (port *unixPort) Write(p []byte) (n int, err error) {
 }
 
 func (port *unixPort) Break(t time.Duration) error {
+	// set break
 	if err := unix.IoctlSetInt(port.handle, ioctlTiocsbrk, 0); err != nil {
 		return err
 	}
 
 	time.Sleep(t)
 
+	// clear break
 	if err := unix.IoctlSetInt(port.handle, ioctlTioccbrk, 0); err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func (port *unixPort) SetBreak(setBreak bool) error {
+	if setBreak {
+		// set break
+		if err := unix.IoctlSetInt(port.handle, ioctlTiocsbrk, 0); err != nil {
+			return err
+		}
+	} else {
+		// clear break
+		if err := unix.IoctlSetInt(port.handle, ioctlTioccbrk, 0); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
