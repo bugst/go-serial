@@ -4,7 +4,7 @@
 // license that can be found in the LICENSE file.
 //
 
-//go:build linux || freebsd || openbsd
+//go:build linux || freebsd || netbsd || openbsd
 
 package serial
 
