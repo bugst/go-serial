@@ -9,7 +9,7 @@ package serial
 import "golang.org/x/sys/unix"
 
 const devFolder = "/dev"
-const regexFilter = "^(dty|tty)\\..*"
+const regexFilter = "(dty|tty|dtyU|ttyU)[0-9]{1,2}"
 
 // termios manipulation functions
 
