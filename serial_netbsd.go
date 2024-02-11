@@ -48,10 +48,9 @@ var databitsMap = map[int]uint32{
 const tcCMSPAR uint32 = 0 // may be CMSPAR or PAREXT
 const tcIUCLC uint32 = 0
 
-const tcCCTS_OFLOW uint32 = 0x00010000
-const tcCRTS_IFLOW uint32 = 0x00020000
-
-const tcCRTSCTS uint32 = tcCCTS_OFLOW
+const tcCRTSCTS uint32 = 0x00010000
+const tcCCTS_OFLOW uint32 = tcCCTS_OFLOW
+const tcCRTS_IFLOW uint32 = tcCCTS_OFLOW
 
 const ioctlTcgetattr = unix.TIOCGETA
 const ioctlTcsetattr = unix.TIOCSETA
@@ -68,13 +67,6 @@ func setTermSettingsBaudrate(speed int, settings *unix.Termios) (error, bool) {
 	if !ok {
 		return nil, true
 	}
-	// XXX: Is Cflag really needed
-	// revert old baudrate
-	for _, rate := range baudrateMap {
-		settings.Cflag &^= rate
-	}
-	// set new baudrate
-	settings.Cflag |= baudrate
 
 	settings.Ispeed = toTermiosSpeedType(baudrate)
 	settings.Ospeed = toTermiosSpeedType(baudrate)
