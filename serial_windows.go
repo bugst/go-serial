@@ -254,6 +254,15 @@ func (port *windowsPort) SetMode(mode *Mode) error {
 		port.Close()
 		return &PortError{code: InvalidSerialPort}
 	}
+	port.setModeParams(mode, &params)
+	if setCommState(port.handle, &params) != nil {
+		port.Close()
+		return &PortError{code: InvalidSerialPort}
+	}
+	return nil
+}
+
+func (port *windowsPort) setModeParams(mode *Mode, params *dcb) {
 	if mode.BaudRate == 0 {
 		params.BaudRate = 9600 // Default to 9600
 	} else {
@@ -266,11 +275,6 @@ func (port *windowsPort) SetMode(mode *Mode) error {
 	}
 	params.StopBits = stopBitsMap[mode.StopBits]
 	params.Parity = parityMap[mode.Parity]
-	if setCommState(port.handle, &params) != nil {
-		port.Close()
-		return &PortError{code: InvalidSerialPort}
-	}
-	return nil
 }
 
 func (port *windowsPort) SetDTR(dtr bool) error {
@@ -432,16 +436,12 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 	}
 
 	// Set port parameters
-	if port.SetMode(mode) != nil {
-		port.Close()
-		return nil, &PortError{code: InvalidSerialPort}
-	}
-
 	params := &dcb{}
 	if getCommState(port.handle, params) != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort}
 	}
+	port.setModeParams(mode, params)
 	params.Flags &= dcbDTRControlDisableMask
 	params.Flags &= dcbRTSControlDisbaleMask
 	if mode.InitialStatusBits == nil {
