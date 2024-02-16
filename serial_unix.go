@@ -249,6 +249,7 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	if mode.InitialStatusBits != nil {
 		status, err := port.getModemBitsStatus()
 		if err != nil {
+			port.Close()
 			return nil, &PortError{code: InvalidSerialPort, causedBy: err}
 		}
 		if mode.InitialStatusBits.DTR {
@@ -262,6 +263,7 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 			status &^= unix.TIOCM_RTS
 		}
 		if err := port.setModemBitsStatus(status); err != nil {
+			port.Close()
 			return nil, &PortError{code: InvalidSerialPort, causedBy: err}
 		}
 	}
