@@ -1,0 +1,77 @@
+# Source: https://github.com/arduino/tooling-project-assets/blob/main/issue-templates/forms/platform-dependent/bug-report.yml
+# See: https://docs.github.com/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms
+
+name: Bug report
+description: Report a problem with the code or documentation in this repository.
+labels:
+  - bug
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the problem
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: To reproduce
+      description: |
+        Provide the specific set of steps we can follow to reproduce the
+        problem in particular the exact golang source code you used.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checklist-reproduce
+    attributes:
+      label: |
+        Please double-check that you have reported each of the following
+        before submitting the issue.
+      options:
+        - label: I've provided the FULL source code that causes the problem
+          required: true
+        - label: I've provided all the actions required to reproduce the problem
+          required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: |
+        What would you expect to happen after following those instructions?
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and version
+      description: |
+        Which operating system(s) version are you using on your computer?
+    validations:
+      required: true
+  - type: input
+    id: boards
+    attributes:
+      label: Arduino boards or embedded devices used
+      description: |
+        Which Arduino boards or embedded devices are you using (if applicable)?
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: |
+        Add here any additional information that you think might be relevant to
+        the problem.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Issue checklist
+      description: |
+        Please double-check that you have done each of the following things before
+        submitting the issue.
+      options:
+        - label: I searched for previous requests in [the issue tracker](https://github.com/bugst/go-serial/issues)
+          required: true
+        - label: My request contains all necessary details
+          required: true
