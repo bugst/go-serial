@@ -6,10 +6,15 @@
 
 package serial
 
-import "golang.org/x/sys/unix"
+import (
+	"regexp"
+
+	"golang.org/x/sys/unix"
+)
 
 const devFolder = "/dev"
-const regexFilter = "^(cu|tty)\\..*"
+
+var osPortFiler = regexp.MustCompile("^(cu|tty)\\..*")
 
 const ioctlTcgetattr = unix.TIOCGETA
 const ioctlTcsetattr = unix.TIOCSETA

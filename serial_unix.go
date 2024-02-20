@@ -11,7 +11,6 @@ package serial
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -298,10 +297,6 @@ func nativeGetPortsList() ([]string, error) {
 	}
 
 	ports := make([]string, 0, len(files))
-	regex, err := regexp.Compile(regexFilter)
-	if err != nil {
-		return nil, err
-	}
 	for _, f := range files {
 		// Skip folders
 		if f.IsDir() {
@@ -309,7 +304,7 @@ func nativeGetPortsList() ([]string, error) {
 		}
 
 		// Keep only devices with the correct name
-		if !regex.MatchString(f.Name()) {
+		if !osPortFilter.MatchString(f.Name()) {
 			continue
 		}
 
