@@ -48,7 +48,7 @@ body:
         Which operating system(s) version are you using on your computer?
     validations:
       required: true
-  - type: input
+  - type: textarea
     id: boards
     attributes:
       label: Please describe your hardware setup
