@@ -51,9 +51,10 @@ body:
   - type: input
     id: boards
     attributes:
-      label: Arduino boards or embedded devices used
+      label: Please describe your hardware setup
       description: |
-        Which Arduino boards or embedded devices are you using (if applicable)?
+        Arduino boards, USB dongles, hubs or embedded devices you are using and how they
+        are connected together.
   - type: textarea
     id: additional
     attributes:
