@@ -54,6 +54,9 @@ type Port interface {
 
 	// Break sends a break for a determined time
 	Break(time.Duration) error
+
+	// Set or unset break condition, allows timing to be done more precisely outside of this module
+	SetBreak(bool) error
 }
 
 // NoTimeout should be used as a parameter to SetReadTimeout to disable timeout.

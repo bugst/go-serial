@@ -390,14 +390,32 @@ func (port *windowsPort) SetReadTimeout(timeout time.Duration) error {
 }
 
 func (port *windowsPort) Break(d time.Duration) error {
+	// set break
 	if err := setCommBreak(port.handle); err != nil {
 		return &PortError{causedBy: err}
 	}
 
 	time.Sleep(d)
 
+	// unset break
 	if err := clearCommBreak(port.handle); err != nil {
 		return &PortError{causedBy: err}
+	}
+
+	return nil
+}
+
+func (port *windowsPort) SetBreak(setBreak bool) error {
+	if setBreak {
+		// set break
+		if err := setCommBreak(port.handle); err != nil {
+			return &PortError{causedBy: err}
+		}
+	} else {
+		// unset break
+		if err := clearCommBreak(port.handle); err != nil {
+			return &PortError{causedBy: err}
+		}
 	}
 
 	return nil
