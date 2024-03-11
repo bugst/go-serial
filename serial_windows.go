@@ -389,6 +389,17 @@ func (port *windowsPort) SetReadTimeout(timeout time.Duration) error {
 	return nil
 }
 
+func (port *windowsPort) SetBufferSize(rxSize, txSize int) error {
+	rxSize_ := uint32(rxSize)
+	txSize_ := uint32(txSize)
+
+	if err := setupComm(port.handle, rxSize_, txSize_); err != nil {
+		return &PortError{code: InvalidBufferSize, causedBy: err}
+	}
+
+	return nil
+}
+
 func (port *windowsPort) Break(d time.Duration) error {
 	if err := setCommBreak(port.handle); err != nil {
 		return &PortError{causedBy: err}

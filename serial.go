@@ -49,6 +49,11 @@ type Port interface {
 	// to disable read timeout.
 	SetReadTimeout(t time.Duration) error
 
+	// SetBufferSize sets internal buffer sizes for the Read and Write operations.
+	// Please note that this function may not be available on all OS:
+	// in that case a FunctionNotImplemented error is returned.
+	SetBufferSize(txSize, rxSize int) error
+
 	// Close the serial port
 	Close() error
 
@@ -159,6 +164,8 @@ const (
 	InvalidStopBits
 	// InvalidTimeoutValue the timeout value is not valid or not supported
 	InvalidTimeoutValue
+	// InvalidBufferSize the requested buffer size is not valid or not supported
+	InvalidBufferSize
 	// ErrorEnumeratingPorts an error occurred while listing serial port
 	ErrorEnumeratingPorts
 	// PortClosed the port has been closed while the operation is in progress
@@ -188,6 +195,8 @@ func (e PortError) EncodedErrorString() string {
 		return "Port stop bits invalid or not supported"
 	case InvalidTimeoutValue:
 		return "Timeout value invalid or not supported"
+	case InvalidBufferSize:
+		return "Buffer size value invalid or not supported"
 	case ErrorEnumeratingPorts:
 		return "Could not enumerate serial ports"
 	case PortClosed:
