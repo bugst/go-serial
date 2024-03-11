@@ -10,7 +10,8 @@ package unixutils
 
 import (
 	"fmt"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 // Pipe represents a unix-pipe
@@ -20,16 +21,17 @@ type Pipe struct {
 	wr     int
 }
 
-// Open creates a new pipe
-func (p *Pipe) Open() error {
+// NewPipe creates a new pipe
+func NewPipe() (*Pipe, error) {
 	fds := []int{0, 0}
-	if err := syscall.Pipe(fds); err != nil {
-		return err
+	if err := unix.Pipe(fds); err != nil {
+		return nil, err
 	}
-	p.rd = fds[0]
-	p.wr = fds[1]
-	p.opened = true
-	return nil
+	return &Pipe{
+		rd:     fds[0],
+		wr:     fds[1],
+		opened: true,
+	}, nil
 }
 
 // ReadFD returns the file handle for the read side of the pipe.
@@ -53,7 +55,7 @@ func (p *Pipe) Write(data []byte) (int, error) {
 	if !p.opened {
 		return 0, fmt.Errorf("Pipe not opened")
 	}
-	return syscall.Write(p.wr, data)
+	return unix.Write(p.wr, data)
 }
 
 // Read from the pipe into the data array. Returns the number of bytes read.
@@ -61,7 +63,7 @@ func (p *Pipe) Read(data []byte) (int, error) {
 	if !p.opened {
 		return 0, fmt.Errorf("Pipe not opened")
 	}
-	return syscall.Read(p.rd, data)
+	return unix.Read(p.rd, data)
 }
 
 // Close the pipe
@@ -69,8 +71,8 @@ func (p *Pipe) Close() error {
 	if !p.opened {
 		return fmt.Errorf("Pipe not opened")
 	}
-	err1 := syscall.Close(p.rd)
-	err2 := syscall.Close(p.wr)
+	err1 := unix.Close(p.rd)
+	err2 := unix.Close(p.wr)
 	p.opened = false
 	if err1 != nil {
 		return err1
