@@ -1,4 +1,4 @@
-module github.com/tstpierre-tc/go-serial
+module github.com/timstpierre-tc/go-serial
 
 go 1.21.6
 
