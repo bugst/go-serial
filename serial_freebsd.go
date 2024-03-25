@@ -58,6 +58,9 @@ const tcCRTS_IFLOW uint32 = 0x00020000
 
 const tcCRTSCTS uint32 = tcCCTS_OFLOW
 
+const tcSetOflags uint32 = 0
+const tcClearOflags uint32 = unix.OPOST
+
 const ioctlTcgetattr = unix.TIOCGETA
 const ioctlTcsetattr = unix.TIOCSETA
 const ioctlTcflsh = unix.TIOCFLUSH
@@ -73,14 +76,6 @@ func setTermSettingsBaudrate(speed int, settings *unix.Termios) (error, bool) {
 	if !ok {
 		return nil, true
 	}
-	// XXX: Is Cflag really needed
-	// revert old baudrate
-	for _, rate := range baudrateMap {
-		settings.Cflag &^= rate
-	}
-	// set new baudrate
-	settings.Cflag |= baudrate
-
 	settings.Ispeed = toTermiosSpeedType(baudrate)
 	settings.Ospeed = toTermiosSpeedType(baudrate)
 	return nil, false

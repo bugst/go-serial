@@ -63,6 +63,9 @@ var databitsMap = map[int]uint32{
 const tcCMSPAR = unix.CMSPAR
 const tcIUCLC = unix.IUCLC
 
+const tcSetOflags uint32 = 0
+const tcClearOflags uint32 = 0
+
 const tcCRTSCTS uint32 = unix.CRTSCTS
 
 const ioctlTcgetattr = unix.TCGETS

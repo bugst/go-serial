@@ -434,6 +434,8 @@ func setRawMode(settings *unix.Termios) {
 	settings.Iflag &^= tcIUCLC
 
 	settings.Oflag &^= unix.OPOST
+	settings.Oflag &^= tcClearOflags // Needed to clear platform specific flags
+	settings.Oflag |= tcSetOflags    // Needed to set platform specific flags
 
 	// Block reads until at least one char is available (no timeout)
 	settings.Cc[unix.VMIN] = 1

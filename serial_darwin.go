@@ -22,6 +22,9 @@ const ioctlTcflsh = unix.TIOCFLUSH
 const ioctlTioccbrk = unix.TIOCCBRK
 const ioctlTiocsbrk = unix.TIOCSBRK
 
+const tcSetOflags uint64 = 0
+const tcClearOflags uint64 = 0
+
 func setTermSettingsBaudrate(speed int, settings *unix.Termios) (error, bool) {
 	baudrate, ok := baudrateMap[speed]
 	if !ok {
