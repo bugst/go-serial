@@ -58,9 +58,6 @@ const tcCRTS_IFLOW uint32 = 0x00020000
 
 const tcCRTSCTS uint32 = tcCCTS_OFLOW
 
-const tcSetOflags uint32 = unix.OPOST
-const tcClearOflags uint32 = 0
-
 const ioctlTcgetattr = unix.TIOCGETA
 const ioctlTcsetattr = unix.TIOCSETA
 const ioctlTcflsh = unix.TIOCFLUSH
