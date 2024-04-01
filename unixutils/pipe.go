@@ -40,7 +40,7 @@ func (p *Pipe) ReadFD() int {
 	return p.rd
 }
 
-// WriteFD returns the flie handle for the write side of the pipe.
+// WriteFD returns the file handle for the write side of the pipe.
 func (p *Pipe) WriteFD() int {
 	if !p.opened {
 		return -1
@@ -48,7 +48,7 @@ func (p *Pipe) WriteFD() int {
 	return p.wr
 }
 
-// Write to the pipe the content of data. Returns the numbre of bytes written.
+// Write to the pipe the content of data. Returns the number of bytes written.
 func (p *Pipe) Write(data []byte) (int, error) {
 	if !p.opened {
 		return 0, fmt.Errorf("Pipe not opened")

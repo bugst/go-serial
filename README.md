@@ -12,7 +12,7 @@ See the godoc here: https://godoc.org/go.bug.st/serial
 
 This library now support `go.mod` with the import `go.bug.st/serial`.
 
-If you came from the pre-`go.mod` era please update your import paths from `go.bug.st/serial.v1` to `go.bug.st/serial` to receive new updates. Anyway, the latest `v1` release should still be avaiable using the old import.
+If you came from the pre-`go.mod` era please update your import paths from `go.bug.st/serial.v1` to `go.bug.st/serial` to receive new updates. Anyway, the latest `v1` release should still be available using the old import.
 
 ## Credits
 
