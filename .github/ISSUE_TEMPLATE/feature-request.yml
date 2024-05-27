@@ -1,0 +1,29 @@
+# Source: https://github.com/arduino/tooling-project-assets/blob/main/issue-templates/forms/platform-dependent/feature-request.yml
+# See: https://docs.github.com/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms
+
+name: Feature request
+description: Suggest an enhancement to this project.
+labels:
+  - "type: enhancement"
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the new feature or change suggestion
+    validations:
+      required: true
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add any additional information about the feature request here.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Issue checklist
+      description: Please double-check that you have done each of the following things before submitting the issue.
+      options:
+        - label: I searched for previous requests in [the issue tracker](https://github.com/bugst/go-serial/issues)
+          required: true
+        - label: My request contains all necessary details
+          required: true

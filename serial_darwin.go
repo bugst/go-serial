@@ -1,15 +1,20 @@
 //
-// Copyright 2014-2023 Cristian Maglie. All rights reserved.
+// Copyright 2014-2024 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
 
 package serial
 
-import "golang.org/x/sys/unix"
+import (
+	"regexp"
+
+	"golang.org/x/sys/unix"
+)
 
 const devFolder = "/dev"
-const regexFilter = "^(cu|tty)\\..*"
+
+var osPortFilter = regexp.MustCompile("^(cu|tty)\\..*")
 
 const ioctlTcgetattr = unix.TIOCGETA
 const ioctlTcsetattr = unix.TIOCSETA

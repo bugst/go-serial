@@ -1,5 +1,5 @@
 //
-// Copyright 2014-2023 Cristian Maglie. All rights reserved.
+// Copyright 2014-2024 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
@@ -9,8 +9,8 @@
 package serial
 
 import (
-	"io/ioutil"
-	"regexp"
+	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -249,7 +249,7 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	settings, err := port.getTermSettings()
 	if err != nil {
 		port.Close()
-		return nil, &PortError{code: InvalidSerialPort}
+		return nil, &PortError{code: InvalidSerialPort, causedBy: fmt.Errorf("error getting term settings: %w", err)}
 	}
 
 	// Set raw mode
@@ -260,13 +260,14 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 
 	if port.setTermSettings(settings) != nil {
 		port.Close()
-		return nil, &PortError{code: InvalidSerialPort}
+		return nil, &PortError{code: InvalidSerialPort, causedBy: fmt.Errorf("error setting term settings: %w", err)}
 	}
 
 	if mode.InitialStatusBits != nil {
 		status, err := port.getModemBitsStatus()
 		if err != nil {
-			return nil, &PortError{code: InvalidSerialPort, causedBy: err}
+			port.Close()
+			return nil, &PortError{code: InvalidSerialPort, causedBy: fmt.Errorf("error getting modem bits status: %w", err)}
 		}
 		if mode.InitialStatusBits.DTR {
 			status |= unix.TIOCM_DTR
@@ -279,15 +280,16 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 			status &^= unix.TIOCM_RTS
 		}
 		if err := port.setModemBitsStatus(status); err != nil {
-			return nil, &PortError{code: InvalidSerialPort, causedBy: err}
+			port.Close()
+			return nil, &PortError{code: InvalidSerialPort, causedBy: fmt.Errorf("error setting modem bits status: %w", err)}
 		}
 	}
 
 	// MacOSX require that this operation is the last one otherwise an
 	// 'Invalid serial port' error is returned... don't know why...
-	if port.SetMode(mode) != nil {
+	if err := port.SetMode(mode); err != nil {
 		port.Close()
-		return nil, &PortError{code: InvalidSerialPort}
+		return nil, &PortError{code: InvalidSerialPort, causedBy: fmt.Errorf("error configuring port: %w", err)}
 	}
 
 	unix.SetNonblock(h, false)
@@ -304,7 +306,7 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	pipe := &unixutils.Pipe{}
 	if err := pipe.Open(); err != nil {
 		port.Close()
-		return nil, &PortError{code: InvalidSerialPort, causedBy: err}
+		return nil, &PortError{code: InvalidSerialPort, causedBy: fmt.Errorf("error opening signaling pipe: %w", err)}
 	}
 	port.closeSignal = pipe
 
@@ -312,16 +314,12 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 }
 
 func nativeGetPortsList() ([]string, error) {
-	files, err := ioutil.ReadDir(devFolder)
+	files, err := os.ReadDir(devFolder)
 	if err != nil {
 		return nil, err
 	}
 
 	ports := make([]string, 0, len(files))
-	regex, err := regexp.Compile(regexFilter)
-	if err != nil {
-		return nil, err
-	}
 	for _, f := range files {
 		// Skip folders
 		if f.IsDir() {
@@ -329,7 +327,7 @@ func nativeGetPortsList() ([]string, error) {
 		}
 
 		// Keep only devices with the correct name
-		if !regex.MatchString(f.Name()) {
+		if !osPortFilter.MatchString(f.Name()) {
 			continue
 		}
 
