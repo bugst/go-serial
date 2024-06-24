@@ -147,7 +147,7 @@ const (
 	PortNotFound
 	// InvalidSerialPort the requested port is not a serial port
 	InvalidSerialPort
-	// PermissionDenied the user doesn't have enough priviledges
+	// PermissionDenied the user doesn't have enough privileges
 	PermissionDenied
 	// InvalidSpeed the requested speed is not valid or not supported
 	InvalidSpeed

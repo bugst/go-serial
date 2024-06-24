@@ -152,7 +152,7 @@ const (
 	dcbInX                          = 0x00000200
 	dcbErrorChar                    = 0x00000400
 	dcbNull                         = 0x00000800
-	dcbRTSControlDisbaleMask        = ^uint32(0x00003000)
+	dcbRTSControlDisableMask        = ^uint32(0x00003000)
 	dcbRTSControlEnable             = 0x00001000
 	dcbRTSControlHandshake          = 0x00002000
 	dcbRTSControlToggle             = 0x00003000
@@ -282,8 +282,8 @@ func (port *windowsPort) SetDTR(dtr bool) error {
 	// observed behaviour was that DTR is set from false -> true
 	// when setting RTS from true -> false
 	// 1) Connect 		-> RTS = true 	(low) 	DTR = true 	(low) 	OKAY
-	// 2) SetDTR(false) -> RTS = true 	(low) 	DTR = false (heigh)	OKAY
-	// 3) SetRTS(false)	-> RTS = false 	(heigh)	DTR = true 	(low) 	ERROR: DTR toggled
+	// 2) SetDTR(false) -> RTS = true 	(low) 	DTR = false (high)	OKAY
+	// 3) SetRTS(false)	-> RTS = false 	(high)	DTR = true 	(low) 	ERROR: DTR toggled
 	//
 	// In addition this way the CommState Flags are not updated
 	/*
@@ -343,7 +343,7 @@ func (port *windowsPort) SetRTS(rts bool) error {
 	if err := getCommState(port.handle, params); err != nil {
 		return &PortError{causedBy: err}
 	}
-	params.Flags &= dcbRTSControlDisbaleMask
+	params.Flags &= dcbRTSControlDisableMask
 	if rts {
 		params.Flags |= dcbRTSControlEnable
 	}
@@ -443,7 +443,7 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 	}
 	port.setModeParams(mode, params)
 	params.Flags &= dcbDTRControlDisableMask
-	params.Flags &= dcbRTSControlDisbaleMask
+	params.Flags &= dcbRTSControlDisableMask
 	if mode.InitialStatusBits == nil {
 		params.Flags |= dcbDTRControlEnable
 		params.Flags |= dcbRTSControlEnable
