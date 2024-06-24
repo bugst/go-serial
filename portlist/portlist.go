@@ -12,7 +12,7 @@
 // Port: /dev/cu.usbmodemFD121
 //    USB ID     2341:8053
 //    USB serial FB7B6060504B5952302E314AFF08191A
-//
+
 package main
 
 import (
