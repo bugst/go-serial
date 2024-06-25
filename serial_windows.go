@@ -183,8 +183,8 @@ func (port *windowsPort) SetDTR(dtr bool) error {
 	// observed behaviour was that DTR is set from false -> true
 	// when setting RTS from true -> false
 	// 1) Connect 		-> RTS = true 	(low) 	DTR = true 	(low) 	OKAY
-	// 2) SetDTR(false) -> RTS = true 	(low) 	DTR = false (heigh)	OKAY
-	// 3) SetRTS(false)	-> RTS = false 	(heigh)	DTR = true 	(low) 	ERROR: DTR toggled
+	// 2) SetDTR(false) -> RTS = true 	(low) 	DTR = false (high)	OKAY
+	// 3) SetRTS(false)	-> RTS = false 	(high)	DTR = true 	(low) 	ERROR: DTR toggled
 	//
 	// In addition this way the CommState Flags are not updated
 	/*
