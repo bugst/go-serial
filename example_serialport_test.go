@@ -13,7 +13,7 @@ import (
 	"go.bug.st/serial"
 )
 
-func ExampleSerialPort_SetMode() {
+func ExamplePort_SetMode() {
 	port, err := serial.Open("/dev/ttyACM0", &serial.Mode{})
 	if err != nil {
 		log.Fatal(err)
