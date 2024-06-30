@@ -57,6 +57,10 @@ func (port *unixPort) Close() error {
 }
 
 func (port *unixPort) Read(p []byte) (int, error) {
+	// If the buffer is empty, instantly returns instead of returns with PortClosed error later
+	if len(p) == 0 {
+		return 0, nil
+	}
 	port.closeLock.RLock()
 	defer port.closeLock.RUnlock()
 	if atomic.LoadUint32(&port.opened) != 1 {
