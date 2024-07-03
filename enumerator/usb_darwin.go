@@ -1,5 +1,5 @@
 //
-// Copyright 2014-2024 Cristian Maglie. All rights reserved.
+// Copyright 2014-2023 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
@@ -70,14 +70,16 @@ func extractPortInfo(service io_registry_entry_t) (*PortDetails, error) {
 		vid, _ := usbDevice.GetIntProperty("idVendor", C.kCFNumberSInt16Type)
 		pid, _ := usbDevice.GetIntProperty("idProduct", C.kCFNumberSInt16Type)
 		serialNumber, _ := usbDevice.GetStringProperty("USB Serial Number")
-		//product, _ := usbDevice.GetStringProperty("USB Product Name")
-		//manufacturer, _ := usbDevice.GetStringProperty("USB Vendor Name")
-		//fmt.Println(product + " - " + manufacturer)
+
+		product := usbDevice.GetName()
+		manufacturer, _ := usbDevice.GetStringProperty("USB Vendor Name")
 
 		port.IsUSB = true
 		port.VID = fmt.Sprintf("%04X", vid)
 		port.PID = fmt.Sprintf("%04X", pid)
 		port.SerialNumber = serialNumber
+		port.Product = product
+		port.Manufacturer = manufacturer
 	}
 	return port, nil
 }
@@ -218,6 +220,12 @@ func (me *io_registry_entry_t) GetClass() string {
 	class := make([]C.char, 1024)
 	C.IOObjectGetClass(C.io_object_t(*me), &class[0])
 	return C.GoString(&class[0])
+}
+
+func (me *io_registry_entry_t) GetName() string {
+	name := make([]C.char, 128 /* the size of io_name_t */)
+	C.IOObjectGetClass(C.io_object_t(*me), &name[0])
+	return C.GoString(&name[0])
 }
 
 // io_iterator_t
