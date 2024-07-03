@@ -224,7 +224,7 @@ func (me *io_registry_entry_t) GetClass() string {
 
 func (me *io_registry_entry_t) GetName() string {
 	name := make([]C.char, 128 /* the size of io_name_t */)
-	C.IOObjectGetClass(C.io_object_t(*me), &name[0])
+	C.IORegistryEntryGetName(C.io_object_t(*me), &name[0])
 	return C.GoString(&name[0])
 }
 
