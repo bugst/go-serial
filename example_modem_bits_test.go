@@ -14,7 +14,7 @@ import (
 	"go.bug.st/serial"
 )
 
-func ExampleGetSetModemBits() {
+func ExamplePort_GetModemStatusBits() {
 	// Open the first serial port detected at 9600bps N81
 	mode := &serial.Mode{
 		BaudRate: 9600,

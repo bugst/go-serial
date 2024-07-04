@@ -98,7 +98,7 @@ const (
 	spdrpUpperFilters                            = 0x00000011 // UpperFilters = R/W
 	spdrpLowerFilters                            = 0x00000012 // LowerFilters = R/W
 	spdrpBusTypeGUID                             = 0x00000013 // BusTypeGUID = R
-	spdrpLegactBusType                           = 0x00000014 // LegacyBusType = R
+	spdrpLegacyBusType                           = 0x00000014 // LegacyBusType = R
 	spdrpBusNumber                               = 0x00000015 // BusNumber = R
 	spdrpEnumeratorName                          = 0x00000016 // Enumerator Name = R
 	spdrpSecurity                                = 0x00000017 // Security = R/W, binary form

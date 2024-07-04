@@ -15,12 +15,21 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-go@v1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.17"
-      - name: Build native
+          go-version: "1.22"
+      - name: Setup CGO Environment
+        run: |
+          if [ ${{ matrix.os }} == 'macOS-latest' ] ; then
+            echo "CGO_ENABLED=1" >> "$GITHUB_ENV"
+          fi
+        shell: bash
+      - name: Build AMD64
         run: GOARCH=amd64 go build -v ./...
+        shell: bash
+      - name: Build ARM64
+        run: GOARCH=arm64 go build -v ./...
         shell: bash
       - name: Install socat
         if: matrix.os == 'ubuntu-latest'
@@ -51,10 +60,10 @@ jobs:
     runs-on: "ubuntu-latest"
 
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-go@v1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.17"
+          go-version: "1.22"
       - name: Cross-build
         run: |
           set ${{ matrix.go-os-pairs }}
