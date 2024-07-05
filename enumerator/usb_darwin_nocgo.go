@@ -21,6 +21,10 @@ import (
 var libraryLoadError = lib.Load()
 
 func nativeGetDetailedPortsList() ([]*PortDetails, error) {
+	if libraryLoadError != nil {
+		return nil, libraryLoadError
+	}
+
 	var ports []*PortDetails
 
 	services, err := getAllServices("IOSerialBSDClient")
@@ -120,7 +124,7 @@ func getAllServices(serviceType string) ([]io_registry_entry_t, error) {
 func getMatchingServices(matcher cfMutableDictionaryRef) (io_iterator_t, error) {
 	var i io_iterator_t
 	res := lib.IOServiceGetMatchingServices(lib.kIOMasterPortDefault, cfDictionaryRef(matcher), &i)
-	if res.Successed() {
+	if res.Failed() {
 		return 0, fmt.Errorf("IOServiceGetMatchingServices failed (code %d)", res)
 	}
 	return i, nil
