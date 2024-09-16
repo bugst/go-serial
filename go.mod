@@ -1,4 +1,4 @@
-module github.com/richyo-work/serial
+module github.com/richyo-work/go-serial
 
 go 1.17
 
