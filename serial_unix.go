@@ -146,6 +146,9 @@ func (port *unixPort) SetMode(mode *Mode) error {
 		return err
 	}
 	requireSpecialBaudrate := false
+	if mode.BaudRate < 0 {
+		mode.BaudRate = 0
+	}
 	if err, special := setTermSettingsBaudrate(mode.BaudRate, settings); err != nil {
 		return err
 	} else if special {
