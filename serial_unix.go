@@ -136,6 +136,19 @@ func (port *unixPort) SetMode(mode *Mode) error {
 	if err != nil {
 		return err
 	}
+	if mode.BaudRate < 0 {
+		mode.BaudRate = int(settings.Ispeed)
+		if mode.BaudRate == 0 {
+			mode.BaudRate = int(settings.Ospeed)
+		}
+		if mode.BaudRate == 0 {
+			mode.BaudRate = 9600 // Default to 9600
+		}
+		mode.DataBits = getTermSettingsDataBits(settings)
+		mode.StopBits = getTermSettingsStopBits(settings)
+		mode.Parity, _ = getTermSettingsParity(settings)
+		return nil
+	}
 	if err := setTermSettingsParity(mode.Parity, settings); err != nil {
 		return err
 	}
@@ -146,9 +159,6 @@ func (port *unixPort) SetMode(mode *Mode) error {
 		return err
 	}
 	requireSpecialBaudrate := false
-	if mode.BaudRate < 0 {
-		mode.BaudRate = 0
-	}
 	if err, special := setTermSettingsBaudrate(mode.BaudRate, settings); err != nil {
 		return err
 	} else if special {
@@ -467,4 +477,55 @@ func (port *unixPort) acquireExclusiveAccess() error {
 
 func (port *unixPort) releaseExclusiveAccess() error {
 	return unix.IoctlSetInt(port.handle, unix.TIOCNXCL, 0)
+}
+
+func getTermSettingsParity(settings *unix.Termios) (parity Parity, err error) {
+	parity = NoParity // Default
+	err = &PortError{code: InvalidParity}
+
+	if settings.Cflag&unix.PARENB != unix.PARENB {
+		return NoParity, nil
+	}
+	if settings.Cflag&unix.INPCK != unix.INPCK {
+		return
+	}
+
+	if settings.Cflag&unix.PARODD == unix.PARODD {
+		if settings.Cflag&tcCMSPAR == tcCMSPAR {
+			if tcCMSPAR == 0 {
+				return
+			}
+			return MarkParity, nil
+		}
+		return OddParity, nil
+	}
+
+	if settings.Cflag&tcCMSPAR == tcCMSPAR {
+		if tcCMSPAR == 0 {
+			return
+		}
+		return SpaceParity, nil
+	}
+	return EvenParity, nil
+}
+
+func getTermSettingsDataBits(settings *unix.Termios) (bits int) {
+	switch settings.Cflag & unix.CSIZE {
+	case unix.CS5:
+		bits = 5
+	case unix.CS6:
+		bits = 6
+	case unix.CS7:
+		bits = 7
+	case unix.CS8:
+		bits = 8 // Default to 8 bits
+	}
+	return
+}
+
+func getTermSettingsStopBits(settings *unix.Termios) (bits StopBits) {
+	if settings.Cflag&unix.CSTOPB == unix.CSTOPB {
+		return TwoStopBits
+	}
+	return OneStopBit
 }
