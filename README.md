@@ -1,18 +1,18 @@
 [![Build Status](https://github.com/bugst/go-serial/workflows/test/badge.svg)](https://github.com/bugst/go-serial/actions?workflow=test)
 
-# go.bug.st/serial
+# github.com/abakum/go-serial
 
 A cross-platform serial port library for Go.
 
 ## Documentation and examples
 
-See the package documentation here: https://pkg.go.dev/go.bug.st/serial
+See the package documentation here: https://pkg.go.dev/github.com/abakum/go-serial
 
 ## go.mod transition
 
-This library supports `go.mod` with the import `go.bug.st/serial`.
+This library supports `go.mod` with the import `github.com/abakum/go-serial`.
 
-If you came from the pre-`go.mod` era please update your import paths from `go.bug.st/serial.v1` to `go.bug.st/serial` to receive updates. The latest `v1` release is still available using the old import path.
+If you came from the pre-`go.mod` era please update your import paths from `github.com/abakum/go-serial.v1` to `github.com/abakum/go-serial` to receive updates. The latest `v1` release is still available using the old import path.
 
 ## Credits
 
