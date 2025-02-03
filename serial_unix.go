@@ -142,6 +142,18 @@ func (port *unixPort) SetMode(mode *Mode) error {
 			mode.BaudRate = int(settings.Ospeed)
 		}
 		if mode.BaudRate == 0 {
+			allBR := baudrateMap[0]
+			for _, rate := range baudrateMap {
+				allBR |= rate
+			}
+			for k, rate := range baudrateMap {
+				if settings.Cflag&allBR == rate {
+					mode.BaudRate = k
+					break
+				}
+			}
+		}
+		if mode.BaudRate == 0 {
 			mode.BaudRate = 9600 // Default to 9600
 		}
 		mode.DataBits = getTermSettingsDataBits(settings)
