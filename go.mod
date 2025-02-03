@@ -1,6 +1,6 @@
 module github.com/abakum/go-serial
 
-go 1.21.0
+go 1.17
 
 require (
 	github.com/creack/goselect v0.1.2
