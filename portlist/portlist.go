@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/abakum/go-serial"
 	"github.com/abakum/go-serial/enumerator"
 )
 
@@ -40,4 +41,5 @@ func main() {
 			fmt.Printf("   USB serial  : %s\n", port.SerialNumber)
 		}
 	}
+	fmt.Println(serial.GetPortsList())
 }

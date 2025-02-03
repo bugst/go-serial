@@ -32,7 +32,7 @@ type windowsPort struct {
 	handle windows.Handle
 }
 
-func nativeGetPortsList() ([]string, error) {
+func nativeGetPortsList() (list []string, err error) {
 	key, err := registry.OpenKey(windows.HKEY_LOCAL_MACHINE, `HARDWARE\DEVICEMAP\SERIALCOMM\`, windows.KEY_READ)
 	switch {
 	case errors.Is(err, syscall.ERROR_FILE_NOT_FOUND):
@@ -44,9 +44,16 @@ func nativeGetPortsList() ([]string, error) {
 	}
 	defer key.Close()
 
-	list, err := key.ReadValueNames(0)
+	names, err := key.ReadValueNames(0)
 	if err != nil {
 		return nil, &PortError{code: ErrorEnumeratingPorts, causedBy: err}
+	}
+	for _, name := range names {
+		item, _, err := key.GetStringValue(name)
+		if err != nil {
+			continue
+		}
+		list = append(list, item)
 	}
 
 	return list, nil
