@@ -142,12 +142,13 @@ func (port *unixPort) SetMode(mode *Mode) error {
 			mode.BaudRate = int(settings.Ospeed)
 		}
 		if mode.BaudRate == 0 {
-			allBR := baudrateMap[0]
+			baud := baudrateMap[0]
 			for _, rate := range baudrateMap {
-				allBR |= rate
+				baud |= rate
 			}
+			baud &= settings.Cflag
 			for k, rate := range baudrateMap {
-				if settings.Cflag&allBR == rate {
+				if baud == rate {
 					mode.BaudRate = k
 					break
 				}
