@@ -137,6 +137,7 @@ func (port *unixPort) SetMode(mode *Mode) error {
 		return err
 	}
 	if mode.BaudRate < 0 {
+		// fill mode from getTermSettings
 		mode.BaudRate = int(settings.Ispeed)
 		if mode.BaudRate == 0 {
 			mode.BaudRate = int(settings.Ospeed)
@@ -160,7 +161,6 @@ func (port *unixPort) SetMode(mode *Mode) error {
 		mode.DataBits = getTermSettingsDataBits(settings)
 		mode.StopBits = getTermSettingsStopBits(settings)
 		mode.Parity, _ = getTermSettingsParity(settings)
-		return nil
 	}
 	if err := setTermSettingsParity(mode.Parity, settings); err != nil {
 		return err

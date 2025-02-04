@@ -86,7 +86,7 @@ func setTermSettingsBaudrate(speed int, settings *unix.Termios) (error, bool) {
 	return nil, false
 }
 
-func (port *unixPort) setSpecialBaudrate(speed uint32) error {
+func (port *unixPort) setSpecialBaudrate(uint32) error {
 	// TODO: unimplemented
 	return &PortError{code: InvalidSpeed}
 }

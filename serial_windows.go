@@ -179,16 +179,19 @@ func (port *windowsPort) SetMode(mode *Mode) error {
 
 func (port *windowsPort) setModeParams(mode *Mode, params *windows.DCB) {
 	if mode.BaudRate < 0 {
-		// from getCommState to mode
+		// fill mode from getCommState
 		mode.BaudRate = int(params.BaudRate)
+		if mode.BaudRate == 0 {
+			mode.BaudRate = windows.CBR_9600 // Default to 9600
+		}
 		mode.DataBits = int(params.ByteSize)
-		mode.StopBits = StopBits(params.StopBits)
-		mode.Parity = Parity(params.Parity)
-	} else {
-		params.StopBits = stopBitsMap[mode.StopBits]
-		params.Parity = parityMap[mode.Parity]
+		if mode.DataBits == 0 {
+			mode.DataBits = 8 // Default to 8 bits
+		}
+		mode.StopBits = StopBits(params.StopBits) // Default to 1
+		mode.Parity = Parity(params.Parity)       // Default to N
 	}
-	if mode.BaudRate <= 0 {
+	if mode.BaudRate == 0 {
 		params.BaudRate = windows.CBR_9600 // Default to 9600
 	} else {
 		params.BaudRate = uint32(mode.BaudRate)
@@ -198,6 +201,8 @@ func (port *windowsPort) setModeParams(mode *Mode, params *windows.DCB) {
 	} else {
 		params.ByteSize = byte(mode.DataBits)
 	}
+	params.StopBits = stopBitsMap[mode.StopBits]
+	params.Parity = parityMap[mode.Parity]
 }
 
 func (port *windowsPort) SetDTR(dtr bool) error {
