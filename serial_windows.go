@@ -19,10 +19,12 @@ package serial
 
 import (
 	"errors"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/fvbommel/sortorder"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
@@ -54,6 +56,9 @@ func nativeGetPortsList() (list []string, err error) {
 			continue
 		}
 		list = append(list, item)
+	}
+	if len(list) > 1 {
+		sort.Sort(sortorder.Natural(list))
 	}
 
 	return list, nil

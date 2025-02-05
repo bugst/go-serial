@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/abakum/go-serial"
 	"golang.org/x/sys/windows"
 )
 
@@ -271,9 +272,15 @@ func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 	if err != nil {
 		return nil, &PortEnumerationError{causedBy: err}
 	}
+	ports, err := serial.GetPortsList()
+	if err != nil || len(ports) == 0 {
+		return nil, &PortEnumerationError{causedBy: err}
+	}
 
 	var res []*PortDetails
-	for _, g := range guids {
+	// com0com {df799e12-3c56-421b-b298-b6d3642bc878}
+	com0com := guid{0xdf799e12, 0x3c56, 0x421b, [8]byte{0xb2, 0x98, 0xb6, 0xd3, 0x64, 0x2b, 0xc8, 0x78}}
+	for _, g := range append(guids, com0com) {
 		devsSet, err := g.getDevicesSet()
 		if err != nil {
 			return nil, &PortEnumerationError{causedBy: err}
@@ -290,10 +297,10 @@ func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 			if err != nil {
 				continue
 			}
-			if len(portName) < 3 || portName[0:3] != "COM" {
-				// Accept only COM ports
-				continue
-			}
+			// if len(portName) < 3 || portName[0:3] != "COM" {
+			// 	// Accept only COM ports
+			// 	continue
+			// }
 			details.Name = portName
 
 			if err := retrievePortDetailsFromDevInfo(device, details); err != nil {
@@ -302,7 +309,18 @@ func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 			res = append(res, details)
 		}
 	}
-	return res, nil
+	ordRes := []*PortDetails{}
+	for _, port := range ports {
+	inner:
+		for _, detailedPort := range res {
+			if port == detailedPort.Name {
+				ordRes = append(ordRes, detailedPort)
+				break inner
+			}
+		}
+	}
+
+	return ordRes, nil
 }
 
 func retrievePortNameFromDevInfo(device *deviceInfo) (string, error) {
