@@ -6,7 +6,11 @@
 
 package serial
 
-import "time"
+import (
+	"strconv"
+	"strings"
+	"time"
+)
 
 //go:generate go run golang.org/x/sys/windows/mkwinsyscall -output zsyscall_windows.go syscall_windows.go
 
@@ -210,4 +214,30 @@ func (e PortError) Error() string {
 // Code returns an identifier for the kind of error occurred
 func (e PortError) Code() PortErrorCode {
 	return e.code
+}
+
+// For USB port shortcut like COM of Windows
+func DevName(portName string) string {
+	return devFolder + PortName(portName)
+}
+
+func PortName(portName string) string {
+	if strings.HasPrefix(portName, devFolder) {
+		// \\.\com10
+		// /dev/ttyUSB0
+		// /dev/cuaU0
+		// /dev/cu.usbserial-1410
+		return strings.TrimPrefix(portName, devFolder)
+	}
+	if _, err := strconv.Atoi(portName); err == nil {
+		// 10
+		// 0
+		// 1410
+		return devName + portName
+	}
+	// com10
+	// ttyUSB0
+	// cuaU0
+	// cu.usbserial-1410
+	return portName
 }

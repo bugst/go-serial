@@ -34,6 +34,11 @@ type windowsPort struct {
 	handle windows.Handle
 }
 
+const (
+	devFolder = `\\.\`
+	devName   = "COM"
+)
+
 func nativeGetPortsList() (list []string, err error) {
 	key, err := registry.OpenKey(windows.HKEY_LOCAL_MACHINE, `HARDWARE\DEVICEMAP\SERIALCOMM\`, windows.KEY_READ)
 	switch {
@@ -342,8 +347,7 @@ func createOverlappedEvent() (*windows.Overlapped, error) {
 }
 
 func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
-	portName = "\\\\.\\" + portName
-	path, err := windows.UTF16PtrFromString(portName)
+	path, err := windows.UTF16PtrFromString(DevName(portName))
 	if err != nil {
 		return nil, err
 	}

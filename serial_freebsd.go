@@ -12,9 +12,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const devFolder = "/dev"
+const (
+	devFolder = "/dev/"
+	devName   = "cuaU"
+)
 
-var osPortFilter = regexp.MustCompile("^(cu|tty)\\..*")
+var osPortFilter = regexp.MustCompile(`^(cu|tty)\..*`)
 
 // termios manipulation functions
 

@@ -31,15 +31,25 @@ func main() {
 	if len(ports) == 0 {
 		return
 	}
+	fmt.Println(serial.GetPortsList())
 	for _, port := range ports {
 		fmt.Printf("Port: %s\n", port.Name)
 		if port.Product != "" {
-			fmt.Printf("   Product Name: %s\n", port.Product)
+			fmt.Printf("\tProduct Name: %s\n", port.Product)
 		}
 		if port.IsUSB {
-			fmt.Printf("   USB ID      : %s:%s\n", port.VID, port.PID)
-			fmt.Printf("   USB serial  : %s\n", port.SerialNumber)
+			fmt.Printf("\tUSB ID: %s:%s\n", port.VID, port.PID)
+			if port.SerialNumber != "" {
+				fmt.Printf("\tUSB serial: %s\n", port.SerialNumber)
+			}
 		}
+		mode := serial.Mode{BaudRate: -1}
+		sp, err := serial.Open(port.Name, &mode)
+		if err != nil {
+			fmt.Printf("\t%s\n", err)
+			continue
+		}
+		fmt.Printf("\t%+v\n", mode)
+		sp.Close()
 	}
-	fmt.Println(serial.GetPortsList())
 }
