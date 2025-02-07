@@ -18,7 +18,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"runtime"
 
 	"github.com/abakum/go-serial"
 	"github.com/abakum/go-serial/enumerator"
@@ -32,9 +31,14 @@ func main() {
 	if len(ports) == 0 {
 		return
 	}
-	fmt.Println(serial.GetPortsList())
+	PortsList, err := serial.GetPortsList()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Port list:", PortsList)
 	for _, port := range ports {
-		fmt.Printf("Port: %s\n", port.Name)
+		fmt.Printf("Port: %s\n", serial.PortName(port.Name))
+		fmt.Printf("\tPath: %s\n", serial.DevName(port.Name))
 		if port.Product != "" {
 			fmt.Printf("\tProduct Name: %s\n", port.Product)
 		}
@@ -50,19 +54,8 @@ func main() {
 			fmt.Printf("\t%s\n", err)
 			continue
 		}
-		fmt.Printf("\t%+v\n", mode)
+		fmt.Printf("\tMode: %+v\n", mode)
 		sp.Close()
 	}
 	fmt.Printf("First serial port is %q\n", serial.PortName(""))
-	if runtime.GOOS == "windows" {
-		fmt.Printf(`If portName is 1 then devName is "%s"`+"\n", serial.DevName("1"))
-		fmt.Printf(`If portName is com1 then devName is "%s"`+"\n", serial.DevName("com1"))
-		fmt.Printf(`If portName is \\.\com1 then devName is "%s"`+"\n", serial.DevName(`\\.\com1`))
-	} else {
-		fmt.Printf("If portName is 0 then devName is %q\n", serial.DevName("0"))
-		fmt.Printf("If portName is ttyUSB0 then devName is %q\n", serial.DevName("ttyUSB0"))
-		fmt.Printf("If portName is /dev/ttyUSB0 then devName is %q\n", serial.DevName("/dev/ttyUSB0"))
-
-	}
-
 }
