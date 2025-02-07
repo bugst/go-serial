@@ -84,7 +84,7 @@ type ModemOutputBits struct {
 
 // Open opens the serial port using the specified modes
 func Open(portName string, mode *Mode) (Port, error) {
-	port, err := nativeOpen(portName, mode)
+	port, err := nativeOpen(DevName(portName), mode)
 	if err != nil {
 		// Return a nil interface, for which var==nil is true (instead of
 		// a nil pointer to a struct that satisfies the interface).

@@ -238,7 +238,7 @@ func (port *unixPort) GetModemStatusBits() (*ModemStatusBits, error) {
 }
 
 func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
-	h, err := unix.Open(DevName(portName), unix.O_RDWR|unix.O_NOCTTY|unix.O_NDELAY, 0)
+	h, err := unix.Open(portName, unix.O_RDWR|unix.O_NOCTTY|unix.O_NDELAY, 0)
 	if err != nil {
 		switch err {
 		case unix.EBUSY:
@@ -334,7 +334,7 @@ func nativeGetPortsList() ([]string, error) {
 			continue
 		}
 
-		portName := devFolder + "/" + f.Name()
+		portName := devFolder + f.Name()
 
 		// Check if serial port is real or is a placeholder serial port "ttySxx" or "ttyHSxx"
 		if strings.HasPrefix(f.Name(), "ttyS") || strings.HasPrefix(f.Name(), "ttyHS") {

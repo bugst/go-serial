@@ -347,7 +347,7 @@ func createOverlappedEvent() (*windows.Overlapped, error) {
 }
 
 func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
-	path, err := windows.UTF16PtrFromString(DevName(portName))
+	path, err := windows.UTF16PtrFromString(portName)
 	if err != nil {
 		return nil, err
 	}
