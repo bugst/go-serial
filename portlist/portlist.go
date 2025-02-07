@@ -18,6 +18,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"runtime"
 
 	"github.com/abakum/go-serial"
 	"github.com/abakum/go-serial/enumerator"
@@ -52,4 +53,16 @@ func main() {
 		fmt.Printf("\t%+v\n", mode)
 		sp.Close()
 	}
+	fmt.Printf("First serial port is %q\n", serial.PortName(""))
+	if runtime.GOOS == "windows" {
+		fmt.Printf(`If portName is 1 then devName is "%s"`+"\n", serial.DevName("1"))
+		fmt.Printf(`If portName is com1 then devName is "%s"`+"\n", serial.DevName("com1"))
+		fmt.Printf(`If portName is \\.\com1 then devName is "%s"`+"\n", serial.DevName(`\\.\com1`))
+	} else {
+		fmt.Printf("If portName is 0 then devName is %q\n", serial.DevName("0"))
+		fmt.Printf("If portName is ttyUSB0 then devName is %q\n", serial.DevName("ttyUSB0"))
+		fmt.Printf("If portName is /dev/ttyUSB0 then devName is %q\n", serial.DevName("/dev/ttyUSB0"))
+
+	}
+
 }

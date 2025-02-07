@@ -221,7 +221,16 @@ func DevName(portName string) string {
 	return devFolder + PortName(portName)
 }
 
+// If portName is empty then try return first serial port.
 func PortName(portName string) string {
+	if portName == "" {
+		ports, err := GetPortsList()
+		if err != nil || len(ports) == 0 {
+			portName = "serialPortsNotFound"
+		} else {
+			portName = ports[0]
+		}
+	}
 	if strings.HasPrefix(portName, devFolder) {
 		// \\.\com10
 		// /dev/ttyUSB0
