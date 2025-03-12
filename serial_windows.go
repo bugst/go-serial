@@ -28,8 +28,9 @@ import (
 )
 
 type windowsPort struct {
-	mu     sync.Mutex
-	handle windows.Handle
+	mu         sync.Mutex
+	handle     windows.Handle
+	hasTimeout bool
 }
 
 func nativeGetPortsList() ([]string, error) {
@@ -72,26 +73,33 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 	}
 	defer windows.CloseHandle(ev.HEvent)
 
-	err = windows.ReadFile(port.handle, p, &readed, ev)
-	if err == windows.ERROR_IO_PENDING {
-		err = windows.GetOverlappedResult(port.handle, ev, &readed, true)
-	}
-	switch err {
-	case nil:
-		// operation completed successfully
-	case windows.ERROR_OPERATION_ABORTED:
-		// port may have been closed
-		return int(readed), &PortError{code: PortClosed, causedBy: err}
-	default:
-		// error happened
-		return int(readed), err
-	}
-	if readed > 0 {
-		return int(readed), nil
-	}
+	for {
+		err = windows.ReadFile(port.handle, p, &readed, ev)
+		if err == windows.ERROR_IO_PENDING {
+			err = windows.GetOverlappedResult(port.handle, ev, &readed, true)
+		}
+		switch err {
+		case nil:
+			// operation completed successfully
+		case windows.ERROR_OPERATION_ABORTED:
+			// port may have been closed
+			return int(readed), &PortError{code: PortClosed, causedBy: err}
+		default:
+			// error happened
+			return int(readed), err
+		}
+		if readed > 0 {
+			return int(readed), nil
+		}
 
-	// Timeout
-	return 0, nil
+		// Timeout
+		port.mu.Lock()
+		hasTimeout := port.hasTimeout
+		port.mu.Unlock()
+		if hasTimeout {
+			return 0, nil
+		}
+	}
 }
 
 func (port *windowsPort) Write(p []byte) (int, error) {
@@ -304,9 +312,12 @@ func (port *windowsPort) SetReadTimeout(timeout time.Duration) error {
 		commTimeouts.ReadTotalTimeoutConstant = uint32(ms)
 	}
 
+	port.mu.Lock()
+	defer port.mu.Unlock()
 	if err := windows.SetCommTimeouts(port.handle, commTimeouts); err != nil {
 		return &PortError{code: InvalidTimeoutValue, causedBy: err}
 	}
+	port.hasTimeout = (timeout != NoTimeout)
 
 	return nil
 }
