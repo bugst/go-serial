@@ -275,10 +275,19 @@ func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
 }
 
 func (port *windowsPort) SetReadTimeout(timeout time.Duration) error {
+	// This is a brutal hack to make the CH340 chipset work properly.
+	// Normally this value should be 0xFFFFFFFE but, after a lot of
+	// tinkering, I discovered that any value with the highest
+	// bit set will make the CH340 driver behave like the timeout is 0,
+	// in the best cases leading to a spinning loop...
+	// (could this be a wrong signed vs unsigned conversion in the driver?)
+	// https://github.com/arduino/serial-monitor/issues/112
+	const MaxReadTotalTimeoutConstant = 0x7FFFFFFE
+
 	commTimeouts := &windows.CommTimeouts{
 		ReadIntervalTimeout:         0xFFFFFFFF,
 		ReadTotalTimeoutMultiplier:  0xFFFFFFFF,
-		ReadTotalTimeoutConstant:    0xFFFFFFFE,
+		ReadTotalTimeoutConstant:    MaxReadTotalTimeoutConstant,
 		WriteTotalTimeoutConstant:   0,
 		WriteTotalTimeoutMultiplier: 0,
 	}
@@ -287,6 +296,11 @@ func (port *windowsPort) SetReadTimeout(timeout time.Duration) error {
 		if ms > 0xFFFFFFFE || ms < 0 {
 			return &PortError{code: InvalidTimeoutValue}
 		}
+
+		if ms > MaxReadTotalTimeoutConstant {
+			ms = MaxReadTotalTimeoutConstant
+		}
+
 		commTimeouts.ReadTotalTimeoutConstant = uint32(ms)
 	}
 
