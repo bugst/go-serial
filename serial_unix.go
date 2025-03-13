@@ -16,7 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.bug.st/serial/unixutils"
+	"github.com/abakum/go-serial/unixutils"
 	"golang.org/x/sys/unix"
 )
 
@@ -135,6 +135,32 @@ func (port *unixPort) SetMode(mode *Mode) error {
 	settings, err := port.getTermSettings()
 	if err != nil {
 		return err
+	}
+	if mode.BaudRate < 0 {
+		// fill mode from getTermSettings
+		mode.BaudRate = int(settings.Ispeed)
+		if mode.BaudRate == 0 {
+			mode.BaudRate = int(settings.Ospeed)
+		}
+		if mode.BaudRate == 0 {
+			baud := baudrateMap[0]
+			for _, rate := range baudrateMap {
+				baud |= rate
+			}
+			baud &= settings.Cflag
+			for k, rate := range baudrateMap {
+				if baud == rate {
+					mode.BaudRate = k
+					break
+				}
+			}
+		}
+		if mode.BaudRate == 0 {
+			mode.BaudRate = 9600 // Default to 9600
+		}
+		mode.DataBits = getTermSettingsDataBits(settings)
+		mode.StopBits = getTermSettingsStopBits(settings)
+		mode.Parity, _ = getTermSettingsParity(settings)
 	}
 	if err := setTermSettingsParity(mode.Parity, settings); err != nil {
 		return err
@@ -308,7 +334,7 @@ func nativeGetPortsList() ([]string, error) {
 			continue
 		}
 
-		portName := devFolder + "/" + f.Name()
+		portName := devFolder + f.Name()
 
 		// Check if serial port is real or is a placeholder serial port "ttySxx" or "ttyHSxx"
 		if strings.HasPrefix(f.Name(), "ttyS") || strings.HasPrefix(f.Name(), "ttyHS") {
@@ -464,4 +490,55 @@ func (port *unixPort) acquireExclusiveAccess() error {
 
 func (port *unixPort) releaseExclusiveAccess() error {
 	return unix.IoctlSetInt(port.handle, unix.TIOCNXCL, 0)
+}
+
+func getTermSettingsParity(settings *unix.Termios) (parity Parity, err error) {
+	parity = NoParity // Default
+	err = &PortError{code: InvalidParity}
+
+	if settings.Cflag&unix.PARENB != unix.PARENB {
+		return NoParity, nil
+	}
+	if settings.Cflag&unix.INPCK != unix.INPCK {
+		return
+	}
+
+	if settings.Cflag&unix.PARODD == unix.PARODD {
+		if settings.Cflag&tcCMSPAR == tcCMSPAR {
+			if tcCMSPAR == 0 {
+				return
+			}
+			return MarkParity, nil
+		}
+		return OddParity, nil
+	}
+
+	if settings.Cflag&tcCMSPAR == tcCMSPAR {
+		if tcCMSPAR == 0 {
+			return
+		}
+		return SpaceParity, nil
+	}
+	return EvenParity, nil
+}
+
+func getTermSettingsDataBits(settings *unix.Termios) (bits int) {
+	switch settings.Cflag & unix.CSIZE {
+	case unix.CS5:
+		bits = 5
+	case unix.CS6:
+		bits = 6
+	case unix.CS7:
+		bits = 7
+	case unix.CS8:
+		bits = 8 // Default to 8 bits
+	}
+	return
+}
+
+func getTermSettingsStopBits(settings *unix.Termios) (bits StopBits) {
+	if settings.Cflag&unix.CSTOPB == unix.CSTOPB {
+		return TwoStopBits
+	}
+	return OneStopBit
 }

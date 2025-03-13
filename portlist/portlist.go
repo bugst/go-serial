@@ -19,7 +19,8 @@ import (
 	"fmt"
 	"log"
 
-	"go.bug.st/serial/enumerator"
+	"github.com/abakum/go-serial"
+	"github.com/abakum/go-serial/enumerator"
 )
 
 func main() {
@@ -30,14 +31,31 @@ func main() {
 	if len(ports) == 0 {
 		return
 	}
+	PortsList, err := serial.GetPortsList()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Port list:", PortsList)
 	for _, port := range ports {
-		fmt.Printf("Port: %s\n", port.Name)
+		fmt.Printf("Port: %s\n", serial.PortName(port.Name))
+		fmt.Printf("\tPath: %s\n", serial.DevName(port.Name))
 		if port.Product != "" {
-			fmt.Printf("   Product Name: %s\n", port.Product)
+			fmt.Printf("\tProduct Name: %s\n", port.Product)
 		}
 		if port.IsUSB {
-			fmt.Printf("   USB ID      : %s:%s\n", port.VID, port.PID)
-			fmt.Printf("   USB serial  : %s\n", port.SerialNumber)
+			fmt.Printf("\tUSB ID: %s:%s\n", port.VID, port.PID)
+			if port.SerialNumber != "" {
+				fmt.Printf("\tUSB serial: %s\n", port.SerialNumber)
+			}
 		}
+		mode := serial.Mode{BaudRate: -1}
+		sp, err := serial.Open(port.Name, &mode)
+		if err != nil {
+			fmt.Printf("\t%s\n", err)
+			continue
+		}
+		fmt.Printf("\tMode: %+v\n", mode)
+		sp.Close()
 	}
+	fmt.Printf("First serial port is %q\n", serial.PortName(""))
 }

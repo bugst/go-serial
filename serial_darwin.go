@@ -12,9 +12,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const devFolder = "/dev"
+const (
+	devFolder = "/dev/"
+	devName   = "cu.usbserial-"
+)
 
-var osPortFilter = regexp.MustCompile("^(cu|tty)\\..*")
+var osPortFilter = regexp.MustCompile(`^(cu|tty)\..*`)
 
 const ioctlTcgetattr = unix.TIOCGETA
 const ioctlTcsetattr = unix.TIOCSETA

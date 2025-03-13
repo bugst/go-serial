@@ -19,10 +19,12 @@ package serial
 
 import (
 	"errors"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/fvbommel/sortorder"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
@@ -32,7 +34,12 @@ type windowsPort struct {
 	handle windows.Handle
 }
 
-func nativeGetPortsList() ([]string, error) {
+const (
+	devFolder = `\\.\`
+	devName   = "COM"
+)
+
+func nativeGetPortsList() (list []string, err error) {
 	key, err := registry.OpenKey(windows.HKEY_LOCAL_MACHINE, `HARDWARE\DEVICEMAP\SERIALCOMM\`, windows.KEY_READ)
 	switch {
 	case errors.Is(err, syscall.ERROR_FILE_NOT_FOUND):
@@ -44,9 +51,19 @@ func nativeGetPortsList() ([]string, error) {
 	}
 	defer key.Close()
 
-	list, err := key.ReadValueNames(0)
+	names, err := key.ReadValueNames(0)
 	if err != nil {
 		return nil, &PortError{code: ErrorEnumeratingPorts, causedBy: err}
+	}
+	for _, name := range names {
+		item, _, err := key.GetStringValue(name)
+		if err != nil {
+			continue
+		}
+		list = append(list, item)
+	}
+	if len(list) > 1 {
+		sort.Sort(sortorder.Natural(list))
 	}
 
 	return list, nil
@@ -171,6 +188,19 @@ func (port *windowsPort) SetMode(mode *Mode) error {
 }
 
 func (port *windowsPort) setModeParams(mode *Mode, params *windows.DCB) {
+	if mode.BaudRate < 0 {
+		// fill mode from getCommState
+		mode.BaudRate = int(params.BaudRate)
+		if mode.BaudRate == 0 {
+			mode.BaudRate = windows.CBR_9600 // Default to 9600
+		}
+		mode.DataBits = int(params.ByteSize)
+		if mode.DataBits == 0 {
+			mode.DataBits = 8 // Default to 8 bits
+		}
+		mode.StopBits = StopBits(params.StopBits) // Default to 1
+		mode.Parity = Parity(params.Parity)       // Default to N
+	}
 	if mode.BaudRate == 0 {
 		params.BaudRate = windows.CBR_9600 // Default to 9600
 	} else {
@@ -317,7 +347,6 @@ func createOverlappedEvent() (*windows.Overlapped, error) {
 }
 
 func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
-	portName = "\\\\.\\" + portName
 	path, err := windows.UTF16PtrFromString(portName)
 	if err != nil {
 		return nil, err

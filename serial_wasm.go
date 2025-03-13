@@ -10,6 +10,6 @@ import (
 	"errors"
 )
 
-func nativeOpen(portName string, mode *Mode) (Port, error) {
+func nativeOpen(string, *Mode) (Port, error) {
 	return nil, errors.New("nativeOpen is not supported on wasm")
 }

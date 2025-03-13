@@ -12,7 +12,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const devFolder = "/dev"
+const (
+	devFolder = "/dev/"
+	devName   = "ttyUSB"
+)
 
 var osPortFilter = regexp.MustCompile("(ttyS|ttyHS|ttyUSB|ttyACM|ttyAMA|rfcomm|ttyO|ttymxc)[0-9]{1,3}")
 

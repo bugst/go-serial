@@ -6,7 +6,11 @@
 
 package serial
 
-import "time"
+import (
+	"strconv"
+	"strings"
+	"time"
+)
 
 //go:generate go run golang.org/x/sys/windows/mkwinsyscall -output zsyscall_windows.go syscall_windows.go
 
@@ -80,7 +84,7 @@ type ModemOutputBits struct {
 
 // Open opens the serial port using the specified modes
 func Open(portName string, mode *Mode) (Port, error) {
-	port, err := nativeOpen(portName, mode)
+	port, err := nativeOpen(DevName(portName), mode)
 	if err != nil {
 		// Return a nil interface, for which var==nil is true (instead of
 		// a nil pointer to a struct that satisfies the interface).
@@ -210,4 +214,39 @@ func (e PortError) Error() string {
 // Code returns an identifier for the kind of error occurred
 func (e PortError) Code() PortErrorCode {
 	return e.code
+}
+
+// For USB port shortcut like COM of Windows
+func DevName(portName string) string {
+	return devFolder + PortName(portName)
+}
+
+// If portName is empty then try return first serial port.
+func PortName(portName string) string {
+	if portName == "" {
+		ports, err := GetPortsList()
+		if err != nil || len(ports) == 0 {
+			portName = "serialPortsNotFound"
+		} else {
+			portName = ports[0]
+		}
+	}
+	if strings.HasPrefix(portName, devFolder) {
+		// \\.\com10
+		// /dev/ttyUSB0
+		// /dev/cuaU0
+		// /dev/cu.usbserial-1410
+		return strings.TrimPrefix(portName, devFolder)
+	}
+	if _, err := strconv.Atoi(portName); err == nil {
+		// 10
+		// 0
+		// 1410
+		return devName + portName
+	}
+	// com10
+	// ttyUSB0
+	// cuaU0
+	// cu.usbserial-1410
+	return portName
 }
