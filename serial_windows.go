@@ -91,7 +91,7 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 	}
 
 	// Timeout
-	return 0, nil
+	return 0, &PortError{code: Timeout}
 }
 
 func (port *windowsPort) Write(p []byte) (int, error) {

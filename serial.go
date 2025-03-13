@@ -165,6 +165,8 @@ const (
 	PortClosed
 	// FunctionNotImplemented the requested function is not implemented
 	FunctionNotImplemented
+	// Timeout when an operation has timed out
+	Timeout
 )
 
 // EncodedErrorString returns a string explaining the error code
@@ -194,6 +196,8 @@ func (e PortError) EncodedErrorString() string {
 		return "Port has been closed"
 	case FunctionNotImplemented:
 		return "Function not implemented"
+	case Timeout:
+		return "Timeout"
 	default:
 		return "Other error"
 	}
@@ -210,4 +214,9 @@ func (e PortError) Error() string {
 // Code returns an identifier for the kind of error occurred
 func (e PortError) Code() PortErrorCode {
 	return e.code
+}
+
+// Timeout returns true if is is a timeout (usable with os.IsTimeout)
+func (e PortError) Timeout() bool {
+	return e.code == Timeout
 }
