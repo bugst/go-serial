@@ -101,6 +101,7 @@ type Mode struct {
 	Parity            Parity           // Parity (see Parity type for more info)
 	StopBits          StopBits         // Stop bits (see StopBits type for more info)
 	InitialStatusBits *ModemOutputBits // Initial output modem bits status (if nil defaults to DTR=true and RTS=true)
+	AccessMode        AccessMode       // Access mode on unix systems (Default: Exclusive)
 }
 
 // Parity describes a serial port parity setting
@@ -129,6 +130,14 @@ const (
 	OnePointFiveStopBits
 	// TwoStopBits sets 2 stop bits
 	TwoStopBits
+)
+
+// AccessMode whether to access the port exclusively
+type AccessMode int
+
+const (
+	Exclusive = 0
+	Shared    = 1
 )
 
 // PortError is a platform independent error type for serial ports
