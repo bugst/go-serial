@@ -35,7 +35,6 @@ const (
 	rs485RTSOnSend    = 1 << 1
 	rs485RTSAfterSend = 1 << 2
 	rs485RXDuringTX   = 1 << 4
-	rs485Tiocs        = 0x542f
 )
 
 // rs485_ioctl_opts is used to configure RS485 options in the driver
@@ -511,5 +510,5 @@ func (port *unixPort) enableRS485(config *RS485Config) error {
 		rs485.flags |= rs485RXDuringTX
 	}
 
-	return unix.IoctlSetInt(port.handle, rs485Tiocs, int(uintptr(unsafe.Pointer(&rs485))))
+	return unix.IoctlSetInt(port.handle, unix.TIOCSRS485, int(uintptr(unsafe.Pointer(&rs485))))
 }
