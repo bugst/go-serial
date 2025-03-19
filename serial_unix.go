@@ -258,7 +258,7 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	// Explicitly disable RTS/CTS flow control
 	setTermSettingsCtsRts(false, settings)
 
-	if port.setTermSettings(settings) != nil {
+	if err = port.setTermSettings(settings); err != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort, causedBy: fmt.Errorf("error setting term settings: %w", err)}
 	}
