@@ -388,7 +388,13 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 			params.Flags |= windows.RTS_CONTROL_ENABLE
 		}
 	}
-	params.Flags &^= dcbOutXCTSFlow
+
+	if mode.RTSCTSFlowControl {
+		params.Flags |= dcbOutXCTSFlow
+	} else {
+		params.Flags &^= dcbOutXCTSFlow
+	}
+
 	params.Flags &^= dcbOutXDSRFlow
 	params.Flags &^= dcbDSRSensitivity
 	params.Flags |= dcbTXContinueOnXOFF
