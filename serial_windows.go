@@ -45,12 +45,22 @@ func nativeGetPortsList() ([]string, error) {
 	}
 	defer key.Close()
 
-	list, err := key.ReadValueNames(0)
+	names, err := key.ReadValueNames(0)
 	if err != nil {
 		return nil, &PortError{code: ErrorEnumeratingPorts, causedBy: err}
 	}
 
-	return list, nil
+	var values []string
+	for _, n := range names {
+		v, _, err := key.GetStringValue(n)
+		if err != nil || v == "" {
+			continue
+		}
+
+		values = append(values, v)
+	}
+
+	return values, nil
 }
 
 func (port *windowsPort) Close() error {
