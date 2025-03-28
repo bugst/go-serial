@@ -19,6 +19,7 @@ package serial
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -352,7 +353,9 @@ func createOverlappedEvent() (*windows.Overlapped, error) {
 }
 
 func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
-	portName = "\\\\.\\" + portName
+	if !strings.HasPrefix(portName, `\\.\`) {
+		portName = `\\.\` + portName
+	}
 	path, err := windows.UTF16PtrFromString(portName)
 	if err != nil {
 		return nil, err
