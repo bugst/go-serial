@@ -39,9 +39,9 @@ func (s *FDSet) Add(fds ...int) {
 
 // FDResultSets contains the result of a Select operation.
 type FDResultSets struct {
-	readable  *unix.FdSet
-	writeable *unix.FdSet
-	errors    *unix.FdSet
+	readable  unix.FdSet
+	writeable unix.FdSet
+	errors    unix.FdSet
 }
 
 // IsReadable test if a file descriptor is ready to be read.
@@ -66,30 +66,21 @@ func (r *FDResultSets) IsError(fd int) bool {
 // The function will block until an event happens or the timeout expires.
 // The function return an FDResultSets that contains all the file descriptor
 // that have a pending read/write/error event.
-func Select(rd, wr, er *FDSet, timeout time.Duration) (*FDResultSets, error) {
+func Select(rd, wr, er *FDSet, timeout time.Duration) (FDResultSets, error) {
 	max := 0
-	res := &FDResultSets{}
+	res := FDResultSets{}
 	if rd != nil {
-		// fdsets are copied so the parameters are left untouched
-		copyOfRd := rd.set
-		res.readable = &copyOfRd
-		// Determine max fd.
+		res.readable = rd.set
 		max = rd.max
 	}
 	if wr != nil {
-		// fdsets are copied so the parameters are left untouched
-		copyOfWr := wr.set
-		res.writeable = &copyOfWr
-		// Determine max fd.
+		res.writeable = wr.set
 		if wr.max > max {
 			max = wr.max
 		}
 	}
 	if er != nil {
-		// fdsets are copied so the parameters are left untouched
-		copyOfEr := er.set
-		res.errors = &copyOfEr
-		// Determine max fd.
+		res.errors = er.set
 		if er.max > max {
 			max = er.max
 		}
@@ -98,9 +89,9 @@ func Select(rd, wr, er *FDSet, timeout time.Duration) (*FDResultSets, error) {
 	var err error
 	if timeout != -1 {
 		t := unix.NsecToTimeval(timeout.Nanoseconds())
-		_, err = unix.Select(max+1, res.readable, res.writeable, res.errors, &t)
+		_, err = unix.Select(max+1, &res.readable, &res.writeable, &res.errors, &t)
 	} else {
-		_, err = unix.Select(max+1, res.readable, res.writeable, res.errors, nil)
+		_, err = unix.Select(max+1, &res.readable, &res.writeable, &res.errors, nil)
 	}
 	return res, err
 }
