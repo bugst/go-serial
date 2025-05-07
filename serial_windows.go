@@ -280,16 +280,24 @@ func (port *windowsPort) SetRTS(rts bool) error {
 	return nil
 }
 
+// GetCommModemStatus constants. See https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getcommmodemstatus.
+const (
+	msCTSOn  = 0x0010
+	msDSROn  = 0x0020
+	msRingOn = 0x0040
+	msRLSDOn = 0x0080
+)
+
 func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
 	var bits uint32
 	if err := windows.GetCommModemStatus(port.handle, &bits); err != nil {
 		return nil, &PortError{}
 	}
 	return &ModemStatusBits{
-		CTS: (bits & windows.EV_CTS) != 0,
-		DCD: (bits & windows.EV_RLSD) != 0,
-		DSR: (bits & windows.EV_DSR) != 0,
-		RI:  (bits & windows.EV_RING) != 0,
+		CTS: (bits & msCTSOn) != 0,
+		DCD: (bits & msRLSDOn) != 0,
+		DSR: (bits & msDSROn) != 0,
+		RI:  (bits & msRingOn) != 0,
 	}, nil
 }
 
@@ -366,7 +374,8 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 		0, nil,
 		windows.OPEN_EXISTING,
 		windows.FILE_FLAG_OVERLAPPED,
-		0)
+		0,
+	)
 	if err != nil {
 		switch err {
 		case windows.ERROR_ACCESS_DENIED:
