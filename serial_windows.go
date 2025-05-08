@@ -282,10 +282,10 @@ func (port *windowsPort) SetRTS(rts bool) error {
 
 // GetCommModemStatus constants. See https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getcommmodemstatus.
 const (
-	msCTSOn  = 0x0010
-	msDSROn  = 0x0020
-	msRingOn = 0x0040
-	msRLSDOn = 0x0080
+	MS_CTS_ON  = 0x0010
+	MS_DSR_ON  = 0x0020
+	MS_RING_ON = 0x0040
+	MS_RLSD_ON = 0x0080
 )
 
 func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
@@ -294,10 +294,10 @@ func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
 		return nil, &PortError{}
 	}
 	return &ModemStatusBits{
-		CTS: (bits & msCTSOn) != 0,
-		DCD: (bits & msRLSDOn) != 0,
-		DSR: (bits & msDSROn) != 0,
-		RI:  (bits & msRingOn) != 0,
+		CTS: (bits & MS_CTS_ON) != 0,
+		DCD: (bits & MS_RLSD_ON) != 0,
+		DSR: (bits & MS_DSR_ON) != 0,
+		RI:  (bits & MS_RING_ON) != 0,
 	}, nil
 }
 
