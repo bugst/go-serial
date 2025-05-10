@@ -19,6 +19,7 @@ package serial
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -28,8 +29,9 @@ import (
 )
 
 type windowsPort struct {
-	mu     sync.Mutex
-	handle windows.Handle
+	mu         sync.Mutex
+	handle     windows.Handle
+	hasTimeout bool
 }
 
 func nativeGetPortsList() ([]string, error) {
@@ -44,12 +46,22 @@ func nativeGetPortsList() ([]string, error) {
 	}
 	defer key.Close()
 
-	list, err := key.ReadValueNames(0)
+	names, err := key.ReadValueNames(0)
 	if err != nil {
 		return nil, &PortError{code: ErrorEnumeratingPorts, causedBy: err}
 	}
 
-	return list, nil
+	var values []string
+	for _, n := range names {
+		v, _, err := key.GetStringValue(n)
+		if err != nil || v == "" {
+			continue
+		}
+
+		values = append(values, v)
+	}
+
+	return values, nil
 }
 
 func (port *windowsPort) Close() error {
@@ -72,26 +84,33 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 	}
 	defer windows.CloseHandle(ev.HEvent)
 
-	err = windows.ReadFile(port.handle, p, &readed, ev)
-	if err == windows.ERROR_IO_PENDING {
-		err = windows.GetOverlappedResult(port.handle, ev, &readed, true)
-	}
-	switch err {
-	case nil:
-		// operation completed successfully
-	case windows.ERROR_OPERATION_ABORTED:
-		// port may have been closed
-		return int(readed), &PortError{code: PortClosed, causedBy: err}
-	default:
-		// error happened
-		return int(readed), err
-	}
-	if readed > 0 {
-		return int(readed), nil
-	}
+	for {
+		err = windows.ReadFile(port.handle, p, &readed, ev)
+		if err == windows.ERROR_IO_PENDING {
+			err = windows.GetOverlappedResult(port.handle, ev, &readed, true)
+		}
+		switch err {
+		case nil:
+			// operation completed successfully
+		case windows.ERROR_OPERATION_ABORTED:
+			// port may have been closed
+			return int(readed), &PortError{code: PortClosed, causedBy: err}
+		default:
+			// error happened
+			return int(readed), err
+		}
+		if readed > 0 {
+			return int(readed), nil
+		}
 
-	// Timeout
-	return 0, nil
+		// Timeout
+		port.mu.Lock()
+		hasTimeout := port.hasTimeout
+		port.mu.Unlock()
+		if hasTimeout {
+			return 0, nil
+		}
+	}
 }
 
 func (port *windowsPort) Write(p []byte) (int, error) {
@@ -275,10 +294,19 @@ func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
 }
 
 func (port *windowsPort) SetReadTimeout(timeout time.Duration) error {
+	// This is a brutal hack to make the CH340 chipset work properly.
+	// Normally this value should be 0xFFFFFFFE but, after a lot of
+	// tinkering, I discovered that any value with the highest
+	// bit set will make the CH340 driver behave like the timeout is 0,
+	// in the best cases leading to a spinning loop...
+	// (could this be a wrong signed vs unsigned conversion in the driver?)
+	// https://github.com/arduino/serial-monitor/issues/112
+	const MaxReadTotalTimeoutConstant = 0x7FFFFFFE
+
 	commTimeouts := &windows.CommTimeouts{
 		ReadIntervalTimeout:         0xFFFFFFFF,
 		ReadTotalTimeoutMultiplier:  0xFFFFFFFF,
-		ReadTotalTimeoutConstant:    0xFFFFFFFE,
+		ReadTotalTimeoutConstant:    MaxReadTotalTimeoutConstant,
 		WriteTotalTimeoutConstant:   0,
 		WriteTotalTimeoutMultiplier: 0,
 	}
@@ -287,12 +315,20 @@ func (port *windowsPort) SetReadTimeout(timeout time.Duration) error {
 		if ms > 0xFFFFFFFE || ms < 0 {
 			return &PortError{code: InvalidTimeoutValue}
 		}
+
+		if ms > MaxReadTotalTimeoutConstant {
+			ms = MaxReadTotalTimeoutConstant
+		}
+
 		commTimeouts.ReadTotalTimeoutConstant = uint32(ms)
 	}
 
+	port.mu.Lock()
+	defer port.mu.Unlock()
 	if err := windows.SetCommTimeouts(port.handle, commTimeouts); err != nil {
 		return &PortError{code: InvalidTimeoutValue, causedBy: err}
 	}
+	port.hasTimeout = (timeout != NoTimeout)
 
 	return nil
 }
@@ -317,7 +353,9 @@ func createOverlappedEvent() (*windows.Overlapped, error) {
 }
 
 func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
-	portName = "\\\\.\\" + portName
+	if !strings.HasPrefix(portName, `\\.\`) {
+		portName = `\\.\` + portName
+	}
 	path, err := windows.UTF16PtrFromString(portName)
 	if err != nil {
 		return nil, err
