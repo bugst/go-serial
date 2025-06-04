@@ -19,6 +19,7 @@ package serial
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -45,12 +46,22 @@ func nativeGetPortsList() ([]string, error) {
 	}
 	defer key.Close()
 
-	list, err := key.ReadValueNames(0)
+	names, err := key.ReadValueNames(0)
 	if err != nil {
 		return nil, &PortError{code: ErrorEnumeratingPorts, causedBy: err}
 	}
 
-	return list, nil
+	var values []string
+	for _, n := range names {
+		v, _, err := key.GetStringValue(n)
+		if err != nil || v == "" {
+			continue
+		}
+
+		values = append(values, v)
+	}
+
+	return values, nil
 }
 
 func (port *windowsPort) Close() error {
@@ -270,15 +281,22 @@ func (port *windowsPort) SetRTS(rts bool) error {
 }
 
 func (port *windowsPort) GetModemStatusBits() (*ModemStatusBits, error) {
+	// GetCommModemStatus constants. See https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getcommmodemstatus.
+	const (
+		MS_CTS_ON  = 0x0010
+		MS_DSR_ON  = 0x0020
+		MS_RING_ON = 0x0040
+		MS_RLSD_ON = 0x0080
+	)
 	var bits uint32
 	if err := windows.GetCommModemStatus(port.handle, &bits); err != nil {
 		return nil, &PortError{}
 	}
 	return &ModemStatusBits{
-		CTS: (bits & windows.EV_CTS) != 0,
-		DCD: (bits & windows.EV_RLSD) != 0,
-		DSR: (bits & windows.EV_DSR) != 0,
-		RI:  (bits & windows.EV_RING) != 0,
+		CTS: (bits & MS_CTS_ON) != 0,
+		DCD: (bits & MS_RLSD_ON) != 0,
+		DSR: (bits & MS_DSR_ON) != 0,
+		RI:  (bits & MS_RING_ON) != 0,
 	}, nil
 }
 
@@ -342,7 +360,9 @@ func createOverlappedEvent() (*windows.Overlapped, error) {
 }
 
 func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
-	portName = "\\\\.\\" + portName
+	if !strings.HasPrefix(portName, `\\.\`) {
+		portName = `\\.\` + portName
+	}
 	path, err := windows.UTF16PtrFromString(portName)
 	if err != nil {
 		return nil, err
@@ -353,7 +373,8 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 		0, nil,
 		windows.OPEN_EXISTING,
 		windows.FILE_FLAG_OVERLAPPED,
-		0)
+		0,
+	)
 	if err != nil {
 		switch err {
 		case windows.ERROR_ACCESS_DENIED:
