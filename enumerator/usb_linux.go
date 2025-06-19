@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"go.bug.st/serial"
+	"github.com/ben-qnimble/go-serial"
 )
 
 func nativeGetDetailedPortsList() ([]*PortDetails, error) {
@@ -50,12 +50,17 @@ func nativeGetPortDetails(portPath string) (*PortDetails, error) {
 	subSystem := filepath.Base(subSystemPath)
 
 	result := &PortDetails{Name: portPath}
+	mi, err := readLine(filepath.Join(realDevicePath, "bInterfaceNumber"))
+	if err != nil {
+		return nil, fmt.Errorf("Can't determine interface number of %s: %s", filepath.Join(realDevicePath, "bInterfaceNumber"), err.Error())
+	}
+
 	switch subSystem {
 	case "usb-serial":
-		err := parseUSBSysFS(filepath.Dir(filepath.Dir(realDevicePath)), result)
+		err := parseUSBSysFS(filepath.Dir(filepath.Dir(realDevicePath)), result, mi)
 		return result, err
 	case "usb":
-		err := parseUSBSysFS(filepath.Dir(realDevicePath), result)
+		err := parseUSBSysFS(filepath.Dir(realDevicePath), result, mi)
 		return result, err
 	// TODO: other cases?
 	default:
@@ -63,7 +68,7 @@ func nativeGetPortDetails(portPath string) (*PortDetails, error) {
 	}
 }
 
-func parseUSBSysFS(usbDevicePath string, details *PortDetails) error {
+func parseUSBSysFS(usbDevicePath string, details *PortDetails, mi string) error {
 	vid, err := readLine(filepath.Join(usbDevicePath, "idVendor"))
 	if err != nil {
 		return err
@@ -72,6 +77,7 @@ func parseUSBSysFS(usbDevicePath string, details *PortDetails) error {
 	if err != nil {
 		return err
 	}
+
 	serial, err := readLine(filepath.Join(usbDevicePath, "serial"))
 	if err != nil {
 		return err
@@ -88,6 +94,7 @@ func parseUSBSysFS(usbDevicePath string, details *PortDetails) error {
 	details.IsUSB = true
 	details.VID = vid
 	details.PID = pid
+	details.MI = mi
 	details.SerialNumber = serial
 	//details.Manufacturer = manufacturer
 	//details.Product = product
