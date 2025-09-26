@@ -26,8 +26,9 @@ func (port *unixPort) SetSerialPortMode(portMode uint32) error {
 	if err != nil {
 		return err
 	}
+
 	ser.Port = portMode
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(port.handle), unix.TIOCSSERIAL, uintptr(unsafe.Pointer(&ser)))
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(port.handle), unix.TIOCSSERIAL, uintptr(unsafe.Pointer(ser)))
 	if errno != 0 {
 		return fmt.Errorf("ioctl TIOCSSERIAL failed: %v", errno)
 	}
