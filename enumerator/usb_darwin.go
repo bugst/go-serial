@@ -8,8 +8,139 @@ package enumerator
 
 // #cgo LDFLAGS: -framework CoreFoundation -framework IOKit
 // #include <IOKit/IOKitLib.h>
+// #include <IOKit/IOCFPlugIn.h>
+// #include <IOKit/usb/IOUSBLib.h>
 // #include <CoreFoundation/CoreFoundation.h>
 // #include <stdlib.h>
+//
+// static char *copyUSBConfigurationString(io_service_t service) {
+// 	IOCFPlugInInterface **plugin = NULL;
+// 	IOUSBDeviceInterface **device = NULL;
+// 	IOUSBConfigurationDescriptorPtr configDesc = NULL;
+// 	SInt32 score = 0;
+// 	HRESULT result = S_OK;
+// 	kern_return_t kr;
+// 	UInt8 currentConfig = 0;
+// 	UInt8 numConfigs = 0;
+// 	UInt8 stringIndex = 0;
+// 	UInt8 index;
+// 	UInt16 langID = 0x0409;
+// 	IOUSBDevRequest request;
+// 	UInt8 buffer[1024];
+// 	UInt16 descriptorLength;
+// 	CFStringRef configuration = NULL;
+// 	CFIndex outputSize;
+// 	char *output = NULL;
+// 	UInt8 isOpen = 0;
+//
+// 	kr = IOCreatePlugInInterfaceForService(service,
+// 		kIOUSBDeviceUserClientTypeID,
+// 		kIOCFPlugInInterfaceID,
+// 		&plugin,
+// 		&score);
+// 	if (kr != kIOReturnSuccess || plugin == NULL) {
+// 		goto cleanup;
+// 	}
+//
+// 	result = (*plugin)->QueryInterface(plugin,
+// 		CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID),
+// 		(LPVOID *)&device);
+// 	(*plugin)->Release(plugin);
+// 	plugin = NULL;
+// 	if (result != S_OK || device == NULL) {
+// 		goto cleanup;
+// 	}
+//
+// 	kr = (*device)->USBDeviceOpen(device);
+// 	if (kr != kIOReturnSuccess) {
+// 		goto cleanup;
+// 	}
+// 	isOpen = 1;
+//
+// 	kr = (*device)->GetConfiguration(device, &currentConfig);
+// 	if (kr != kIOReturnSuccess || currentConfig == 0) {
+// 		goto cleanup;
+// 	}
+//
+// 	kr = (*device)->GetNumberOfConfigurations(device, &numConfigs);
+// 	if (kr != kIOReturnSuccess) {
+// 		goto cleanup;
+// 	}
+// 	for (index = 0; index < numConfigs; index++) {
+// 		kr = (*device)->GetConfigurationDescriptorPtr(device, index, &configDesc);
+// 		if (kr == kIOReturnSuccess && configDesc != NULL && configDesc->bConfigurationValue == currentConfig) {
+// 			stringIndex = configDesc->iConfiguration;
+// 			break;
+// 		}
+// 	}
+// 	if (stringIndex == 0) {
+// 		goto cleanup;
+// 	}
+//
+// 	request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
+// 	request.bRequest = kUSBRqGetDescriptor;
+// 	request.wValue = (kUSBStringDesc << 8);
+// 	request.wIndex = 0;
+// 	request.wLength = sizeof(buffer);
+// 	request.pData = buffer;
+// 	kr = (*device)->DeviceRequest(device, &request);
+// 	if (kr == kIOReturnSuccess && request.wLenDone >= 4) {
+// 		langID = (UInt16)buffer[2] | ((UInt16)buffer[3] << 8);
+// 	}
+//
+// 	request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
+// 	request.bRequest = kUSBRqGetDescriptor;
+// 	request.wValue = ((UInt16)kUSBStringDesc << 8) | stringIndex;
+// 	request.wIndex = langID;
+// 	request.wLength = sizeof(buffer);
+// 	request.pData = buffer;
+// 	kr = (*device)->DeviceRequest(device, &request);
+// 	if (kr != kIOReturnSuccess || request.wLenDone < 2) {
+// 		goto cleanup;
+// 	}
+//
+// 	descriptorLength = buffer[0];
+// 	if (descriptorLength > request.wLenDone) {
+// 		descriptorLength = request.wLenDone;
+// 	}
+// 	if (descriptorLength <= 2) {
+// 		goto cleanup;
+// 	}
+//
+// 	configuration = CFStringCreateWithBytes(kCFAllocatorDefault,
+// 		buffer + 2,
+// 		descriptorLength - 2,
+// 		kCFStringEncodingUTF16LE,
+// 		false);
+// 	if (configuration == NULL) {
+// 		goto cleanup;
+// 	}
+//
+// 	outputSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(configuration), kCFStringEncodingUTF8) + 1;
+// 	output = (char *)malloc((size_t)outputSize);
+// 	if (output == NULL) {
+// 		goto cleanup;
+// 	}
+// 	if (!CFStringGetCString(configuration, output, outputSize, kCFStringEncodingUTF8)) {
+// 		free(output);
+// 		output = NULL;
+// 	}
+//
+// cleanup:
+// 	if (configuration != NULL) {
+// 		CFRelease(configuration);
+// 	}
+// 	if (device != NULL && isOpen) {
+// 		(*device)->USBDeviceClose(device);
+// 	}
+// 	if (device != NULL) {
+// 		(*device)->Release(device);
+// 	}
+// 	if (plugin != NULL) {
+// 		(*plugin)->Release(plugin);
+// 	}
+// 	return output;
+// }
 import "C"
 import (
 	"errors"
@@ -70,7 +201,7 @@ func extractPortInfo(service io_registry_entry_t) (*PortDetails, error) {
 		vid, _ := usbDevice.GetIntProperty("idVendor", C.kCFNumberSInt16Type)
 		pid, _ := usbDevice.GetIntProperty("idProduct", C.kCFNumberSInt16Type)
 		serialNumber, _ := usbDevice.GetStringProperty("USB Serial Number")
-		configuration, _ := usbDevice.GetStringProperty("USB Configuration")
+		configuration, _ := usbDevice.GetUSBConfigurationString()
 		//product, _ := usbDevice.GetStringProperty("USB Product Name")
 		//manufacturer, _ := usbDevice.GetStringProperty("USB Vendor Name")
 		//fmt.Println(product + " - " + manufacturer)
@@ -197,6 +328,15 @@ func (me *io_registry_entry_t) GetStringProperty(key string) (string, error) {
 		return "", fmt.Errorf("Property '%s' can't be converted", key)
 	}
 	return C.GoString(&buff[0]), nil
+}
+
+func (me *io_registry_entry_t) GetUSBConfigurationString() (string, error) {
+	configuration := C.copyUSBConfigurationString(C.io_service_t(*me))
+	if configuration == nil {
+		return "", errors.New("USB configuration string not available")
+	}
+	defer C.free(unsafe.Pointer(configuration))
+	return C.GoString(configuration), nil
 }
 
 func (me *io_registry_entry_t) GetIntProperty(key string, intType C.CFNumberType) (int, error) {
