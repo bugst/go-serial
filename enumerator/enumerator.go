@@ -11,11 +11,12 @@ package enumerator
 // PortDetails contains detailed information about USB serial port.
 // Use GetDetailedPortsList function to retrieve it.
 type PortDetails struct {
-	Name         string
-	IsUSB        bool
-	VID          string
-	PID          string
-	SerialNumber string
+	Name          string
+	IsUSB         bool
+	VID           string
+	PID           string
+	SerialNumber  string
+	Configuration string
 
 	// Manufacturer string
 
