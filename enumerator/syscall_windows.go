@@ -51,6 +51,7 @@ var (
 	procCM_Get_Device_ID_Size             = modcfgmgr32.NewProc("CM_Get_Device_ID_Size")
 	procCM_Get_Device_IDW                 = modcfgmgr32.NewProc("CM_Get_Device_IDW")
 	procCM_MapCrToWin32Err                = modcfgmgr32.NewProc("CM_MapCrToWin32Err")
+	procCM_Get_DevNode_Registry_PropertyW = modcfgmgr32.NewProc("CM_Get_DevNode_Registry_PropertyW")
 )
 
 func setupDiClassGuidsFromNameInternal(class string, guid *guid, guidSize uint32, requiredSize *uint32) (err error) {
@@ -163,5 +164,11 @@ func cmGetDeviceID(dev devInstance, buffer unsafe.Pointer, bufferSize uint32, fl
 func cmMapCrToWin32Err(cmErr cmError, defaultErr uint32) (err uint32) {
 	r0, _, _ := syscall.Syscall(procCM_MapCrToWin32Err.Addr(), 2, uintptr(cmErr), uintptr(defaultErr), 0)
 	err = uint32(r0)
+	return
+}
+
+func cmGetDevNodeRegistryProperty(dev devInstance, property uint32, regDataType *uint32, buffer *byte, bufferLen *uint32, flags uint32) (cmErr cmError) {
+	r0, _, _ := syscall.Syscall6(procCM_Get_DevNode_Registry_PropertyW.Addr(), 6, uintptr(dev), uintptr(property), uintptr(unsafe.Pointer(regDataType)), uintptr(unsafe.Pointer(buffer)), uintptr(unsafe.Pointer(bufferLen)), uintptr(flags))
+	cmErr = cmError(r0)
 	return
 }
