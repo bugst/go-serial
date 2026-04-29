@@ -79,44 +79,43 @@ type deviceProperty uint32
 
 const (
 	spdrpDeviceDesc               deviceProperty = 0x00000000 // DeviceDesc = R/W
-	spdrpHardwareID                              = 0x00000001 // HardwareID = R/W
-	spdrpCompatibleIDS                           = 0x00000002 // CompatibleIDs = R/W
-	spdrpUnused0                                 = 0x00000003 // Unused
-	spdrpService                                 = 0x00000004 // Service = R/W
-	spdrpUnused1                                 = 0x00000005 // Unused
-	spdrpUnused2                                 = 0x00000006 // Unused
-	spdrpClass                                   = 0x00000007 // Class = R--tied to ClassGUID
-	spdrpClassGUID                               = 0x00000008 // ClassGUID = R/W
-	spdrpDriver                                  = 0x00000009 // Driver = R/W
-	spdrpConfigFlags                             = 0x0000000A // ConfigFlags = R/W
-	spdrpMFG                                     = 0x0000000B // Mfg = R/W
-	spdrpFriendlyName                            = 0x0000000C // FriendlyName = R/W
-	spdrpLocationIinformation                    = 0x0000000D // LocationInformation = R/W
-	spdrpPhysicalDeviceObjectName                = 0x0000000E // PhysicalDeviceObjectName = R
-	spdrpCapabilities                            = 0x0000000F // Capabilities = R
-	spdrpUINumber                                = 0x00000010 // UiNumber = R
-	spdrpUpperFilters                            = 0x00000011 // UpperFilters = R/W
-	spdrpLowerFilters                            = 0x00000012 // LowerFilters = R/W
-	spdrpBusTypeGUID                             = 0x00000013 // BusTypeGUID = R
-	spdrpLegacyBusType                           = 0x00000014 // LegacyBusType = R
-	spdrpBusNumber                               = 0x00000015 // BusNumber = R
-	spdrpEnumeratorName                          = 0x00000016 // Enumerator Name = R
-	spdrpSecurity                                = 0x00000017 // Security = R/W, binary form
-	spdrpSecuritySDS                             = 0x00000018 // Security = W, SDS form
-	spdrpDevType                                 = 0x00000019 // Device Type = R/W
-	spdrpExclusive                               = 0x0000001A // Device is exclusive-access = R/W
-	spdrpCharacteristics                         = 0x0000001B // Device Characteristics = R/W
-	spdrpAddress                                 = 0x0000001C // Device Address = R
-	spdrpUINumberDescFormat                      = 0x0000001D // UiNumberDescFormat = R/W
-	spdrpDevicePowerData                         = 0x0000001E // Device Power Data = R
-	spdrpRemovalPolicy                           = 0x0000001F // Removal Policy = R
-	spdrpRemovalPolicyHWDefault                  = 0x00000020 // Hardware Removal Policy = R
-	spdrpRemovalPolicyOverride                   = 0x00000021 // Removal Policy Override = RW
-	spdrpInstallState                            = 0x00000022 // Device Install State = R
-	spdrpLocationPaths                           = 0x00000023 // Device Location Paths = R
-	spdrpBaseContainerID                         = 0x00000024 // Base ContainerID = R
-
-	spdrpMaximumProperty = 0x00000025 // Upper bound on ordinals
+	spdrpHardwareID               deviceProperty = 0x00000001 // HardwareID = R/W
+	spdrpCompatibleIDS            deviceProperty = 0x00000002 // CompatibleIDs = R/W
+	spdrpUnused0                  deviceProperty = 0x00000003 // Unused
+	spdrpService                  deviceProperty = 0x00000004 // Service = R/W
+	spdrpUnused1                  deviceProperty = 0x00000005 // Unused
+	spdrpUnused2                  deviceProperty = 0x00000006 // Unused
+	spdrpClass                    deviceProperty = 0x00000007 // Class = R--tied to ClassGUID
+	spdrpClassGUID                deviceProperty = 0x00000008 // ClassGUID = R/W
+	spdrpDriver                   deviceProperty = 0x00000009 // Driver = R/W
+	spdrpConfigFlags              deviceProperty = 0x0000000A // ConfigFlags = R/W
+	spdrpMFG                      deviceProperty = 0x0000000B // Mfg = R/W
+	spdrpFriendlyName             deviceProperty = 0x0000000C // FriendlyName = R/W
+	spdrpLocationIinformation     deviceProperty = 0x0000000D // LocationInformation = R/W
+	spdrpPhysicalDeviceObjectName deviceProperty = 0x0000000E // PhysicalDeviceObjectName = R
+	spdrpCapabilities             deviceProperty = 0x0000000F // Capabilities = R
+	spdrpUINumber                 deviceProperty = 0x00000010 // UiNumber = R
+	spdrpUpperFilters             deviceProperty = 0x00000011 // UpperFilters = R/W
+	spdrpLowerFilters             deviceProperty = 0x00000012 // LowerFilters = R/W
+	spdrpBusTypeGUID              deviceProperty = 0x00000013 // BusTypeGUID = R
+	spdrpLegacyBusType            deviceProperty = 0x00000014 // LegacyBusType = R
+	spdrpBusNumber                deviceProperty = 0x00000015 // BusNumber = R
+	spdrpEnumeratorName           deviceProperty = 0x00000016 // Enumerator Name = R
+	spdrpSecurity                 deviceProperty = 0x00000017 // Security = R/W, binary form
+	spdrpSecuritySDS              deviceProperty = 0x00000018 // Security = W, SDS form
+	spdrpDevType                  deviceProperty = 0x00000019 // Device Type = R/W
+	spdrpExclusive                deviceProperty = 0x0000001A // Device is exclusive-access = R/W
+	spdrpCharacteristics          deviceProperty = 0x0000001B // Device Characteristics = R/W
+	spdrpAddress                  deviceProperty = 0x0000001C // Device Address = R
+	spdrpUINumberDescFormat       deviceProperty = 0x0000001D // UiNumberDescFormat = R/W
+	spdrpDevicePowerData          deviceProperty = 0x0000001E // Device Power Data = R
+	spdrpRemovalPolicy            deviceProperty = 0x0000001F // Removal Policy = R
+	spdrpRemovalPolicyHWDefault   deviceProperty = 0x00000020 // Hardware Removal Policy = R
+	spdrpRemovalPolicyOverride    deviceProperty = 0x00000021 // Removal Policy Override = RW
+	spdrpInstallState             deviceProperty = 0x00000022 // Device Install State = R
+	spdrpLocationPaths            deviceProperty = 0x00000023 // Device Location Paths = R
+	spdrpBaseContainerID          deviceProperty = 0x00000024 // Base ContainerID = R
+	spdrpMaximumProperty          deviceProperty = 0x00000025 // Upper bound on ordinals
 )
 
 // Values specifying the scope of a device property change
@@ -124,8 +123,8 @@ type dicsScope uint32
 
 const (
 	dicsFlagGlobal          dicsScope = 0x00000001 // make change in all hardware profiles
-	dicsFlagConfigSspecific           = 0x00000002 // make change in specified profile only
-	dicsFlagConfigGeneral             = 0x00000004 // 1 or more hardware profile-specific
+	dicsFlagConfigSspecific dicsScope = 0x00000002 // make change in specified profile only
+	dicsFlagConfigGeneral   dicsScope = 0x00000004 // 1 or more hardware profile-specific
 )
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms724878(v=vs.85).aspx
@@ -133,17 +132,17 @@ type regsam uint32
 
 const (
 	keyAllAccess        regsam = 0xF003F
-	keyCreateLink              = 0x00020
-	keyCreateSubKey            = 0x00004
-	keyEnumerateSubKeys        = 0x00008
-	keyExecute                 = 0x20019
-	keyNotify                  = 0x00010
-	keyQueryValue              = 0x00001
-	keyRead                    = 0x20019
-	keySetValue                = 0x00002
-	keyWOW64_32key             = 0x00200
-	keyWOW64_64key             = 0x00100
-	keyWrite                   = 0x20006
+	keyCreateLink       regsam = 0x00020
+	keyCreateSubKey     regsam = 0x00004
+	keyEnumerateSubKeys regsam = 0x00008
+	keyExecute          regsam = 0x20019
+	keyNotify           regsam = 0x00010
+	keyQueryValue       regsam = 0x00001
+	keyRead             regsam = 0x20019
+	keySetValue         regsam = 0x00002
+	keyWOW64_32key      regsam = 0x00200
+	keyWOW64_64key      regsam = 0x00100
+	keyWrite            regsam = 0x20006
 )
 
 // KeyType values for SetupDiCreateDevRegKey, SetupDiOpenDevRegKey, and
