@@ -18,7 +18,7 @@ import (
 func parseDeviceID(deviceID string, details *PortDetails) {
 	// Windows stock USB-CDC driver
 	if len(deviceID) >= 3 && deviceID[:3] == "USB" {
-		re := regexp.MustCompile("VID_(....)&PID_(....)(\\\\(\\w+)$)?").FindAllStringSubmatch(deviceID, -1)
+		re := regexp.MustCompile(`VID_(....)&PID_(....)(\\(\w+)$)?`).FindAllStringSubmatch(deviceID, -1)
 		if re == nil || len(re[0]) < 2 {
 			// Silently ignore unparsable strings
 			return
@@ -34,7 +34,7 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 
 	// FTDI driver
 	if len(deviceID) >= 7 && deviceID[:7] == "FTDIBUS" {
-		re := regexp.MustCompile("VID_(....)\\+PID_(....)(\\+(\\w+))?").FindAllStringSubmatch(deviceID, -1)
+		re := regexp.MustCompile(`VID_(....)\+PID_(....)(\+(\w+))?`).FindAllStringSubmatch(deviceID, -1)
 		if re == nil || len(re[0]) < 2 {
 			// Silently ignore unparsable strings
 			return
