@@ -8,8 +8,6 @@ package enumerator
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func parseAndReturnDeviceID(deviceID string) *PortDetails {
@@ -19,31 +17,57 @@ func parseAndReturnDeviceID(deviceID string) *PortDetails {
 }
 
 func TestParseDeviceID(t *testing.T) {
-	r := require.New(t)
-	test := func(deviceId, vid, pid, serialNo string) {
-		res := parseAndReturnDeviceID(deviceId)
-		r.True(res.IsUSB)
-		r.Equal(vid, res.VID)
-		r.Equal(pid, res.PID)
-		r.Equal(serialNo, res.SerialNumber)
+	tests := []struct {
+		name     string
+		deviceID string
+		vid      string
+		pid      string
+		serialNo string
+	}{
+		{name: "FTDI FT232", deviceID: "FTDIBUS\\VID_0403+PID_6001+A6004CCFA\\0000", vid: "0403", pid: "6001", serialNo: "A6004CCFA"},
+		{name: "Teensy USB serial", deviceID: "USB\\VID_16C0&PID_0483\\12345", vid: "16C0", pid: "0483", serialNo: "12345"},
+		{name: "Arduino with serial number", deviceID: "USB\\VID_2341&PID_0000\\64936333936351400000", vid: "2341", pid: "0000", serialNo: "64936333936351400000"},
+		{name: "Arduino with different serial number", deviceID: "USB\\VID_2341&PID_0000\\6493234373835191F1F1", vid: "2341", pid: "0000", serialNo: "6493234373835191F1F1"},
+		{name: "Arduino MKR composite", deviceID: "USB\\VID_2341&PID_804E&MI_00\\6&279A3900&0&0000", vid: "2341", pid: "804E", serialNo: ""},
+		{name: "Arduino MKR1000 bootloader", deviceID: "USB\\VID_2341&PID_004E\\5&C3DC240&0&1", vid: "2341", pid: "004E", serialNo: ""},
+		{name: "Atmel EDBG debugger", deviceID: "USB\\VID_03EB&PID_2111&MI_01\\6&21F3553F&0&0001", vid: "03EB", pid: "2111", serialNo: ""},
+		{name: "Arduino Zero composite", deviceID: "USB\\VID_2341&PID_804D&MI_00\\6&1026E213&0&0000", vid: "2341", pid: "804D", serialNo: ""},
+		{name: "Arduino Zero bootloader", deviceID: "USB\\VID_2341&PID_004D\\5&C3DC240&0&1", vid: "2341", pid: "004D", serialNo: ""},
+		{name: "Prolific PL2303", deviceID: "USB\\VID_067B&PID_2303\\6&2C4CB384&0&3", vid: "067B", pid: "2303", serialNo: ""},
 	}
-
-	test("FTDIBUS\\VID_0403+PID_6001+A6004CCFA\\0000", "0403", "6001", "A6004CCFA")
-	test("USB\\VID_16C0&PID_0483\\12345", "16C0", "0483", "12345")
-	test("USB\\VID_2341&PID_0000\\64936333936351400000", "2341", "0000", "64936333936351400000")
-	test("USB\\VID_2341&PID_0000\\6493234373835191F1F1", "2341", "0000", "6493234373835191F1F1")
-	test("USB\\VID_2341&PID_804E&MI_00\\6&279A3900&0&0000", "2341", "804E", "")
-	test("USB\\VID_2341&PID_004E\\5&C3DC240&0&1", "2341", "004E", "")
-	test("USB\\VID_03EB&PID_2111&MI_01\\6&21F3553F&0&0001", "03EB", "2111", "") // Atmel EDBG
-	test("USB\\VID_2341&PID_804D&MI_00\\6&1026E213&0&0000", "2341", "804D", "")
-	test("USB\\VID_2341&PID_004D\\5&C3DC240&0&1", "2341", "004D", "")
-	test("USB\\VID_067B&PID_2303\\6&2C4CB384&0&3", "067B", "2303", "") // PL2303
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := parseAndReturnDeviceID(tt.deviceID)
+			if !res.IsUSB {
+				t.Fatal("expected IsUSB to be true")
+			}
+			if res.VID != tt.vid {
+				t.Errorf("VID: got %q, expected %q", res.VID, tt.vid)
+			}
+			if res.PID != tt.pid {
+				t.Errorf("PID: got %q, expected %q", res.PID, tt.pid)
+			}
+			if res.SerialNumber != tt.serialNo {
+				t.Errorf("SerialNumber: got %q, expected %q", res.SerialNumber, tt.serialNo)
+			}
+		})
+	}
 }
 
 func TestParseDeviceIDWithInvalidStrings(t *testing.T) {
-	r := require.New(t)
-	res := parseAndReturnDeviceID("ABC")
-	r.False(res.IsUSB)
-	res2 := parseAndReturnDeviceID("USB")
-	r.False(res2.IsUSB)
+	tests := []struct {
+		name     string
+		deviceID string
+	}{
+		{name: "unrecognized prefix", deviceID: "ABC"},
+		{name: "USB prefix without fields", deviceID: "USB"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := parseAndReturnDeviceID(tt.deviceID)
+			if res.IsUSB {
+				t.Fatal("expected IsUSB to be false")
+			}
+		})
+	}
 }

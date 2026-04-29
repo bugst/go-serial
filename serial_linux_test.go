@@ -14,21 +14,25 @@ import (
 	"os/exec"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/require"
 )
 
 func startSocatAndWaitForPort(t *testing.T, ctx context.Context) *exec.Cmd {
+	t.Helper()
 	cmd := exec.CommandContext(ctx, "socat", "-D", "STDIO", "pty,link=/tmp/faketty")
 	r, err := cmd.StderrPipe()
-	require.NoError(t, err)
-	require.NoError(t, cmd.Start())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	// Let our fake serial port node appear.
 	// socat will write to stderr before starting transfer phase;
 	// we don't really care what, just that it did, because then it's ready.
 	buf := make([]byte, 1024)
-	_, err = r.Read(buf)
-	require.NoError(t, err)
+	if _, err = r.Read(buf); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	return cmd
 }
 
@@ -43,7 +47,9 @@ func TestSerialReadAndCloseConcurrency(t *testing.T) {
 	go cmd.Wait()
 
 	port, err := Open("/tmp/faketty", &Mode{})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	buf := make([]byte, 100)
 	go port.Read(buf)
 	// let port.Read to start
@@ -58,7 +64,13 @@ func TestDoubleCloseIsNoop(t *testing.T) {
 	go cmd.Wait()
 
 	port, err := Open("/tmp/faketty", &Mode{})
-	require.NoError(t, err)
-	require.NoError(t, port.Close())
-	require.NoError(t, port.Close())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := port.Close(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := port.Close(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
