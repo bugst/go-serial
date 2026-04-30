@@ -108,7 +108,7 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 		hasTimeout := port.hasTimeout
 		port.mu.Unlock()
 		if hasTimeout {
-			return 0, nil
+			return 0, &PortError{code: ReadTimeout}
 		}
 	}
 }
