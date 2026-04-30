@@ -43,7 +43,7 @@ jobs:
         run: GOARCH=386 go build -v ./...
         shell: bash
       - name: Cross-build for arm
-        if: matrix.os != 'macOS-latest'
+        if: matrix.os != 'macOS-latest' && matrix.os != 'windows-latest'
         run: GOARCH=arm go build -v ./...
         shell: bash
 
