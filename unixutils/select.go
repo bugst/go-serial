@@ -11,13 +11,13 @@ package unixutils
 import (
 	"time"
 
-	"github.com/creack/goselect"
+	"golang.org/x/sys/unix"
 )
 
 // FDSet is a set of file descriptors suitable for a select call
 type FDSet struct {
-	set goselect.FDSet
-	max uintptr
+	set unix.FdSet
+	max int
 }
 
 // NewFDSet creates a set of file descriptors suitable for a Select call.
@@ -30,34 +30,33 @@ func NewFDSet(fds ...int) *FDSet {
 // Add adds the file descriptors passed as parameter to the FDSet.
 func (s *FDSet) Add(fds ...int) {
 	for _, fd := range fds {
-		f := uintptr(fd)
-		s.set.Set(f)
-		if f > s.max {
-			s.max = f
+		s.set.Set(fd)
+		if fd > s.max {
+			s.max = fd
 		}
 	}
 }
 
 // FDResultSets contains the result of a Select operation.
 type FDResultSets struct {
-	readable  *goselect.FDSet
-	writeable *goselect.FDSet
-	errors    *goselect.FDSet
+	readable  unix.FdSet
+	writeable unix.FdSet
+	errors    unix.FdSet
 }
 
 // IsReadable test if a file descriptor is ready to be read.
 func (r *FDResultSets) IsReadable(fd int) bool {
-	return r.readable.IsSet(uintptr(fd))
+	return r.readable.IsSet(fd)
 }
 
 // IsWritable test if a file descriptor is ready to be written.
 func (r *FDResultSets) IsWritable(fd int) bool {
-	return r.writeable.IsSet(uintptr(fd))
+	return r.writeable.IsSet(fd)
 }
 
 // IsError test if a file descriptor is in error state.
 func (r *FDResultSets) IsError(fd int) bool {
-	return r.errors.IsSet(uintptr(fd))
+	return r.errors.IsSet(fd)
 }
 
 // Select performs a select system call,
@@ -67,35 +66,32 @@ func (r *FDResultSets) IsError(fd int) bool {
 // The function will block until an event happens or the timeout expires.
 // The function return an FDResultSets that contains all the file descriptor
 // that have a pending read/write/error event.
-func Select(rd, wr, er *FDSet, timeout time.Duration) (*FDResultSets, error) {
-	max := uintptr(0)
-	res := &FDResultSets{}
+func Select(rd, wr, er *FDSet, timeout time.Duration) (FDResultSets, error) {
+	max := 0
+	res := FDResultSets{}
 	if rd != nil {
-		// fdsets are copied so the parameters are left untouched
-		copyOfRd := rd.set
-		res.readable = &copyOfRd
-		// Determine max fd.
+		res.readable = rd.set
 		max = rd.max
 	}
 	if wr != nil {
-		// fdsets are copied so the parameters are left untouched
-		copyOfWr := wr.set
-		res.writeable = &copyOfWr
-		// Determine max fd.
+		res.writeable = wr.set
 		if wr.max > max {
 			max = wr.max
 		}
 	}
 	if er != nil {
-		// fdsets are copied so the parameters are left untouched
-		copyOfEr := er.set
-		res.errors = &copyOfEr
-		// Determine max fd.
+		res.errors = er.set
 		if er.max > max {
 			max = er.max
 		}
 	}
 
-	err := goselect.Select(int(max+1), res.readable, res.writeable, res.errors, timeout)
+	var err error
+	if timeout != -1 {
+		t := unix.NsecToTimeval(timeout.Nanoseconds())
+		_, err = unix.Select(max+1, &res.readable, &res.writeable, &res.errors, &t)
+	} else {
+		_, err = unix.Select(max+1, &res.readable, &res.writeable, &res.errors, nil)
+	}
 	return res, err
 }

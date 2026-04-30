@@ -163,7 +163,7 @@ func (me *io_registry_entry_t) GetParent(plane string) (io_registry_entry_t, err
 	var parent C.io_registry_entry_t
 	err := C.IORegistryEntryGetParentEntry(C.io_registry_entry_t(*me), cPlane, &parent)
 	if err != 0 {
-		return 0, errors.New("No parent device available")
+		return 0, errors.New("no parent device available")
 	}
 	return io_registry_entry_t(parent), nil
 }
@@ -192,7 +192,7 @@ func (me *io_registry_entry_t) GetStringProperty(key string) (string, error) {
 	// and we must retrieve the string by copy
 	buff := make([]C.char, 1024)
 	if C.CFStringGetCString(C.CFStringRef(property), &buff[0], 1024, 0) != C.true {
-		return "", fmt.Errorf("Property '%s' can't be converted", key)
+		return "", fmt.Errorf("property '%s' can't be converted", key)
 	}
 	return C.GoString(&buff[0]), nil
 }
@@ -205,7 +205,7 @@ func (me *io_registry_entry_t) GetIntProperty(key string, intType C.CFNumberType
 	defer property.Release()
 	var res int
 	if C.CFNumberGetValue((C.CFNumberRef)(property), intType, unsafe.Pointer(&res)) != C.true {
-		return res, fmt.Errorf("Property '%s' can't be converted or has been truncated", key)
+		return res, fmt.Errorf("property '%s' can't be converted or has been truncated", key)
 	}
 	return res, nil
 }

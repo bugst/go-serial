@@ -14,7 +14,7 @@ import (
 
 const devFolder = "/dev"
 
-var osPortFilter = regexp.MustCompile("^(cu|tty)\\..*")
+var osPortFilter = regexp.MustCompile(`^(cu|tty)\..*`)
 
 const ioctlTcgetattr = unix.TIOCGETA
 const ioctlTcsetattr = unix.TIOCSETA
