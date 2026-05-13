@@ -57,10 +57,9 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 
 //sys setupDiGetClassDevs(guid *windows.GUID, enumerator *string, hwndParent uintptr, flags windows.DIGCF) (set windows.DevInfo, err error) = setupapi.SetupDiGetClassDevsW
 //sys setupDiDestroyDeviceInfoList(set windows.DevInfo) (err error) = setupapi.SetupDiDestroyDeviceInfoList
-//sys setupDiEnumDeviceInfo(set windows.DevInfo, index uint32, info *devInfoData) (err error) = setupapi.SetupDiEnumDeviceInfo
-//sys setupDiGetDeviceInstanceId(set windows.DevInfo, devInfo *devInfoData, devInstanceId unsafe.Pointer, devInstanceIdSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiGetDeviceInstanceIdW
-//sys setupDiOpenDevRegKey(set windows.DevInfo, devInfo *devInfoData, scope windows.DICS_FLAG, hwProfile uint32, keyType windows.DIREG, samDesired uint32) (hkey syscall.Handle, err error) = setupapi.SetupDiOpenDevRegKey
-//sys setupDiGetDeviceRegistryProperty(set windows.DevInfo, devInfo *devInfoData, property windows.SPDRP, propertyType *uint32, outValue *byte, bufSize uint32, reqSize *uint32) (res bool) = setupapi.SetupDiGetDeviceRegistryPropertyW
+//sys setupDiGetDeviceInstanceId(set windows.DevInfo, devInfo *windows.DevInfoData, devInstanceId unsafe.Pointer, devInstanceIdSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiGetDeviceInstanceIdW
+//sys setupDiOpenDevRegKey(set windows.DevInfo, devInfo *windows.DevInfoData, scope windows.DICS_FLAG, hwProfile uint32, keyType windows.DIREG, samDesired uint32) (hkey syscall.Handle, err error) = setupapi.SetupDiOpenDevRegKey
+//sys setupDiGetDeviceRegistryProperty(set windows.DevInfo, devInfo *windows.DevInfoData, property windows.SPDRP, propertyType *uint32, outValue *byte, bufSize uint32, reqSize *uint32) (res bool) = setupapi.SetupDiGetDeviceRegistryPropertyW
 
 //sys cmGetParent(outParentDev *windows.DEVINST, dev windows.DEVINST, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Parent
 //sys cmGetDeviceIDSize(outLen *uint32, dev windows.DEVINST, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Device_ID_Size
@@ -69,14 +68,6 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 //sys cmGetDevNodeRegistryProperty(dev windows.DEVINST, property uint32, regDataType *uint32, buffer *byte, bufferLen *uint32, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_DevNode_Registry_PropertyW
 
 type cmError uint32
-
-// https://msdn.microsoft.com/en-us/library/windows/hardware/ff552344(v=vs.85).aspx
-type devInfoData struct {
-	size     uint32
-	guid     windows.GUID
-	devInst  windows.DEVINST
-	reserved uintptr
-}
 
 func cmConvertError(cmErr cmError) error {
 	if cmErr == 0 {
@@ -108,29 +99,29 @@ func getDeviceID(dev windows.DEVINST) (string, error) {
 
 type deviceInfo struct {
 	set  windows.DevInfo
-	data devInfoData
+	data *windows.DevInfoData
 }
 
 func getDeviceInfo(set windows.DevInfo, index int) (*deviceInfo, error) {
-	result := &deviceInfo{set: set}
-
-	result.data.size = uint32(unsafe.Sizeof(result.data))
-	err := setupDiEnumDeviceInfo(set, uint32(index), &result.data)
-	return result, err
+	data, err := windows.SetupDiEnumDeviceInfo(set, index)
+	if err != nil {
+		return nil, err
+	}
+	return &deviceInfo{set: set, data: data}, nil
 }
 
 func (dev *deviceInfo) getInstanceID() (string, error) {
 	n := uint32(0)
-	setupDiGetDeviceInstanceId(dev.set, &dev.data, nil, 0, &n)
+	setupDiGetDeviceInstanceId(dev.set, dev.data, nil, 0, &n)
 	buff := make([]uint16, n)
-	if err := setupDiGetDeviceInstanceId(dev.set, &dev.data, unsafe.Pointer(&buff[0]), uint32(len(buff)), &n); err != nil {
+	if err := setupDiGetDeviceInstanceId(dev.set, dev.data, unsafe.Pointer(&buff[0]), uint32(len(buff)), &n); err != nil {
 		return "", err
 	}
 	return windows.UTF16ToString(buff[:]), nil
 }
 
 func (dev *deviceInfo) openDevRegKey(scope windows.DICS_FLAG, hwProfile uint32, keyType windows.DIREG, samDesired uint32) (syscall.Handle, error) {
-	return setupDiOpenDevRegKey(dev.set, &dev.data, scope, hwProfile, keyType, samDesired)
+	return setupDiOpenDevRegKey(dev.set, dev.data, scope, hwProfile, keyType, samDesired)
 }
 
 func nativeGetDetailedPortsList() ([]*PortDetails, error) {
@@ -198,7 +189,7 @@ func retrievePortDetailsFromDevInfo(device *deviceInfo, details *PortDetails) er
 	// On composite USB devices the serial number is usually reported on the parent
 	// device, so let's navigate up one level and see if we can get this information
 	if details.IsUSB && details.SerialNumber == "" {
-		if parentInfo, err := getParent(device.data.devInst); err == nil {
+		if parentInfo, err := getParent(device.data.DevInst); err == nil {
 			if parentDeviceID, err := getDeviceID(parentInfo); err == nil {
 				d := &PortDetails{}
 				parseDeviceID(parentDeviceID, d)
@@ -213,11 +204,11 @@ func retrievePortDetailsFromDevInfo(device *deviceInfo, details *PortDetails) er
 		while spdrpFriendlyName returns a specific name, e.g.: "CDC-ACM (COM44)",
 		the result of spdrpFriendlyName is therefore unique and suitable as an alternative string to for a port choice */
 	n := uint32(0)
-	setupDiGetDeviceRegistryProperty(device.set, &device.data, windows.SPDRP_FRIENDLYNAME, nil, nil, 0, &n)
+	setupDiGetDeviceRegistryProperty(device.set, device.data, windows.SPDRP_FRIENDLYNAME, nil, nil, 0, &n)
 	if n > 0 {
 		buff := make([]uint16, n*2)
 		buffP := (*byte)(unsafe.Pointer(&buff[0]))
-		if setupDiGetDeviceRegistryProperty(device.set, &device.data, windows.SPDRP_FRIENDLYNAME, nil, buffP, n, &n) {
+		if setupDiGetDeviceRegistryProperty(device.set, device.data, windows.SPDRP_FRIENDLYNAME, nil, buffP, n, &n) {
 			details.Product = syscall.UTF16ToString(buff[:])
 		}
 	}
@@ -364,7 +355,7 @@ func findUSBPortDriverKey(inst windows.DEVINST) string {
 func retrieveConfigurationViaHubIOCTL(device *deviceInfo) string {
 	// Find the driver key of the USB device directly attached to the hub port.
 	// For composite USB devices the COM port is a child; we need the parent's key.
-	targetDriverKey := findUSBPortDriverKey(device.data.devInst)
+	targetDriverKey := findUSBPortDriverKey(device.data.DevInst)
 	if targetDriverKey == "" {
 		return ""
 	}
