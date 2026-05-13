@@ -5,13 +5,7 @@
 //
 
 // portlist is a tool to list all the available serial ports.
-// Just run it and it will produce an output like:
-//
-// $ go run portlist.go
-// Port: /dev/cu.Bluetooth-Incoming-Port
-// Port: /dev/cu.usbmodemFD121
-//    USB ID     2341:8053
-//    USB serial FB7B6060504B5952302E314AFF08191A
+// It will print the port name and, when available, the USB VID/PID and other details.
 
 package main
 
@@ -32,14 +26,12 @@ func main() {
 	}
 	for _, port := range ports {
 		fmt.Printf("Port: %s\n", port.Name)
-		if port.Product != "" {
-			fmt.Printf("   Product Name: %s\n", port.Product)
-		}
 		if port.IsUSB {
-			fmt.Printf("   USB ID      : %s:%s\n", port.VID, port.PID)
-			fmt.Printf("   USB vendor  : %s\n", port.Manufacturer)
-			fmt.Printf("   USB product : %s\n", port.Product)
-			fmt.Printf("   USB serial  : %s\n", port.SerialNumber)
+			fmt.Printf("   USB VID/PID      : %s:%s\n", port.VID, port.PID)
+			fmt.Printf("   USB serial no.   : %s\n", port.SerialNumber)
+			fmt.Printf("   USB manufacturer : %s\n", port.Manufacturer)
+			fmt.Printf("   USB product      : %s\n", port.Product)
+			fmt.Printf("   USB config       : %s\n", port.Configuration)
 		}
 	}
 }
