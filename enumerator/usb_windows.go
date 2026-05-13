@@ -55,8 +55,8 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 // setupapi based
 // --------------
 
-//sys setupDiClassGuidsFromNameInternal(class string, guid *guid, guidSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiClassGuidsFromNameW
-//sys setupDiGetClassDevs(guid *guid, enumerator *string, hwndParent uintptr, flags windows.DIGCF) (set devicesSet, err error) = setupapi.SetupDiGetClassDevsW
+//sys setupDiClassGuidsFromNameInternal(class string, guid *windows.GUID, guidSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiClassGuidsFromNameW
+//sys setupDiGetClassDevs(guid *windows.GUID, enumerator *string, hwndParent uintptr, flags windows.DIGCF) (set devicesSet, err error) = setupapi.SetupDiGetClassDevsW
 //sys setupDiDestroyDeviceInfoList(set devicesSet) (err error) = setupapi.SetupDiDestroyDeviceInfoList
 //sys setupDiEnumDeviceInfo(set devicesSet, index uint32, info *devInfoData) (err error) = setupapi.SetupDiEnumDeviceInfo
 //sys setupDiGetDeviceInstanceId(set devicesSet, devInfo *devInfoData, devInstanceId unsafe.Pointer, devInstanceIdSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiGetDeviceInstanceIdW
@@ -69,38 +69,19 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 //sys cmMapCrToWin32Err(cmErr cmError, defaultErr uint32) (err uint32) = cfgmgr32.CM_MapCrToWin32Err
 //sys cmGetDevNodeRegistryProperty(dev devInstance, property uint32, regDataType *uint32, buffer *byte, bufferLen *uint32, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_DevNode_Registry_PropertyW
 
-// https://msdn.microsoft.com/it-it/library/windows/desktop/aa373931(v=vs.85).aspx
-type guid struct {
-	data1 uint32
-	data2 uint16
-	data3 uint16
-	data4 [8]byte
-}
-
-func (g guid) String() string {
-	return fmt.Sprintf("%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-		g.data1, g.data2, g.data3,
-		g.data4[0], g.data4[1], g.data4[2], g.data4[3],
-		g.data4[4], g.data4[5], g.data4[6], g.data4[7])
-}
-
-func classGuidsFromName(className string) ([]guid, error) {
+func classGuidsFromName(className string) ([]windows.GUID, error) {
 	// Determine the number of GUIDs for className
 	n := uint32(0)
 	if err := setupDiClassGuidsFromNameInternal(className, nil, 0, &n); err != nil {
 		// ignore error: UIDs array size too small
 	}
 
-	res := make([]guid, n)
+	res := make([]windows.GUID, n)
 	err := setupDiClassGuidsFromNameInternal(className, &res[0], n, &n)
 	return res, err
 }
 
 type devicesSet syscall.Handle
-
-func (g *guid) getDevicesSet() (devicesSet, error) {
-	return setupDiGetClassDevs(g, nil, 0, windows.DIGCF_PRESENT)
-}
 
 func (set devicesSet) destroy() {
 	setupDiDestroyDeviceInfoList(set)
@@ -111,7 +92,7 @@ type cmError uint32
 // https://msdn.microsoft.com/en-us/library/windows/hardware/ff552344(v=vs.85).aspx
 type devInfoData struct {
 	size     uint32
-	guid     guid
+	guid     windows.GUID
 	devInst  devInstance
 	reserved uintptr
 }
@@ -181,7 +162,7 @@ func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 
 	var res []*PortDetails
 	for _, g := range guids {
-		devsSet, err := g.getDevicesSet()
+		devsSet, err := setupDiGetClassDevs(&g, nil, 0, windows.DIGCF_PRESENT)
 		if err != nil {
 			return nil, &PortEnumerationError{causedBy: err}
 		}

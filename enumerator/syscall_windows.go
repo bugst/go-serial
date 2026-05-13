@@ -85,7 +85,7 @@ func cmMapCrToWin32Err(cmErr cmError, defaultErr uint32) (err uint32) {
 	return
 }
 
-func setupDiClassGuidsFromNameInternal(class string, guid *guid, guidSize uint32, requiredSize *uint32) (err error) {
+func setupDiClassGuidsFromNameInternal(class string, guid *windows.GUID, guidSize uint32, requiredSize *uint32) (err error) {
 	var _p0 *uint16
 	_p0, err = syscall.UTF16PtrFromString(class)
 	if err != nil {
@@ -94,7 +94,7 @@ func setupDiClassGuidsFromNameInternal(class string, guid *guid, guidSize uint32
 	return _setupDiClassGuidsFromNameInternal(_p0, guid, guidSize, requiredSize)
 }
 
-func _setupDiClassGuidsFromNameInternal(class *uint16, guid *guid, guidSize uint32, requiredSize *uint32) (err error) {
+func _setupDiClassGuidsFromNameInternal(class *uint16, guid *windows.GUID, guidSize uint32, requiredSize *uint32) (err error) {
 	r1, _, e1 := syscall.SyscallN(procSetupDiClassGuidsFromNameW.Addr(), uintptr(unsafe.Pointer(class)), uintptr(unsafe.Pointer(guid)), uintptr(guidSize), uintptr(unsafe.Pointer(requiredSize)))
 	if r1 == 0 {
 		err = errnoErr(e1)
@@ -118,7 +118,7 @@ func setupDiEnumDeviceInfo(set devicesSet, index uint32, info *devInfoData) (err
 	return
 }
 
-func setupDiGetClassDevs(guid *guid, enumerator *string, hwndParent uintptr, flags windows.DIGCF) (set devicesSet, err error) {
+func setupDiGetClassDevs(guid *windows.GUID, enumerator *string, hwndParent uintptr, flags windows.DIGCF) (set devicesSet, err error) {
 	r0, _, e1 := syscall.SyscallN(procSetupDiGetClassDevsW.Addr(), uintptr(unsafe.Pointer(guid)), uintptr(unsafe.Pointer(enumerator)), uintptr(hwndParent), uintptr(flags))
 	set = devicesSet(r0)
 	if set == 0 {
