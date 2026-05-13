@@ -48,7 +48,6 @@ var (
 	procCM_MapCrToWin32Err                = modcfgmgr32.NewProc("CM_MapCrToWin32Err")
 	procSetupDiDestroyDeviceInfoList      = modsetupapi.NewProc("SetupDiDestroyDeviceInfoList")
 	procSetupDiGetClassDevsW              = modsetupapi.NewProc("SetupDiGetClassDevsW")
-	procSetupDiGetDeviceInstanceIdW       = modsetupapi.NewProc("SetupDiGetDeviceInstanceIdW")
 	procSetupDiGetDeviceRegistryPropertyW = modsetupapi.NewProc("SetupDiGetDeviceRegistryPropertyW")
 	procSetupDiOpenDevRegKey              = modsetupapi.NewProc("SetupDiOpenDevRegKey")
 )
@@ -95,14 +94,6 @@ func setupDiGetClassDevs(guid *windows.GUID, enumerator *string, hwndParent uint
 	r0, _, e1 := syscall.SyscallN(procSetupDiGetClassDevsW.Addr(), uintptr(unsafe.Pointer(guid)), uintptr(unsafe.Pointer(enumerator)), uintptr(hwndParent), uintptr(flags))
 	set = windows.DevInfo(r0)
 	if set == 0 {
-		err = errnoErr(e1)
-	}
-	return
-}
-
-func setupDiGetDeviceInstanceId(set windows.DevInfo, devInfo *windows.DevInfoData, devInstanceId unsafe.Pointer, devInstanceIdSize uint32, requiredSize *uint32) (err error) {
-	r1, _, e1 := syscall.SyscallN(procSetupDiGetDeviceInstanceIdW.Addr(), uintptr(set), uintptr(unsafe.Pointer(devInfo)), uintptr(devInstanceId), uintptr(devInstanceIdSize), uintptr(unsafe.Pointer(requiredSize)))
-	if r1 == 0 {
 		err = errnoErr(e1)
 	}
 	return

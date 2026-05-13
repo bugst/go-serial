@@ -57,7 +57,6 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 
 //sys setupDiGetClassDevs(guid *windows.GUID, enumerator *string, hwndParent uintptr, flags windows.DIGCF) (set windows.DevInfo, err error) = setupapi.SetupDiGetClassDevsW
 //sys setupDiDestroyDeviceInfoList(set windows.DevInfo) (err error) = setupapi.SetupDiDestroyDeviceInfoList
-//sys setupDiGetDeviceInstanceId(set windows.DevInfo, devInfo *windows.DevInfoData, devInstanceId unsafe.Pointer, devInstanceIdSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiGetDeviceInstanceIdW
 //sys setupDiOpenDevRegKey(set windows.DevInfo, devInfo *windows.DevInfoData, scope windows.DICS_FLAG, hwProfile uint32, keyType windows.DIREG, samDesired uint32) (hkey syscall.Handle, err error) = setupapi.SetupDiOpenDevRegKey
 //sys setupDiGetDeviceRegistryProperty(set windows.DevInfo, devInfo *windows.DevInfoData, property windows.SPDRP, propertyType *uint32, outValue *byte, bufSize uint32, reqSize *uint32) (res bool) = setupapi.SetupDiGetDeviceRegistryPropertyW
 
@@ -111,13 +110,7 @@ func getDeviceInfo(set windows.DevInfo, index int) (*deviceInfo, error) {
 }
 
 func (dev *deviceInfo) getInstanceID() (string, error) {
-	n := uint32(0)
-	setupDiGetDeviceInstanceId(dev.set, dev.data, nil, 0, &n)
-	buff := make([]uint16, n)
-	if err := setupDiGetDeviceInstanceId(dev.set, dev.data, unsafe.Pointer(&buff[0]), uint32(len(buff)), &n); err != nil {
-		return "", err
-	}
-	return windows.UTF16ToString(buff[:]), nil
+	return windows.SetupDiGetDeviceInstanceId(dev.set, dev.data)
 }
 
 func (dev *deviceInfo) openDevRegKey(scope windows.DICS_FLAG, hwProfile uint32, keyType windows.DIREG, samDesired uint32) (syscall.Handle, error) {
