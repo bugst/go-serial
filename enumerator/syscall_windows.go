@@ -54,25 +54,25 @@ var (
 	procSetupDiOpenDevRegKey              = modsetupapi.NewProc("SetupDiOpenDevRegKey")
 )
 
-func cmGetDevNodeRegistryProperty(dev devInstance, property uint32, regDataType *uint32, buffer *byte, bufferLen *uint32, flags uint32) (cmErr cmError) {
+func cmGetDevNodeRegistryProperty(dev windows.DEVINST, property uint32, regDataType *uint32, buffer *byte, bufferLen *uint32, flags uint32) (cmErr cmError) {
 	r0, _, _ := syscall.SyscallN(procCM_Get_DevNode_Registry_PropertyW.Addr(), uintptr(dev), uintptr(property), uintptr(unsafe.Pointer(regDataType)), uintptr(unsafe.Pointer(buffer)), uintptr(unsafe.Pointer(bufferLen)), uintptr(flags))
 	cmErr = cmError(r0)
 	return
 }
 
-func cmGetDeviceID(dev devInstance, buffer unsafe.Pointer, bufferSize uint32, flags uint32) (err cmError) {
+func cmGetDeviceID(dev windows.DEVINST, buffer unsafe.Pointer, bufferSize uint32, flags uint32) (err cmError) {
 	r0, _, _ := syscall.SyscallN(procCM_Get_Device_IDW.Addr(), uintptr(dev), uintptr(buffer), uintptr(bufferSize), uintptr(flags))
 	err = cmError(r0)
 	return
 }
 
-func cmGetDeviceIDSize(outLen *uint32, dev devInstance, flags uint32) (cmErr cmError) {
+func cmGetDeviceIDSize(outLen *uint32, dev windows.DEVINST, flags uint32) (cmErr cmError) {
 	r0, _, _ := syscall.SyscallN(procCM_Get_Device_ID_Size.Addr(), uintptr(unsafe.Pointer(outLen)), uintptr(dev), uintptr(flags))
 	cmErr = cmError(r0)
 	return
 }
 
-func cmGetParent(outParentDev *devInstance, dev devInstance, flags uint32) (cmErr cmError) {
+func cmGetParent(outParentDev *windows.DEVINST, dev windows.DEVINST, flags uint32) (cmErr cmError) {
 	r0, _, _ := syscall.SyscallN(procCM_Get_Parent.Addr(), uintptr(unsafe.Pointer(outParentDev)), uintptr(dev), uintptr(flags))
 	cmErr = cmError(r0)
 	return

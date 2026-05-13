@@ -62,11 +62,11 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 //sys setupDiOpenDevRegKey(set devicesSet, devInfo *devInfoData, scope windows.DICS_FLAG, hwProfile uint32, keyType windows.DIREG, samDesired uint32) (hkey syscall.Handle, err error) = setupapi.SetupDiOpenDevRegKey
 //sys setupDiGetDeviceRegistryProperty(set devicesSet, devInfo *devInfoData, property windows.SPDRP, propertyType *uint32, outValue *byte, bufSize uint32, reqSize *uint32) (res bool) = setupapi.SetupDiGetDeviceRegistryPropertyW
 
-//sys cmGetParent(outParentDev *devInstance, dev devInstance, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Parent
-//sys cmGetDeviceIDSize(outLen *uint32, dev devInstance, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Device_ID_Size
-//sys cmGetDeviceID(dev devInstance, buffer unsafe.Pointer, bufferSize uint32, flags uint32) (err cmError) = cfgmgr32.CM_Get_Device_IDW
+//sys cmGetParent(outParentDev *windows.DEVINST, dev windows.DEVINST, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Parent
+//sys cmGetDeviceIDSize(outLen *uint32, dev windows.DEVINST, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Device_ID_Size
+//sys cmGetDeviceID(dev windows.DEVINST, buffer unsafe.Pointer, bufferSize uint32, flags uint32) (err cmError) = cfgmgr32.CM_Get_Device_IDW
 //sys cmMapCrToWin32Err(cmErr cmError, defaultErr uint32) (err uint32) = cfgmgr32.CM_MapCrToWin32Err
-//sys cmGetDevNodeRegistryProperty(dev devInstance, property uint32, regDataType *uint32, buffer *byte, bufferLen *uint32, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_DevNode_Registry_PropertyW
+//sys cmGetDevNodeRegistryProperty(dev windows.DEVINST, property uint32, regDataType *uint32, buffer *byte, bufferLen *uint32, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_DevNode_Registry_PropertyW
 
 type devicesSet syscall.Handle
 
@@ -80,11 +80,9 @@ type cmError uint32
 type devInfoData struct {
 	size     uint32
 	guid     windows.GUID
-	devInst  devInstance
+	devInst  windows.DEVINST
 	reserved uintptr
 }
-
-type devInstance uint32
 
 func cmConvertError(cmErr cmError) error {
 	if cmErr == 0 {
@@ -94,13 +92,13 @@ func cmConvertError(cmErr cmError) error {
 	return fmt.Errorf("error %d", winErr)
 }
 
-func (dev devInstance) getParent() (devInstance, error) {
-	var res devInstance
-	errN := cmGetParent(&res, dev, 0)
-	return res, cmConvertError(errN)
+func getParent(dev windows.DEVINST) (windows.DEVINST, error) {
+	var res windows.DEVINST
+	cmErr := cmGetParent(&res, dev, 0)
+	return res, cmConvertError(cmErr)
 }
 
-func (dev devInstance) GetDeviceID() (string, error) {
+func getDeviceID(dev windows.DEVINST) (string, error) {
 	var size uint32
 	cmErr := cmGetDeviceIDSize(&size, dev, 0)
 	if err := cmConvertError(cmErr); err != nil {
@@ -206,8 +204,8 @@ func retrievePortDetailsFromDevInfo(device *deviceInfo, details *PortDetails) er
 	// On composite USB devices the serial number is usually reported on the parent
 	// device, so let's navigate up one level and see if we can get this information
 	if details.IsUSB && details.SerialNumber == "" {
-		if parentInfo, err := device.data.devInst.getParent(); err == nil {
-			if parentDeviceID, err := parentInfo.GetDeviceID(); err == nil {
+		if parentInfo, err := getParent(device.data.devInst); err == nil {
+			if parentDeviceID, err := getDeviceID(parentInfo); err == nil {
 				d := &PortDetails{}
 				parseDeviceID(parentDeviceID, d)
 				if details.VID == d.VID && details.PID == d.PID {
@@ -319,9 +317,9 @@ type usbStringDescriptorHeader struct {
 // cmDrpDriver is the CM_DRP_DRIVER property code (1-based, unlike SPDRP which is 0-based).
 const cmDrpDriver = 0xA
 
-// devInstanceGetDriverKey retrieves the SPDRP_DRIVER equivalent for a raw devInstance
+// devInstanceGetDriverKey retrieves the SPDRP_DRIVER equivalent for a raw windows.DEVINST
 // using CM_Get_DevNode_Registry_PropertyW.
-func devInstanceGetDriverKey(inst devInstance) string {
+func devInstanceGetDriverKey(inst windows.DEVINST) string {
 	var size uint32
 	cmGetDevNodeRegistryProperty(inst, cmDrpDriver, nil, nil, &size, 0)
 	if size == 0 {
@@ -343,9 +341,9 @@ func devInstanceGetDriverKey(inst devInstance) string {
 // returns its driver key. This is the key that IOCTL_USB_GET_NODE_CONNECTION_DRIVERKEY_NAME
 // returns. For single-function USB serial devices the COM port IS that device;
 // for composite USB devices the COM port is a child and we need the parent.
-func findUSBPortDriverKey(inst devInstance) string {
+func findUSBPortDriverKey(inst windows.DEVINST) string {
 	for i := 0; i < 5; i++ {
-		id, err := inst.GetDeviceID()
+		id, err := getDeviceID(inst)
 		if err != nil {
 			return ""
 		}
@@ -357,7 +355,7 @@ func findUSBPortDriverKey(inst devInstance) string {
 				return dk
 			}
 		}
-		parent, err := inst.getParent()
+		parent, err := getParent(inst)
 		if err != nil {
 			return ""
 		}
