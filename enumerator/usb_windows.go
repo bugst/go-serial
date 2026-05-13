@@ -222,12 +222,7 @@ func retrievePortDetailsFromDevInfo(device *deviceInfo, details *PortDetails) er
 //   4. Fetch the String Descriptor at that index (language 0x0409, English).
 
 // GUID_DEVINTERFACE_USB_HUB = {f18a0e88-c30c-11d0-8815-00a0c906bed8}
-var guidDevInterfaceUSBHub = windows.GUID{
-	Data1: 0xf18a0e88,
-	Data2: 0xc30c,
-	Data3: 0x11d0,
-	Data4: [8]byte{0x88, 0x15, 0x00, 0xa0, 0xc9, 0x06, 0xbe, 0xd8},
-}
+var guidDevInterfaceUSBHub, _ = windows.GUIDFromString("{f18a0e88-c30c-11d0-8815-00a0c906bed8}")
 
 const (
 	// CTL_CODE(FILE_DEVICE_USB=0x22, fn, METHOD_BUFFERED=0, FILE_ANY_ACCESS=0)
