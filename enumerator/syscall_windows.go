@@ -46,7 +46,6 @@ var (
 	procCM_Get_Device_ID_Size             = modcfgmgr32.NewProc("CM_Get_Device_ID_Size")
 	procCM_Get_Parent                     = modcfgmgr32.NewProc("CM_Get_Parent")
 	procCM_MapCrToWin32Err                = modcfgmgr32.NewProc("CM_MapCrToWin32Err")
-	procSetupDiClassGuidsFromNameW        = modsetupapi.NewProc("SetupDiClassGuidsFromNameW")
 	procSetupDiDestroyDeviceInfoList      = modsetupapi.NewProc("SetupDiDestroyDeviceInfoList")
 	procSetupDiEnumDeviceInfo             = modsetupapi.NewProc("SetupDiEnumDeviceInfo")
 	procSetupDiGetClassDevsW              = modsetupapi.NewProc("SetupDiGetClassDevsW")
@@ -82,23 +81,6 @@ func cmGetParent(outParentDev *devInstance, dev devInstance, flags uint32) (cmEr
 func cmMapCrToWin32Err(cmErr cmError, defaultErr uint32) (err uint32) {
 	r0, _, _ := syscall.SyscallN(procCM_MapCrToWin32Err.Addr(), uintptr(cmErr), uintptr(defaultErr))
 	err = uint32(r0)
-	return
-}
-
-func setupDiClassGuidsFromNameInternal(class string, guid *windows.GUID, guidSize uint32, requiredSize *uint32) (err error) {
-	var _p0 *uint16
-	_p0, err = syscall.UTF16PtrFromString(class)
-	if err != nil {
-		return
-	}
-	return _setupDiClassGuidsFromNameInternal(_p0, guid, guidSize, requiredSize)
-}
-
-func _setupDiClassGuidsFromNameInternal(class *uint16, guid *windows.GUID, guidSize uint32, requiredSize *uint32) (err error) {
-	r1, _, e1 := syscall.SyscallN(procSetupDiClassGuidsFromNameW.Addr(), uintptr(unsafe.Pointer(class)), uintptr(unsafe.Pointer(guid)), uintptr(guidSize), uintptr(unsafe.Pointer(requiredSize)))
-	if r1 == 0 {
-		err = errnoErr(e1)
-	}
 	return
 }
 

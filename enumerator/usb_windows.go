@@ -55,7 +55,6 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 // setupapi based
 // --------------
 
-//sys setupDiClassGuidsFromNameInternal(class string, guid *windows.GUID, guidSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiClassGuidsFromNameW
 //sys setupDiGetClassDevs(guid *windows.GUID, enumerator *string, hwndParent uintptr, flags windows.DIGCF) (set devicesSet, err error) = setupapi.SetupDiGetClassDevsW
 //sys setupDiDestroyDeviceInfoList(set devicesSet) (err error) = setupapi.SetupDiDestroyDeviceInfoList
 //sys setupDiEnumDeviceInfo(set devicesSet, index uint32, info *devInfoData) (err error) = setupapi.SetupDiEnumDeviceInfo
@@ -68,18 +67,6 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 //sys cmGetDeviceID(dev devInstance, buffer unsafe.Pointer, bufferSize uint32, flags uint32) (err cmError) = cfgmgr32.CM_Get_Device_IDW
 //sys cmMapCrToWin32Err(cmErr cmError, defaultErr uint32) (err uint32) = cfgmgr32.CM_MapCrToWin32Err
 //sys cmGetDevNodeRegistryProperty(dev devInstance, property uint32, regDataType *uint32, buffer *byte, bufferLen *uint32, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_DevNode_Registry_PropertyW
-
-func classGuidsFromName(className string) ([]windows.GUID, error) {
-	// Determine the number of GUIDs for className
-	n := uint32(0)
-	if err := setupDiClassGuidsFromNameInternal(className, nil, 0, &n); err != nil {
-		// ignore error: UIDs array size too small
-	}
-
-	res := make([]windows.GUID, n)
-	err := setupDiClassGuidsFromNameInternal(className, &res[0], n, &n)
-	return res, err
-}
 
 type devicesSet syscall.Handle
 
@@ -155,7 +142,7 @@ func (dev *deviceInfo) openDevRegKey(scope windows.DICS_FLAG, hwProfile uint32, 
 }
 
 func nativeGetDetailedPortsList() ([]*PortDetails, error) {
-	guids, err := classGuidsFromName("Ports")
+	guids, err := windows.SetupDiClassGuidsFromNameEx("Ports", "")
 	if err != nil {
 		return nil, &PortEnumerationError{causedBy: err}
 	}
