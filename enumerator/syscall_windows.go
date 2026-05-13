@@ -84,7 +84,7 @@ func cmMapCrToWin32Err(cmErr cmError, defaultErr uint32) (err uint32) {
 	return
 }
 
-func setupDiDestroyDeviceInfoList(set devicesSet) (err error) {
+func setupDiDestroyDeviceInfoList(set windows.DevInfo) (err error) {
 	r1, _, e1 := syscall.SyscallN(procSetupDiDestroyDeviceInfoList.Addr(), uintptr(set))
 	if r1 == 0 {
 		err = errnoErr(e1)
@@ -92,7 +92,7 @@ func setupDiDestroyDeviceInfoList(set devicesSet) (err error) {
 	return
 }
 
-func setupDiEnumDeviceInfo(set devicesSet, index uint32, info *devInfoData) (err error) {
+func setupDiEnumDeviceInfo(set windows.DevInfo, index uint32, info *devInfoData) (err error) {
 	r1, _, e1 := syscall.SyscallN(procSetupDiEnumDeviceInfo.Addr(), uintptr(set), uintptr(index), uintptr(unsafe.Pointer(info)))
 	if r1 == 0 {
 		err = errnoErr(e1)
@@ -100,16 +100,16 @@ func setupDiEnumDeviceInfo(set devicesSet, index uint32, info *devInfoData) (err
 	return
 }
 
-func setupDiGetClassDevs(guid *windows.GUID, enumerator *string, hwndParent uintptr, flags windows.DIGCF) (set devicesSet, err error) {
+func setupDiGetClassDevs(guid *windows.GUID, enumerator *string, hwndParent uintptr, flags windows.DIGCF) (set windows.DevInfo, err error) {
 	r0, _, e1 := syscall.SyscallN(procSetupDiGetClassDevsW.Addr(), uintptr(unsafe.Pointer(guid)), uintptr(unsafe.Pointer(enumerator)), uintptr(hwndParent), uintptr(flags))
-	set = devicesSet(r0)
+	set = windows.DevInfo(r0)
 	if set == 0 {
 		err = errnoErr(e1)
 	}
 	return
 }
 
-func setupDiGetDeviceInstanceId(set devicesSet, devInfo *devInfoData, devInstanceId unsafe.Pointer, devInstanceIdSize uint32, requiredSize *uint32) (err error) {
+func setupDiGetDeviceInstanceId(set windows.DevInfo, devInfo *devInfoData, devInstanceId unsafe.Pointer, devInstanceIdSize uint32, requiredSize *uint32) (err error) {
 	r1, _, e1 := syscall.SyscallN(procSetupDiGetDeviceInstanceIdW.Addr(), uintptr(set), uintptr(unsafe.Pointer(devInfo)), uintptr(devInstanceId), uintptr(devInstanceIdSize), uintptr(unsafe.Pointer(requiredSize)))
 	if r1 == 0 {
 		err = errnoErr(e1)
@@ -117,13 +117,13 @@ func setupDiGetDeviceInstanceId(set devicesSet, devInfo *devInfoData, devInstanc
 	return
 }
 
-func setupDiGetDeviceRegistryProperty(set devicesSet, devInfo *devInfoData, property windows.SPDRP, propertyType *uint32, outValue *byte, bufSize uint32, reqSize *uint32) (res bool) {
+func setupDiGetDeviceRegistryProperty(set windows.DevInfo, devInfo *devInfoData, property windows.SPDRP, propertyType *uint32, outValue *byte, bufSize uint32, reqSize *uint32) (res bool) {
 	r0, _, _ := syscall.SyscallN(procSetupDiGetDeviceRegistryPropertyW.Addr(), uintptr(set), uintptr(unsafe.Pointer(devInfo)), uintptr(property), uintptr(unsafe.Pointer(propertyType)), uintptr(unsafe.Pointer(outValue)), uintptr(bufSize), uintptr(unsafe.Pointer(reqSize)))
 	res = r0 != 0
 	return
 }
 
-func setupDiOpenDevRegKey(set devicesSet, devInfo *devInfoData, scope windows.DICS_FLAG, hwProfile uint32, keyType windows.DIREG, samDesired uint32) (hkey syscall.Handle, err error) {
+func setupDiOpenDevRegKey(set windows.DevInfo, devInfo *devInfoData, scope windows.DICS_FLAG, hwProfile uint32, keyType windows.DIREG, samDesired uint32) (hkey syscall.Handle, err error) {
 	r0, _, e1 := syscall.SyscallN(procSetupDiOpenDevRegKey.Addr(), uintptr(set), uintptr(unsafe.Pointer(devInfo)), uintptr(scope), uintptr(hwProfile), uintptr(keyType), uintptr(samDesired))
 	hkey = syscall.Handle(r0)
 	if hkey == 0 {

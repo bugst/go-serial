@@ -55,24 +55,18 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 // setupapi based
 // --------------
 
-//sys setupDiGetClassDevs(guid *windows.GUID, enumerator *string, hwndParent uintptr, flags windows.DIGCF) (set devicesSet, err error) = setupapi.SetupDiGetClassDevsW
-//sys setupDiDestroyDeviceInfoList(set devicesSet) (err error) = setupapi.SetupDiDestroyDeviceInfoList
-//sys setupDiEnumDeviceInfo(set devicesSet, index uint32, info *devInfoData) (err error) = setupapi.SetupDiEnumDeviceInfo
-//sys setupDiGetDeviceInstanceId(set devicesSet, devInfo *devInfoData, devInstanceId unsafe.Pointer, devInstanceIdSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiGetDeviceInstanceIdW
-//sys setupDiOpenDevRegKey(set devicesSet, devInfo *devInfoData, scope windows.DICS_FLAG, hwProfile uint32, keyType windows.DIREG, samDesired uint32) (hkey syscall.Handle, err error) = setupapi.SetupDiOpenDevRegKey
-//sys setupDiGetDeviceRegistryProperty(set devicesSet, devInfo *devInfoData, property windows.SPDRP, propertyType *uint32, outValue *byte, bufSize uint32, reqSize *uint32) (res bool) = setupapi.SetupDiGetDeviceRegistryPropertyW
+//sys setupDiGetClassDevs(guid *windows.GUID, enumerator *string, hwndParent uintptr, flags windows.DIGCF) (set windows.DevInfo, err error) = setupapi.SetupDiGetClassDevsW
+//sys setupDiDestroyDeviceInfoList(set windows.DevInfo) (err error) = setupapi.SetupDiDestroyDeviceInfoList
+//sys setupDiEnumDeviceInfo(set windows.DevInfo, index uint32, info *devInfoData) (err error) = setupapi.SetupDiEnumDeviceInfo
+//sys setupDiGetDeviceInstanceId(set windows.DevInfo, devInfo *devInfoData, devInstanceId unsafe.Pointer, devInstanceIdSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiGetDeviceInstanceIdW
+//sys setupDiOpenDevRegKey(set windows.DevInfo, devInfo *devInfoData, scope windows.DICS_FLAG, hwProfile uint32, keyType windows.DIREG, samDesired uint32) (hkey syscall.Handle, err error) = setupapi.SetupDiOpenDevRegKey
+//sys setupDiGetDeviceRegistryProperty(set windows.DevInfo, devInfo *devInfoData, property windows.SPDRP, propertyType *uint32, outValue *byte, bufSize uint32, reqSize *uint32) (res bool) = setupapi.SetupDiGetDeviceRegistryPropertyW
 
 //sys cmGetParent(outParentDev *windows.DEVINST, dev windows.DEVINST, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Parent
 //sys cmGetDeviceIDSize(outLen *uint32, dev windows.DEVINST, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Device_ID_Size
 //sys cmGetDeviceID(dev windows.DEVINST, buffer unsafe.Pointer, bufferSize uint32, flags uint32) (err cmError) = cfgmgr32.CM_Get_Device_IDW
 //sys cmMapCrToWin32Err(cmErr cmError, defaultErr uint32) (err uint32) = cfgmgr32.CM_MapCrToWin32Err
 //sys cmGetDevNodeRegistryProperty(dev windows.DEVINST, property uint32, regDataType *uint32, buffer *byte, bufferLen *uint32, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_DevNode_Registry_PropertyW
-
-type devicesSet syscall.Handle
-
-func (set devicesSet) destroy() {
-	setupDiDestroyDeviceInfoList(set)
-}
 
 type cmError uint32
 
@@ -113,11 +107,11 @@ func getDeviceID(dev windows.DEVINST) (string, error) {
 }
 
 type deviceInfo struct {
-	set  devicesSet
+	set  windows.DevInfo
 	data devInfoData
 }
 
-func (set devicesSet) getDeviceInfo(index int) (*deviceInfo, error) {
+func getDeviceInfo(set windows.DevInfo, index int) (*deviceInfo, error) {
 	result := &deviceInfo{set: set}
 
 	result.data.size = uint32(unsafe.Sizeof(result.data))
@@ -151,10 +145,10 @@ func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 		if err != nil {
 			return nil, &PortEnumerationError{causedBy: err}
 		}
-		defer devsSet.destroy()
+		defer setupDiDestroyDeviceInfoList(devsSet)
 
 		for i := 0; ; i++ {
-			device, err := devsSet.getDeviceInfo(i)
+			device, err := getDeviceInfo(devsSet, i)
 			if err != nil {
 				break
 			}
