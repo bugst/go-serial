@@ -18,7 +18,8 @@ type PortDetails struct {
 	SerialNumber  string
 	Configuration string
 
-	// Manufacturer string
+	// Manufacturer is the USB iManufacturer string, when available.
+	Manufacturer string
 
 	// Product is an OS-dependent string that describes the serial port, it may
 	// be not always available and it may be different across OS.

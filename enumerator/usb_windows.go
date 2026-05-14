@@ -195,7 +195,7 @@ func retrievePortDetailsFromDevInfo(device *deviceInfo, details *PortDetails) er
 
 	/*	spdrpDeviceDesc returns a generic name, e.g.: "CDC-ACM", which will be the same for 2 identical devices attached
 		while spdrpFriendlyName returns a specific name, e.g.: "CDC-ACM (COM44)",
-		the result of spdrpFriendlyName is therefore unique and suitable as an alternative string to for a port choice */
+		the result of spdrpFriendlyName is therefore unique and suitable as an alternative string for a port choice */
 	n := uint32(0)
 	setupDiGetDeviceRegistryProperty(device.set, device.data, windows.SPDRP_FRIENDLYNAME, nil, nil, 0, &n)
 	if n > 0 {
@@ -207,19 +207,25 @@ func retrievePortDetailsFromDevInfo(device *deviceInfo, details *PortDetails) er
 	}
 
 	if details.IsUSB {
-		details.Configuration = retrieveConfigurationViaHubIOCTL(device)
+		manufacturer, product, configuration := retrieveUSBStringsViaHubIOCTL(device)
+		details.Manufacturer = manufacturer
+		if product != "" {
+			// Prefer USB iProduct over SPDRP_FRIENDLYNAME when available.
+			details.Product = product
+		}
+		details.Configuration = configuration
 	}
 
 	return nil
 }
 
-// ---- USB hub IOCTL path for iConfiguration retrieval ----
+// ---- USB hub IOCTL path for iManufacturer/iProduct/iConfiguration retrieval ----
 //
 // Mirrors the approach used by USBView (Windows-driver-samples/usb/usbview/enum.c):
 //   1. Enumerate all USB hub device interfaces.
 //   2. For each hub, iterate its ports and match by driver key name.
-//   3. On match, read the USB Configuration Descriptor to get iConfiguration index.
-//   4. Fetch the String Descriptor at that index (language 0x0409, English).
+//   3. On match, read the USB Device/Configuration Descriptor string indexes.
+//   4. Fetch String Descriptors at those indexes (language 0x0409, English).
 
 // GUID_DEVINTERFACE_USB_HUB = {f18a0e88-c30c-11d0-8815-00a0c906bed8}
 var guidDevInterfaceUSBHub, _ = windows.GUIDFromString("{f18a0e88-c30c-11d0-8815-00a0c906bed8}")
@@ -230,6 +236,7 @@ const (
 	ioctlUsbGetNodeConnectionDriverkeyName  = 0x220420 // fn=0x108
 	ioctlUsbGetDescriptorFromNodeConnection = 0x220410 // fn=0x104
 
+	usbDeviceDescriptorType        = 0x01
 	usbConfigurationDescriptorType = 0x02
 	usbStringDescriptorType        = 0x03
 	maximumUsbStringLength         = 255
@@ -257,6 +264,24 @@ type usbConfigurationDescriptor struct {
 	IConfiguration      uint8
 	BmAttributes        uint8
 	MaxPower            uint8
+}
+
+// usbDeviceDescriptor is the 18-byte USB Device Descriptor.
+type usbDeviceDescriptor struct {
+	BLength            uint8
+	BDescriptorType    uint8
+	BcdUSB             uint16
+	BDeviceClass       uint8
+	BDeviceSubClass    uint8
+	BDeviceProtocol    uint8
+	BMaxPacketSize0    uint8
+	IdVendor           uint16
+	IdProduct          uint16
+	BcdDevice          uint16
+	IManufacturer      uint8
+	IProduct           uint8
+	ISerialNumber      uint8
+	BNumConfigurations uint8
 }
 
 // usbStringDescriptorHeader is the 2-byte prefix of a USB String Descriptor.
@@ -315,37 +340,37 @@ func findUSBPortDriverKey(inst windows.DEVINST) string {
 	return ""
 }
 
-// retrieveConfigurationViaHubIOCTL looks up the USB configuration name string
-// for device by matching its driver key against hub port driver keys, then
-// reading the configuration descriptor and string descriptor via hub IOCTLs.
-func retrieveConfigurationViaHubIOCTL(device *deviceInfo) string {
+// enumerateUSBHubs enumerate all USB hub device interface paths.
+func enumerateUSBHubs() ([]string, error) {
+	// Passing "" as deviceID asks for all interfaces of this class.
+	return windows.CM_Get_Device_Interface_List("", &guidDevInterfaceUSBHub, windows.CM_GET_DEVICE_INTERFACE_LIST_PRESENT)
+}
+
+// retrieveUSBStringsViaHubIOCTL looks up USB string descriptors for a device by
+// matching its driver key against hub port driver keys, then reading descriptor
+// indexes and fetching the corresponding strings via hub IOCTLs.
+func retrieveUSBStringsViaHubIOCTL(device *deviceInfo) (manufacturer, product, configuration string) {
 	// Find the driver key of the USB device directly attached to the hub port.
 	// For composite USB devices the COM port is a child; we need the parent's key.
 	targetDriverKey := findUSBPortDriverKey(device.data.DevInst)
 	if targetDriverKey == "" {
-		return ""
+		return "", "", ""
 	}
 
-	// Enumerate all USB hub device interface paths.
-	// Passing "" as deviceID asks for all interfaces of this class.
-	hubPaths, err := windows.CM_Get_Device_Interface_List("", &guidDevInterfaceUSBHub, windows.CM_GET_DEVICE_INTERFACE_LIST_PRESENT)
-	if err != nil {
-		return ""
-	}
-
+	hubPaths, _ := enumerateUSBHubs()
 	for _, hubPath := range hubPaths {
-		if conf := retrieveConfigFromHub(hubPath, targetDriverKey); conf != "" {
-			return conf
+		if m, p, c, ok := retrieveStringsFromHub(hubPath, targetDriverKey); ok {
+			return m, p, c
 		}
 	}
-	return ""
+	return "", "", ""
 }
 
-// retrieveConfigFromHub opens a single hub and scans its ports for targetDriverKey.
-func retrieveConfigFromHub(hubPath, targetDriverKey string) string {
+// retrieveStringsFromHub opens a single hub and scans its ports for targetDriverKey.
+func retrieveStringsFromHub(hubPath, targetDriverKey string) (manufacturer, product, configuration string, found bool) {
 	hubPathPtr, err := syscall.UTF16PtrFromString(hubPath)
 	if err != nil {
-		return ""
+		return "", "", "", false
 	}
 	hHub, err := windows.CreateFile(
 		hubPathPtr,
@@ -357,7 +382,7 @@ func retrieveConfigFromHub(hubPath, targetDriverKey string) string {
 		0,
 	)
 	if err != nil {
-		return ""
+		return "", "", "", false
 	}
 	defer windows.CloseHandle(hHub)
 
@@ -398,14 +423,57 @@ func retrieveConfigFromHub(hubPath, targetDriverKey string) string {
 			continue
 		}
 		if strings.EqualFold(driverKey, targetDriverKey) {
-			iConfIdx, err := hubConfigDescriptorIConfiguration(hHub, portIndex)
-			if err != nil || iConfIdx == 0 {
-				return ""
+			iManufacturerIdx, iProductIdx, err := hubDeviceDescriptorStringIndexes(hHub, portIndex)
+			if err == nil {
+				if iManufacturerIdx != 0 {
+					manufacturer = hubStringDescriptor(hHub, portIndex, iManufacturerIdx, langIDEnglishUS)
+				}
+				if iProductIdx != 0 {
+					product = hubStringDescriptor(hHub, portIndex, iProductIdx, langIDEnglishUS)
+				}
 			}
-			return hubStringDescriptor(hHub, portIndex, iConfIdx, langIDEnglishUS)
+
+			iConfIdx, err := hubConfigDescriptorIConfiguration(hHub, portIndex)
+			if err == nil && iConfIdx != 0 {
+				configuration = hubStringDescriptor(hHub, portIndex, iConfIdx, langIDEnglishUS)
+			}
+			return manufacturer, product, configuration, true
 		}
 	}
-	return ""
+	return "", "", "", false
+}
+
+// hubDeviceDescriptorStringIndexes retrieves iManufacturer and iProduct indexes
+// from the USB Device Descriptor for the device at portIndex.
+func hubDeviceDescriptorStringIndexes(hHub windows.Handle, portIndex uint32) (uint8, uint8, error) {
+	reqSize := uint32(unsafe.Sizeof(usbDescriptorRequest{}))
+	descSize := uint32(unsafe.Sizeof(usbDeviceDescriptor{}))
+	totalSize := reqSize + descSize
+	buf := make([]byte, totalSize)
+
+	req := (*usbDescriptorRequest)(unsafe.Pointer(&buf[0]))
+	req.ConnectionIndex = portIndex
+	req.WValue = usbDeviceDescriptorType << 8 // descriptor type in high byte, index 0 in low byte
+	req.WLength = uint16(descSize)
+
+	var nBytes uint32
+	err := windows.DeviceIoControl(
+		hHub,
+		ioctlUsbGetDescriptorFromNodeConnection,
+		&buf[0], totalSize,
+		&buf[0], totalSize,
+		&nBytes,
+		nil,
+	)
+	if err != nil || nBytes < totalSize {
+		return 0, 0, fmt.Errorf("device descriptor IOCTL failed: %w", err)
+	}
+
+	devDesc := (*usbDeviceDescriptor)(unsafe.Pointer(&buf[reqSize]))
+	if devDesc.BDescriptorType != usbDeviceDescriptorType {
+		return 0, 0, fmt.Errorf("unexpected descriptor type %d", devDesc.BDescriptorType)
+	}
+	return devDesc.IManufacturer, devDesc.IProduct, nil
 }
 
 // hubPortDriverKey retrieves the driver key name of the device at portIndex on hHub

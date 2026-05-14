@@ -37,6 +37,8 @@ func main() {
 		}
 		if port.IsUSB {
 			fmt.Printf("   USB ID      : %s:%s\n", port.VID, port.PID)
+			fmt.Printf("   USB vendor  : %s\n", port.Manufacturer)
+			fmt.Printf("   USB product : %s\n", port.Product)
 			fmt.Printf("   USB serial  : %s\n", port.SerialNumber)
 		}
 	}
