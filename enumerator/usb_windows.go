@@ -207,13 +207,23 @@ func retrievePortDetailsFromDevInfo(device *deviceInfo, details *PortDetails) er
 	}
 
 	if details.IsUSB {
-		manufacturer, product, configuration := retrieveUSBStringsViaHubIOCTL(device)
-		details.Manufacturer = manufacturer
-		if product != "" {
-			// Prefer USB iProduct over SPDRP_FRIENDLYNAME when available.
-			details.Product = product
+		if hub, port, err := findUsbHubAndPortConnectedToDevice(device); err == nil {
+			defer hub.Close()
+
+			if usbDesc, err := hub.GetDeviceDescriptorForPort(port); err == nil {
+				if usbDesc.IManufacturer != 0 {
+					details.Manufacturer, _ = hub.GetStringDescriptorForPort(port, usbDesc.IManufacturer, langIDEnglishUS)
+				}
+				if usbDesc.IProduct != 0 {
+					details.Product, _ = hub.GetStringDescriptorForPort(port, usbDesc.IProduct, langIDEnglishUS)
+				}
+			}
+
+			configDesc, err := hub.GetConfigDescriptorForPort(port)
+			if err == nil && configDesc.IConfiguration != 0 {
+				details.Configuration, _ = hub.GetStringDescriptorForPort(port, configDesc.IConfiguration, langIDEnglishUS)
+			}
 		}
-		details.Configuration = configuration
 	}
 
 	return nil
@@ -317,27 +327,27 @@ func devInstanceGetDriverKey(inst windows.DEVINST) string {
 // returns its driver key. This is the key that IOCTL_USB_GET_NODE_CONNECTION_DRIVERKEY_NAME
 // returns. For single-function USB serial devices the COM port IS that device;
 // for composite USB devices the COM port is a child and we need the parent.
-func findUSBPortDriverKey(inst windows.DEVINST) string {
+func findUSBPortDriverKey(inst windows.DEVINST) (string, error) {
 	for range 5 {
 		id, err := getDeviceID(inst)
 		if err != nil {
-			return ""
+			return "", err
 		}
 		uid := strings.ToUpper(id)
 		// Skip composite device interfaces (e.g. USB\VID_...&MI_00\...).
 		// The device directly on the hub port has no &MI_ in its instance ID.
 		if strings.HasPrefix(uid, "USB\\") && !strings.Contains(uid, "&MI_") {
 			if dk := devInstanceGetDriverKey(inst); dk != "" {
-				return dk
+				return dk, nil
 			}
 		}
 		parent, err := getParent(inst)
 		if err != nil {
-			return ""
+			return "", err
 		}
 		inst = parent
 	}
-	return ""
+	return "", fmt.Errorf("USB port driver key not found in devnode tree")
 }
 
 // enumerateUSBHubs enumerate all USB hub device interface paths.
@@ -346,31 +356,12 @@ func enumerateUSBHubs() ([]string, error) {
 	return windows.CM_Get_Device_Interface_List("", &guidDevInterfaceUSBHub, windows.CM_GET_DEVICE_INTERFACE_LIST_PRESENT)
 }
 
-// retrieveUSBStringsViaHubIOCTL looks up USB string descriptors for a device by
-// matching its driver key against hub port driver keys, then reading descriptor
-// indexes and fetching the corresponding strings via hub IOCTLs.
-func retrieveUSBStringsViaHubIOCTL(device *deviceInfo) (manufacturer, product, configuration string) {
-	// Find the driver key of the USB device directly attached to the hub port.
-	// For composite USB devices the COM port is a child; we need the parent's key.
-	targetDriverKey := findUSBPortDriverKey(device.data.DevInst)
-	if targetDriverKey == "" {
-		return "", "", ""
-	}
+type usbHub windows.Handle
 
-	hubPaths, _ := enumerateUSBHubs()
-	for _, hubPath := range hubPaths {
-		if m, p, c, ok := retrieveStringsFromHub(hubPath, targetDriverKey); ok {
-			return m, p, c
-		}
-	}
-	return "", "", ""
-}
-
-// retrieveStringsFromHub opens a single hub and scans its ports for targetDriverKey.
-func retrieveStringsFromHub(hubPath, targetDriverKey string) (manufacturer, product, configuration string, found bool) {
+func openUsbHub(hubPath string) (usbHub, error) {
 	hubPathPtr, err := syscall.UTF16PtrFromString(hubPath)
 	if err != nil {
-		return "", "", "", false
+		return 0, err
 	}
 	hHub, err := windows.CreateFile(
 		hubPathPtr,
@@ -382,18 +373,73 @@ func retrieveStringsFromHub(hubPath, targetDriverKey string) (manufacturer, prod
 		0,
 	)
 	if err != nil {
-		return "", "", "", false
+		return 0, err
 	}
-	defer windows.CloseHandle(hHub)
+	return usbHub(hHub), nil
+}
 
-	// usbHubInfoHeader overlaps the beginning of USB_NODE_INFORMATION for hubs
-	// to extract bNumberOfPorts. Layout (no padding):
-	//
-	//	[0..3]  NodeType (uint32)
-	//	[4]     bDescriptorLength (uint8)
-	//	[5]     bDescriptorType (uint8)
-	//	[6]     bNumberOfPorts (uint8)
-	type usbHubInfoHeader struct {
+func (hub usbHub) Close() error {
+	return windows.CloseHandle(windows.Handle(hub))
+}
+
+func usbHubDeviceIoControl[T any](hub usbHub, ioctl uint32, buffer *T) (bytesReturned uint32, err error) {
+	err = windows.DeviceIoControl(
+		windows.Handle(hub),
+		ioctl,
+		(*byte)(unsafe.Pointer(buffer)), uint32(unsafe.Sizeof(*buffer)),
+		(*byte)(unsafe.Pointer(buffer)), uint32(unsafe.Sizeof(*buffer)),
+		&bytesReturned,
+		nil,
+	)
+	return bytesReturned, err
+}
+
+func findUsbHubAndPortConnectedToDevice(device *deviceInfo) (usbHub, uint32, error) {
+	// Find the driver key of the USB device directly attached to the hub port.
+	// For composite USB devices the COM port is a child; we need the parent's key.
+	targetDriverKey, err := findUSBPortDriverKey(device.data.DevInst)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	hubPaths, _ := enumerateUSBHubs()
+	for _, hubPath := range hubPaths {
+		hub, err := openUsbHub(hubPath)
+		if err != nil {
+			continue
+		}
+
+		if port, found := hub.FindPortConnectedToDeviceKey(targetDriverKey); found {
+			return hub, port, nil
+		}
+
+		hub.Close()
+	}
+	return 0, 0, fmt.Errorf("USB hub port connected to device not found")
+}
+
+func (hub usbHub) FindPortConnectedToDeviceKey(targetDriverKey string) (portIndex uint32, found bool) {
+	ports, err := hub.GetNumberOfPorts()
+	if err != nil || ports == 0 {
+		// Fall back to scanning a reasonable maximum.
+		ports = 16
+	}
+	for portIndex := uint32(1); portIndex <= ports; portIndex++ {
+		driverKey, err := hub.GetPortDriverKey(portIndex)
+		if err != nil {
+			continue
+		}
+		if strings.EqualFold(driverKey, targetDriverKey) {
+			return portIndex, true
+		}
+	}
+	return 0, false
+}
+
+func (hub usbHub) GetNumberOfPorts() (uint32, error) {
+	// hubInfo overlaps the beginning of USB_NODE_INFORMATION for hubs
+	// to extract bNumberOfPorts.
+	var hubInfo struct {
 		NodeType         uint32
 		DescriptorLength uint8
 		DescriptorType   uint8
@@ -401,208 +447,109 @@ func retrieveStringsFromHub(hubPath, targetDriverKey string) (manufacturer, prod
 	}
 
 	// Ask hub for its number of ports via IOCTL_USB_GET_NODE_INFORMATION.
-	var hubInfo usbHubInfoHeader
-	var bytesReturned uint32
-	err = windows.DeviceIoControl(
-		hHub,
-		ioctlUsbGetNodeInformation,
-		(*byte)(unsafe.Pointer(&hubInfo)), uint32(unsafe.Sizeof(hubInfo)),
-		(*byte)(unsafe.Pointer(&hubInfo)), uint32(unsafe.Sizeof(hubInfo)),
-		&bytesReturned,
-		nil,
-	)
-	numPorts := uint32(hubInfo.NumberOfPorts)
-	if err != nil || numPorts == 0 {
-		// Fall back to scanning a reasonable maximum.
-		numPorts = 16
-	}
-
-	for portIndex := uint32(1); portIndex <= numPorts; portIndex++ {
-		driverKey, err := hubPortDriverKey(hHub, portIndex)
-		if err != nil {
-			continue
-		}
-		if strings.EqualFold(driverKey, targetDriverKey) {
-			iManufacturerIdx, iProductIdx, err := hubDeviceDescriptorStringIndexes(hHub, portIndex)
-			if err == nil {
-				if iManufacturerIdx != 0 {
-					manufacturer = hubStringDescriptor(hHub, portIndex, iManufacturerIdx, langIDEnglishUS)
-				}
-				if iProductIdx != 0 {
-					product = hubStringDescriptor(hHub, portIndex, iProductIdx, langIDEnglishUS)
-				}
-			}
-
-			iConfIdx, err := hubConfigDescriptorIConfiguration(hHub, portIndex)
-			if err == nil && iConfIdx != 0 {
-				configuration = hubStringDescriptor(hHub, portIndex, iConfIdx, langIDEnglishUS)
-			}
-			return manufacturer, product, configuration, true
-		}
-	}
-	return "", "", "", false
+	_, err := usbHubDeviceIoControl(hub, ioctlUsbGetNodeInformation, &hubInfo)
+	return uint32(hubInfo.NumberOfPorts), err
 }
 
-// hubDeviceDescriptorStringIndexes retrieves iManufacturer and iProduct indexes
-// from the USB Device Descriptor for the device at portIndex.
-func hubDeviceDescriptorStringIndexes(hHub windows.Handle, portIndex uint32) (uint8, uint8, error) {
-	reqSize := uint32(unsafe.Sizeof(usbDescriptorRequest{}))
-	descSize := uint32(unsafe.Sizeof(usbDeviceDescriptor{}))
-	totalSize := reqSize + descSize
-	buf := make([]byte, totalSize)
-
-	req := (*usbDescriptorRequest)(unsafe.Pointer(&buf[0]))
-	req.ConnectionIndex = portIndex
-	req.WValue = usbDeviceDescriptorType << 8 // descriptor type in high byte, index 0 in low byte
-	req.WLength = uint16(descSize)
-
-	var nBytes uint32
-	err := windows.DeviceIoControl(
-		hHub,
-		ioctlUsbGetDescriptorFromNodeConnection,
-		&buf[0], totalSize,
-		&buf[0], totalSize,
-		&nBytes,
-		nil,
-	)
-	if err != nil || nBytes < totalSize {
-		return 0, 0, fmt.Errorf("device descriptor IOCTL failed: %w", err)
+// GetDeviceDescriptorForPort the USB Device Descriptor for the device at portIndex.
+func (hub usbHub) GetDeviceDescriptorForPort(portIndex uint32) (usbDeviceDescriptor, error) {
+	var buff struct {
+		req  usbDescriptorRequest
+		resp usbDeviceDescriptor
+	}
+	buff.req.ConnectionIndex = portIndex
+	buff.req.WValue = usbDeviceDescriptorType << 8 // descriptor type in high byte, index 0 in low byte
+	buff.req.WLength = uint16(unsafe.Sizeof(buff.resp))
+	nBytes, err := usbHubDeviceIoControl(hub, ioctlUsbGetDescriptorFromNodeConnection, &buff)
+	expectedSize := uint32(unsafe.Sizeof(buff.req) + unsafe.Sizeof(buff.resp)) // cannot use sizeof(buff) because the struct has padding
+	if err != nil || nBytes < expectedSize {
+		return usbDeviceDescriptor{}, fmt.Errorf("device descriptor IOCTL failed: %w", err)
 	}
 
-	devDesc := (*usbDeviceDescriptor)(unsafe.Pointer(&buf[reqSize]))
-	if devDesc.BDescriptorType != usbDeviceDescriptorType {
-		return 0, 0, fmt.Errorf("unexpected descriptor type %d", devDesc.BDescriptorType)
+	resp := buff.resp
+	if resp.BDescriptorType != usbDeviceDescriptorType {
+		return usbDeviceDescriptor{}, fmt.Errorf("unexpected descriptor type %d", resp.BDescriptorType)
 	}
-	return devDesc.IManufacturer, devDesc.IProduct, nil
+	return resp, nil
 }
 
 // hubPortDriverKey retrieves the driver key name of the device at portIndex on hHub
 // using IOCTL_USB_GET_NODE_CONNECTION_DRIVERKEY_NAME (mirrors GetDriverKeyName in enum.c).
-func hubPortDriverKey(hHub windows.Handle, portIndex uint32) (string, error) {
-	// usbNodeConnectionDriverkeyName corresponds to USB_NODE_CONNECTION_DRIVERKEY_NAME.
-	// The DriverKeyName array is variable length; we allocate extra bytes at runtime.
-	type usbNodeConnectionDriverkeyName struct {
+func (hub usbHub) GetPortDriverKey(portIndex uint32) (string, error) {
+	// The following structure corresponds to USB_NODE_CONNECTION_DRIVERKEY_NAME.
+	var req struct {
 		ConnectionIndex uint32
 		ActualLength    uint32
-		DriverKeyName   [1]uint16 // variable; allocate more bytes as needed
+		DriverKeyName   [1024]uint16 // assume max length of 1024 UTF-16 chars (2048 bytes), which is more than enough for a registry key path
 	}
-
-	// First call: get the required ActualLength.
-	var req usbNodeConnectionDriverkeyName
 	req.ConnectionIndex = portIndex
-	var nBytes uint32
-	_ = windows.DeviceIoControl(
-		hHub,
-		ioctlUsbGetNodeConnectionDriverkeyName,
-		(*byte)(unsafe.Pointer(&req)), uint32(unsafe.Sizeof(req)),
-		(*byte)(unsafe.Pointer(&req)), uint32(unsafe.Sizeof(req)),
-		&nBytes,
-		nil,
-	)
-	if req.ActualLength <= uint32(unsafe.Sizeof(req)) {
-		return "", fmt.Errorf("no driver key")
+	_, err := usbHubDeviceIoControl(hub, ioctlUsbGetNodeConnectionDriverkeyName, &req)
+	if err != nil || req.ActualLength >= uint32(unsafe.Sizeof(req)) {
+		return "", fmt.Errorf("reading driver key")
 	}
-
-	// Second call: allocate a buffer large enough for the full name.
-	buf := make([]byte, req.ActualLength)
-	reqFull := (*usbNodeConnectionDriverkeyName)(unsafe.Pointer(&buf[0]))
-	reqFull.ConnectionIndex = portIndex
-	if err := windows.DeviceIoControl(
-		hHub,
-		ioctlUsbGetNodeConnectionDriverkeyName,
-		&buf[0], uint32(len(buf)),
-		&buf[0], uint32(len(buf)),
-		&nBytes,
-		nil,
-	); err != nil {
-		return "", err
-	}
-
-	// DriverKeyName starts at offset 8 (after ConnectionIndex + ActualLength).
-	nameStart := 8
-	if len(buf) <= nameStart+1 {
-		return "", fmt.Errorf("buffer too small")
-	}
-	nameSlice := unsafe.Slice((*uint16)(unsafe.Pointer(&buf[nameStart])), (len(buf)-nameStart)/2)
-	return windows.UTF16ToString(nameSlice), nil
+	r := windows.UTF16PtrToString(&req.DriverKeyName[0])
+	return r, nil
 }
 
 // hubConfigDescriptorIConfiguration retrieves the iConfiguration index byte from the
 // USB Configuration Descriptor for the device at portIndex (mirrors GetConfigDescriptor).
-func hubConfigDescriptorIConfiguration(hHub windows.Handle, portIndex uint32) (uint8, error) {
-	// First pass: use a fixed-size buffer for the config descriptor header.
-	headerSize := uint32(unsafe.Sizeof(usbDescriptorRequest{}) + unsafe.Sizeof(usbConfigurationDescriptor{}))
-	buf := make([]byte, headerSize)
-
-	req := (*usbDescriptorRequest)(unsafe.Pointer(&buf[0]))
-	req.ConnectionIndex = portIndex
-	req.WValue = usbConfigurationDescriptorType << 8 // descriptor type in high byte, index 0 in low byte
-	req.WLength = uint16(unsafe.Sizeof(usbConfigurationDescriptor{}))
-
-	var nBytes uint32
-	err := windows.DeviceIoControl(
-		hHub,
-		ioctlUsbGetDescriptorFromNodeConnection,
-		&buf[0], headerSize,
-		&buf[0], headerSize,
-		&nBytes,
-		nil,
-	)
-	if err != nil || nBytes < headerSize {
-		return 0, fmt.Errorf("config descriptor IOCTL failed: %w", err)
+func (hub usbHub) GetConfigDescriptorForPort(portIndex uint32) (usbConfigurationDescriptor, error) {
+	var buff struct {
+		req  usbDescriptorRequest
+		resp usbConfigurationDescriptor
+	}
+	buff.req.ConnectionIndex = portIndex
+	buff.req.WValue = usbConfigurationDescriptorType << 8 // descriptor type in high byte, index 0 in low byte
+	buff.req.WLength = uint16(unsafe.Sizeof(buff.resp))
+	nBytes, err := usbHubDeviceIoControl(hub, ioctlUsbGetDescriptorFromNodeConnection, &buff)
+	if err != nil {
+		return usbConfigurationDescriptor{}, fmt.Errorf("config descriptor IOCTL failed: %w", err)
+	}
+	expectedSize := uint32(unsafe.Sizeof(buff.req) + unsafe.Sizeof(buff.resp)) // cannot use sizeof(buff) because the struct has padding
+	if nBytes < expectedSize {
+		return usbConfigurationDescriptor{}, fmt.Errorf("config descriptor IOCTL returned insufficient data")
 	}
 
-	reqSize := uint32(unsafe.Sizeof(usbDescriptorRequest{}))
-	confDesc := (*usbConfigurationDescriptor)(unsafe.Pointer(&buf[reqSize]))
-	if confDesc.BDescriptorType != usbConfigurationDescriptorType {
-		return 0, fmt.Errorf("unexpected descriptor type %d", confDesc.BDescriptorType)
+	resp := buff.resp
+	if resp.BDescriptorType != usbConfigurationDescriptorType {
+		return usbConfigurationDescriptor{}, fmt.Errorf("unexpected descriptor type %d", resp.BDescriptorType)
 	}
-	return confDesc.IConfiguration, nil
+	return resp, nil
 }
 
 // hubStringDescriptor fetches the USB String Descriptor at descriptorIndex / languageID
 // and returns the decoded UTF-16 string (mirrors GetStringDescriptor in enum.c).
-func hubStringDescriptor(hHub windows.Handle, portIndex uint32, descriptorIndex uint8, languageID uint16) string {
-	reqHeaderSize := uint32(unsafe.Sizeof(usbDescriptorRequest{}))
-	totalSize := reqHeaderSize + uint32(maximumUsbStringLength) + 2 // +2 for safety
-	buf := make([]byte, totalSize)
-
-	req := (*usbDescriptorRequest)(unsafe.Pointer(&buf[0]))
-	req.ConnectionIndex = portIndex
-	req.WValue = (usbStringDescriptorType << 8) | uint16(descriptorIndex)
-	req.WIndex = languageID
-	req.WLength = uint16(maximumUsbStringLength)
-
-	var nBytes uint32
-	err := windows.DeviceIoControl(
-		hHub,
-		ioctlUsbGetDescriptorFromNodeConnection,
-		&buf[0], totalSize,
-		&buf[0], totalSize,
-		&nBytes,
-		nil,
-	)
-	if err != nil || nBytes < reqHeaderSize+2 {
-		return ""
+func (hub usbHub) GetStringDescriptorForPort(portIndex uint32, descriptorIndex uint8, languageID uint16) (string, error) {
+	var buff struct {
+		req  usbDescriptorRequest
+		resp struct {
+			usbStringDescriptorHeader
+			data [maximumUsbStringLength]uint16
+		}
+	}
+	buff.req.ConnectionIndex = portIndex
+	buff.req.WValue = (usbStringDescriptorType << 8) | uint16(descriptorIndex)
+	buff.req.WIndex = languageID
+	buff.req.WLength = uint16(maximumUsbStringLength)
+	nBytes, err := usbHubDeviceIoControl(hub, ioctlUsbGetDescriptorFromNodeConnection, &buff)
+	if err != nil {
+		return "", fmt.Errorf("string descriptor IOCTL failed: %w", err)
+	}
+	if nBytes < uint32(unsafe.Sizeof(buff.req))+2 {
+		return "", fmt.Errorf("string descriptor IOCTL returned insufficient data")
 	}
 
-	strDesc := (*usbStringDescriptorHeader)(unsafe.Pointer(&buf[reqHeaderSize]))
-	if strDesc.BDescriptorType != usbStringDescriptorType {
-		return ""
+	resp := buff.resp
+	if resp.BDescriptorType != usbStringDescriptorType {
+		return "", fmt.Errorf("unexpected descriptor type %d", resp.BDescriptorType)
 	}
-	strLen := uint32(strDesc.BLength)
+	strLen := uint32(resp.BLength)
 	if strLen < 2 || strLen%2 != 0 {
-		return ""
-	}
-	// The string data (UTF-16LE) starts 2 bytes after the header.
-	strDataOffset := reqHeaderSize + 2
-	if uint32(nBytes) < strDataOffset+strLen-2 {
-		return ""
+		return "", fmt.Errorf("invalid string descriptor length: %d bytes", strLen)
 	}
 	numChars := (strLen - 2) / 2
 	if numChars == 0 {
-		return ""
+		return "", nil
 	}
-	chars := unsafe.Slice((*uint16)(unsafe.Pointer(&buf[strDataOffset])), numChars)
-	return windows.UTF16ToString(chars)
+	return windows.UTF16ToString(resp.data[:numChars]), nil
 }
