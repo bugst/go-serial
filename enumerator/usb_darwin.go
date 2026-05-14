@@ -201,15 +201,16 @@ func extractPortInfo(service io_registry_entry_t) (*PortDetails, error) {
 		vid, _ := usbDevice.GetIntProperty("idVendor", C.kCFNumberSInt16Type)
 		pid, _ := usbDevice.GetIntProperty("idProduct", C.kCFNumberSInt16Type)
 		serialNumber, _ := usbDevice.GetStringProperty("USB Serial Number")
+		vendor, _ := usbDevice.GetStringProperty("USB Vendor Name")
+		product, _ := usbDevice.GetStringProperty("USB Product Name")
 		configuration, _ := usbDevice.GetUSBConfigurationString()
-		//product, _ := usbDevice.GetStringProperty("USB Product Name")
-		//manufacturer, _ := usbDevice.GetStringProperty("USB Vendor Name")
-		//fmt.Println(product + " - " + manufacturer)
 
 		port.IsUSB = true
 		port.VID = fmt.Sprintf("%04X", vid)
 		port.PID = fmt.Sprintf("%04X", pid)
 		port.SerialNumber = serialNumber
+		port.Manufacturer = vendor
+		port.Product = product
 		port.Configuration = configuration
 	}
 	return port, nil
