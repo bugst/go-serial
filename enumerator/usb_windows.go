@@ -236,28 +236,6 @@ const (
 	langIDEnglishUS                = 0x0409
 )
 
-// usbHubInfoHeader overlaps the beginning of USB_NODE_INFORMATION for hubs
-// to extract bNumberOfPorts. Layout (no padding):
-//
-//	[0..3]  NodeType (uint32)
-//	[4]     bDescriptorLength (uint8)
-//	[5]     bDescriptorType (uint8)
-//	[6]     bNumberOfPorts (uint8)
-type usbHubInfoHeader struct {
-	NodeType         uint32
-	DescriptorLength uint8
-	DescriptorType   uint8
-	NumberOfPorts    uint8
-}
-
-// usbNodeConnectionDriverkeyName corresponds to USB_NODE_CONNECTION_DRIVERKEY_NAME.
-// The DriverKeyName array is variable length; we allocate extra bytes at runtime.
-type usbNodeConnectionDriverkeyName struct {
-	ConnectionIndex uint32
-	ActualLength    uint32
-	DriverKeyName   [1]uint16 // variable; allocate more bytes as needed
-}
-
 // usbDescriptorRequest corresponds to USB_DESCRIPTOR_REQUEST.
 // SetupPacket fields follow ConnectionIndex directly (no padding in the C struct).
 type usbDescriptorRequest struct {
@@ -315,7 +293,7 @@ func devInstanceGetDriverKey(inst windows.DEVINST) string {
 // returns. For single-function USB serial devices the COM port IS that device;
 // for composite USB devices the COM port is a child and we need the parent.
 func findUSBPortDriverKey(inst windows.DEVINST) string {
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		id, err := getDeviceID(inst)
 		if err != nil {
 			return ""
@@ -383,16 +361,28 @@ func retrieveConfigFromHub(hubPath, targetDriverKey string) string {
 	}
 	defer windows.CloseHandle(hHub)
 
+	// usbHubInfoHeader overlaps the beginning of USB_NODE_INFORMATION for hubs
+	// to extract bNumberOfPorts. Layout (no padding):
+	//
+	//	[0..3]  NodeType (uint32)
+	//	[4]     bDescriptorLength (uint8)
+	//	[5]     bDescriptorType (uint8)
+	//	[6]     bNumberOfPorts (uint8)
+	type usbHubInfoHeader struct {
+		NodeType         uint32
+		DescriptorLength uint8
+		DescriptorType   uint8
+		NumberOfPorts    uint8
+	}
+
 	// Ask hub for its number of ports via IOCTL_USB_GET_NODE_INFORMATION.
 	var hubInfo usbHubInfoHeader
 	var bytesReturned uint32
 	err = windows.DeviceIoControl(
 		hHub,
 		ioctlUsbGetNodeInformation,
-		(*byte)(unsafe.Pointer(&hubInfo)),
-		uint32(unsafe.Sizeof(hubInfo)),
-		(*byte)(unsafe.Pointer(&hubInfo)),
-		uint32(unsafe.Sizeof(hubInfo)),
+		(*byte)(unsafe.Pointer(&hubInfo)), uint32(unsafe.Sizeof(hubInfo)),
+		(*byte)(unsafe.Pointer(&hubInfo)), uint32(unsafe.Sizeof(hubInfo)),
 		&bytesReturned,
 		nil,
 	)
@@ -421,6 +411,14 @@ func retrieveConfigFromHub(hubPath, targetDriverKey string) string {
 // hubPortDriverKey retrieves the driver key name of the device at portIndex on hHub
 // using IOCTL_USB_GET_NODE_CONNECTION_DRIVERKEY_NAME (mirrors GetDriverKeyName in enum.c).
 func hubPortDriverKey(hHub windows.Handle, portIndex uint32) (string, error) {
+	// usbNodeConnectionDriverkeyName corresponds to USB_NODE_CONNECTION_DRIVERKEY_NAME.
+	// The DriverKeyName array is variable length; we allocate extra bytes at runtime.
+	type usbNodeConnectionDriverkeyName struct {
+		ConnectionIndex uint32
+		ActualLength    uint32
+		DriverKeyName   [1]uint16 // variable; allocate more bytes as needed
+	}
+
 	// First call: get the required ActualLength.
 	var req usbNodeConnectionDriverkeyName
 	req.ConnectionIndex = portIndex
@@ -428,10 +426,8 @@ func hubPortDriverKey(hHub windows.Handle, portIndex uint32) (string, error) {
 	_ = windows.DeviceIoControl(
 		hHub,
 		ioctlUsbGetNodeConnectionDriverkeyName,
-		(*byte)(unsafe.Pointer(&req)),
-		uint32(unsafe.Sizeof(req)),
-		(*byte)(unsafe.Pointer(&req)),
-		uint32(unsafe.Sizeof(req)),
+		(*byte)(unsafe.Pointer(&req)), uint32(unsafe.Sizeof(req)),
+		(*byte)(unsafe.Pointer(&req)), uint32(unsafe.Sizeof(req)),
 		&nBytes,
 		nil,
 	)
@@ -443,17 +439,14 @@ func hubPortDriverKey(hHub windows.Handle, portIndex uint32) (string, error) {
 	buf := make([]byte, req.ActualLength)
 	reqFull := (*usbNodeConnectionDriverkeyName)(unsafe.Pointer(&buf[0]))
 	reqFull.ConnectionIndex = portIndex
-	err := windows.DeviceIoControl(
+	if err := windows.DeviceIoControl(
 		hHub,
 		ioctlUsbGetNodeConnectionDriverkeyName,
-		&buf[0],
-		uint32(len(buf)),
-		&buf[0],
-		uint32(len(buf)),
+		&buf[0], uint32(len(buf)),
+		&buf[0], uint32(len(buf)),
 		&nBytes,
 		nil,
-	)
-	if err != nil {
+	); err != nil {
 		return "", err
 	}
 
@@ -482,10 +475,8 @@ func hubConfigDescriptorIConfiguration(hHub windows.Handle, portIndex uint32) (u
 	err := windows.DeviceIoControl(
 		hHub,
 		ioctlUsbGetDescriptorFromNodeConnection,
-		&buf[0],
-		headerSize,
-		&buf[0],
-		headerSize,
+		&buf[0], headerSize,
+		&buf[0], headerSize,
 		&nBytes,
 		nil,
 	)
@@ -518,10 +509,8 @@ func hubStringDescriptor(hHub windows.Handle, portIndex uint32, descriptorIndex 
 	err := windows.DeviceIoControl(
 		hHub,
 		ioctlUsbGetDescriptorFromNodeConnection,
-		&buf[0],
-		totalSize,
-		&buf[0],
-		totalSize,
+		&buf[0], totalSize,
+		&buf[0], totalSize,
 		&nBytes,
 		nil,
 	)
