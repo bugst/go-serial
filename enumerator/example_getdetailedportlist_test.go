@@ -26,7 +26,10 @@ func ExampleGetDetailedPortsList() {
 		fmt.Printf("Found port: %s\n", port.Name)
 		if port.IsUSB {
 			fmt.Printf("   USB ID     %s:%s\n", port.VID, port.PID)
+			fmt.Printf("   USB vendor %s\n", port.Manufacturer)
+			fmt.Printf("   USB prod.  %s\n", port.Product)
 			fmt.Printf("   USB serial %s\n", port.SerialNumber)
+			fmt.Printf("   USB config %s\n", port.Configuration)
 		}
 	}
 }

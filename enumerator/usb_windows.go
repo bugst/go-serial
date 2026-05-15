@@ -9,6 +9,7 @@ package enumerator
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -54,161 +55,18 @@ func parseDeviceID(deviceID string, details *PortDetails) {
 // setupapi based
 // --------------
 
-//sys setupDiClassGuidsFromNameInternal(class string, guid *guid, guidSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiClassGuidsFromNameW
-//sys setupDiGetClassDevs(guid *guid, enumerator *string, hwndParent uintptr, flags uint32) (set devicesSet, err error) = setupapi.SetupDiGetClassDevsW
-//sys setupDiDestroyDeviceInfoList(set devicesSet) (err error) = setupapi.SetupDiDestroyDeviceInfoList
-//sys setupDiEnumDeviceInfo(set devicesSet, index uint32, info *devInfoData) (err error) = setupapi.SetupDiEnumDeviceInfo
-//sys setupDiGetDeviceInstanceId(set devicesSet, devInfo *devInfoData, devInstanceId unsafe.Pointer, devInstanceIdSize uint32, requiredSize *uint32) (err error) = setupapi.SetupDiGetDeviceInstanceIdW
-//sys setupDiOpenDevRegKey(set devicesSet, devInfo *devInfoData, scope dicsScope, hwProfile uint32, keyType uint32, samDesired regsam) (hkey syscall.Handle, err error) = setupapi.SetupDiOpenDevRegKey
-//sys setupDiGetDeviceRegistryProperty(set devicesSet, devInfo *devInfoData, property deviceProperty, propertyType *uint32, outValue *byte, bufSize uint32, reqSize *uint32) (res bool) = setupapi.SetupDiGetDeviceRegistryPropertyW
+//sys setupDiGetClassDevs(guid *windows.GUID, enumerator *string, hwndParent uintptr, flags windows.DIGCF) (set windows.DevInfo, err error) = setupapi.SetupDiGetClassDevsW
+//sys setupDiDestroyDeviceInfoList(set windows.DevInfo) (err error) = setupapi.SetupDiDestroyDeviceInfoList
+//sys setupDiOpenDevRegKey(set windows.DevInfo, devInfo *windows.DevInfoData, scope windows.DICS_FLAG, hwProfile uint32, keyType windows.DIREG, samDesired uint32) (hkey syscall.Handle, err error) = setupapi.SetupDiOpenDevRegKey
+//sys setupDiGetDeviceRegistryProperty(set windows.DevInfo, devInfo *windows.DevInfoData, property windows.SPDRP, propertyType *uint32, outValue *byte, bufSize uint32, reqSize *uint32) (res bool) = setupapi.SetupDiGetDeviceRegistryPropertyW
 
-//sys cmGetParent(outParentDev *devInstance, dev devInstance, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Parent
-//sys cmGetDeviceIDSize(outLen *uint32, dev devInstance, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Device_ID_Size
-//sys cmGetDeviceID(dev devInstance, buffer unsafe.Pointer, bufferSize uint32, flags uint32) (err cmError) = cfgmgr32.CM_Get_Device_IDW
+//sys cmGetParent(outParentDev *windows.DEVINST, dev windows.DEVINST, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Parent
+//sys cmGetDeviceIDSize(outLen *uint32, dev windows.DEVINST, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_Device_ID_Size
+//sys cmGetDeviceID(dev windows.DEVINST, buffer unsafe.Pointer, bufferSize uint32, flags uint32) (err cmError) = cfgmgr32.CM_Get_Device_IDW
 //sys cmMapCrToWin32Err(cmErr cmError, defaultErr uint32) (err uint32) = cfgmgr32.CM_MapCrToWin32Err
-
-// Device registry property codes
-// (Codes marked as read-only (R) may only be used for
-// SetupDiGetDeviceRegistryProperty)
-//
-// These values should cover the same set of registry properties
-// as defined by the CM_DRP codes in cfgmgr32.h.
-//
-// Note that SPDRP codes are zero based while CM_DRP codes are one based!
-type deviceProperty uint32
-
-const (
-	spdrpDeviceDesc               deviceProperty = 0x00000000 // DeviceDesc = R/W
-	spdrpHardwareID               deviceProperty = 0x00000001 // HardwareID = R/W
-	spdrpCompatibleIDS            deviceProperty = 0x00000002 // CompatibleIDs = R/W
-	spdrpUnused0                  deviceProperty = 0x00000003 // Unused
-	spdrpService                  deviceProperty = 0x00000004 // Service = R/W
-	spdrpUnused1                  deviceProperty = 0x00000005 // Unused
-	spdrpUnused2                  deviceProperty = 0x00000006 // Unused
-	spdrpClass                    deviceProperty = 0x00000007 // Class = R--tied to ClassGUID
-	spdrpClassGUID                deviceProperty = 0x00000008 // ClassGUID = R/W
-	spdrpDriver                   deviceProperty = 0x00000009 // Driver = R/W
-	spdrpConfigFlags              deviceProperty = 0x0000000A // ConfigFlags = R/W
-	spdrpMFG                      deviceProperty = 0x0000000B // Mfg = R/W
-	spdrpFriendlyName             deviceProperty = 0x0000000C // FriendlyName = R/W
-	spdrpLocationIinformation     deviceProperty = 0x0000000D // LocationInformation = R/W
-	spdrpPhysicalDeviceObjectName deviceProperty = 0x0000000E // PhysicalDeviceObjectName = R
-	spdrpCapabilities             deviceProperty = 0x0000000F // Capabilities = R
-	spdrpUINumber                 deviceProperty = 0x00000010 // UiNumber = R
-	spdrpUpperFilters             deviceProperty = 0x00000011 // UpperFilters = R/W
-	spdrpLowerFilters             deviceProperty = 0x00000012 // LowerFilters = R/W
-	spdrpBusTypeGUID              deviceProperty = 0x00000013 // BusTypeGUID = R
-	spdrpLegacyBusType            deviceProperty = 0x00000014 // LegacyBusType = R
-	spdrpBusNumber                deviceProperty = 0x00000015 // BusNumber = R
-	spdrpEnumeratorName           deviceProperty = 0x00000016 // Enumerator Name = R
-	spdrpSecurity                 deviceProperty = 0x00000017 // Security = R/W, binary form
-	spdrpSecuritySDS              deviceProperty = 0x00000018 // Security = W, SDS form
-	spdrpDevType                  deviceProperty = 0x00000019 // Device Type = R/W
-	spdrpExclusive                deviceProperty = 0x0000001A // Device is exclusive-access = R/W
-	spdrpCharacteristics          deviceProperty = 0x0000001B // Device Characteristics = R/W
-	spdrpAddress                  deviceProperty = 0x0000001C // Device Address = R
-	spdrpUINumberDescFormat       deviceProperty = 0x0000001D // UiNumberDescFormat = R/W
-	spdrpDevicePowerData          deviceProperty = 0x0000001E // Device Power Data = R
-	spdrpRemovalPolicy            deviceProperty = 0x0000001F // Removal Policy = R
-	spdrpRemovalPolicyHWDefault   deviceProperty = 0x00000020 // Hardware Removal Policy = R
-	spdrpRemovalPolicyOverride    deviceProperty = 0x00000021 // Removal Policy Override = RW
-	spdrpInstallState             deviceProperty = 0x00000022 // Device Install State = R
-	spdrpLocationPaths            deviceProperty = 0x00000023 // Device Location Paths = R
-	spdrpBaseContainerID          deviceProperty = 0x00000024 // Base ContainerID = R
-	spdrpMaximumProperty          deviceProperty = 0x00000025 // Upper bound on ordinals
-)
-
-// Values specifying the scope of a device property change
-type dicsScope uint32
-
-const (
-	dicsFlagGlobal          dicsScope = 0x00000001 // make change in all hardware profiles
-	dicsFlagConfigSspecific dicsScope = 0x00000002 // make change in specified profile only
-	dicsFlagConfigGeneral   dicsScope = 0x00000004 // 1 or more hardware profile-specific
-)
-
-// https://msdn.microsoft.com/en-us/library/windows/desktop/ms724878(v=vs.85).aspx
-type regsam uint32
-
-const (
-	keyAllAccess        regsam = 0xF003F
-	keyCreateLink       regsam = 0x00020
-	keyCreateSubKey     regsam = 0x00004
-	keyEnumerateSubKeys regsam = 0x00008
-	keyExecute          regsam = 0x20019
-	keyNotify           regsam = 0x00010
-	keyQueryValue       regsam = 0x00001
-	keyRead             regsam = 0x20019
-	keySetValue         regsam = 0x00002
-	keyWOW64_32key      regsam = 0x00200
-	keyWOW64_64key      regsam = 0x00100
-	keyWrite            regsam = 0x20006
-)
-
-// KeyType values for SetupDiCreateDevRegKey, SetupDiOpenDevRegKey, and
-// SetupDiDeleteDevRegKey.
-const (
-	diregDev  = 0x00000001 // Open/Create/Delete device key
-	diregDrv  = 0x00000002 // Open/Create/Delete driver key
-	diregBoth = 0x00000004 // Delete both driver and Device key
-)
-
-// https://msdn.microsoft.com/it-it/library/windows/desktop/aa373931(v=vs.85).aspx
-type guid struct {
-	data1 uint32
-	data2 uint16
-	data3 uint16
-	data4 [8]byte
-}
-
-func (g guid) String() string {
-	return fmt.Sprintf("%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-		g.data1, g.data2, g.data3,
-		g.data4[0], g.data4[1], g.data4[2], g.data4[3],
-		g.data4[4], g.data4[5], g.data4[6], g.data4[7])
-}
-
-func classGuidsFromName(className string) ([]guid, error) {
-	// Determine the number of GUIDs for className
-	n := uint32(0)
-	if err := setupDiClassGuidsFromNameInternal(className, nil, 0, &n); err != nil {
-		// ignore error: UIDs array size too small
-	}
-
-	res := make([]guid, n)
-	err := setupDiClassGuidsFromNameInternal(className, &res[0], n, &n)
-	return res, err
-}
-
-const (
-	digcfDefault         = 0x00000001 // only valid with digcfDeviceInterface
-	digcfPresent         = 0x00000002
-	digcfAllClasses      = 0x00000004
-	digcfProfile         = 0x00000008
-	digcfDeviceInterface = 0x00000010
-)
-
-type devicesSet syscall.Handle
-
-func (g *guid) getDevicesSet() (devicesSet, error) {
-	return setupDiGetClassDevs(g, nil, 0, digcfPresent)
-}
-
-func (set devicesSet) destroy() {
-	setupDiDestroyDeviceInfoList(set)
-}
+//sys cmGetDevNodeRegistryProperty(dev windows.DEVINST, property uint32, regDataType *uint32, buffer *byte, bufferLen *uint32, flags uint32) (cmErr cmError) = cfgmgr32.CM_Get_DevNode_Registry_PropertyW
 
 type cmError uint32
-
-// https://msdn.microsoft.com/en-us/library/windows/hardware/ff552344(v=vs.85).aspx
-type devInfoData struct {
-	size     uint32
-	guid     guid
-	devInst  devInstance
-	reserved uintptr
-}
-
-type devInstance uint32
 
 func cmConvertError(cmErr cmError) error {
 	if cmErr == 0 {
@@ -218,13 +76,13 @@ func cmConvertError(cmErr cmError) error {
 	return fmt.Errorf("error %d", winErr)
 }
 
-func (dev devInstance) getParent() (devInstance, error) {
-	var res devInstance
-	errN := cmGetParent(&res, dev, 0)
-	return res, cmConvertError(errN)
+func getParent(dev windows.DEVINST) (windows.DEVINST, error) {
+	var res windows.DEVINST
+	cmErr := cmGetParent(&res, dev, 0)
+	return res, cmConvertError(cmErr)
 }
 
-func (dev devInstance) GetDeviceID() (string, error) {
+func getDeviceID(dev windows.DEVINST) (string, error) {
 	var size uint32
 	cmErr := cmGetDeviceIDSize(&size, dev, 0)
 	if err := cmConvertError(cmErr); err != nil {
@@ -239,48 +97,42 @@ func (dev devInstance) GetDeviceID() (string, error) {
 }
 
 type deviceInfo struct {
-	set  devicesSet
-	data devInfoData
+	set  windows.DevInfo
+	data *windows.DevInfoData
 }
 
-func (set devicesSet) getDeviceInfo(index int) (*deviceInfo, error) {
-	result := &deviceInfo{set: set}
-
-	result.data.size = uint32(unsafe.Sizeof(result.data))
-	err := setupDiEnumDeviceInfo(set, uint32(index), &result.data)
-	return result, err
+func getDeviceInfo(set windows.DevInfo, index int) (*deviceInfo, error) {
+	data, err := windows.SetupDiEnumDeviceInfo(set, index)
+	if err != nil {
+		return nil, err
+	}
+	return &deviceInfo{set: set, data: data}, nil
 }
 
 func (dev *deviceInfo) getInstanceID() (string, error) {
-	n := uint32(0)
-	setupDiGetDeviceInstanceId(dev.set, &dev.data, nil, 0, &n)
-	buff := make([]uint16, n)
-	if err := setupDiGetDeviceInstanceId(dev.set, &dev.data, unsafe.Pointer(&buff[0]), uint32(len(buff)), &n); err != nil {
-		return "", err
-	}
-	return windows.UTF16ToString(buff[:]), nil
+	return windows.SetupDiGetDeviceInstanceId(dev.set, dev.data)
 }
 
-func (dev *deviceInfo) openDevRegKey(scope dicsScope, hwProfile uint32, keyType uint32, samDesired regsam) (syscall.Handle, error) {
-	return setupDiOpenDevRegKey(dev.set, &dev.data, scope, hwProfile, keyType, samDesired)
+func (dev *deviceInfo) openDevRegKey(scope windows.DICS_FLAG, hwProfile uint32, keyType windows.DIREG, samDesired uint32) (syscall.Handle, error) {
+	return setupDiOpenDevRegKey(dev.set, dev.data, scope, hwProfile, keyType, samDesired)
 }
 
 func nativeGetDetailedPortsList() ([]*PortDetails, error) {
-	guids, err := classGuidsFromName("Ports")
+	guids, err := windows.SetupDiClassGuidsFromNameEx("Ports", "")
 	if err != nil {
 		return nil, &PortEnumerationError{causedBy: err}
 	}
 
 	var res []*PortDetails
 	for _, g := range guids {
-		devsSet, err := g.getDevicesSet()
+		devsSet, err := setupDiGetClassDevs(&g, nil, 0, windows.DIGCF_PRESENT)
 		if err != nil {
 			return nil, &PortEnumerationError{causedBy: err}
 		}
-		defer devsSet.destroy()
+		defer setupDiDestroyDeviceInfoList(devsSet)
 
 		for i := 0; ; i++ {
-			device, err := devsSet.getDeviceInfo(i)
+			device, err := getDeviceInfo(devsSet, i)
 			if err != nil {
 				break
 			}
@@ -305,7 +157,7 @@ func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 }
 
 func retrievePortNameFromDevInfo(device *deviceInfo) (string, error) {
-	h, err := device.openDevRegKey(dicsFlagGlobal, 0, diregDev, keyRead)
+	h, err := device.openDevRegKey(windows.DICS_FLAG_GLOBAL, 0, windows.DIREG_DEV, windows.KEY_READ)
 	if err != nil {
 		return "", err
 	}
@@ -330,8 +182,8 @@ func retrievePortDetailsFromDevInfo(device *deviceInfo, details *PortDetails) er
 	// On composite USB devices the serial number is usually reported on the parent
 	// device, so let's navigate up one level and see if we can get this information
 	if details.IsUSB && details.SerialNumber == "" {
-		if parentInfo, err := device.data.devInst.getParent(); err == nil {
-			if parentDeviceID, err := parentInfo.GetDeviceID(); err == nil {
+		if parentInfo, err := getParent(device.data.DevInst); err == nil {
+			if parentDeviceID, err := getDeviceID(parentInfo); err == nil {
 				d := &PortDetails{}
 				parseDeviceID(parentDeviceID, d)
 				if details.VID == d.VID && details.PID == d.PID {
@@ -343,16 +195,361 @@ func retrievePortDetailsFromDevInfo(device *deviceInfo, details *PortDetails) er
 
 	/*	spdrpDeviceDesc returns a generic name, e.g.: "CDC-ACM", which will be the same for 2 identical devices attached
 		while spdrpFriendlyName returns a specific name, e.g.: "CDC-ACM (COM44)",
-		the result of spdrpFriendlyName is therefore unique and suitable as an alternative string to for a port choice */
+		the result of spdrpFriendlyName is therefore unique and suitable as an alternative string for a port choice */
 	n := uint32(0)
-	setupDiGetDeviceRegistryProperty(device.set, &device.data, spdrpFriendlyName /* spdrpDeviceDesc */, nil, nil, 0, &n)
+	setupDiGetDeviceRegistryProperty(device.set, device.data, windows.SPDRP_FRIENDLYNAME, nil, nil, 0, &n)
 	if n > 0 {
 		buff := make([]uint16, n*2)
 		buffP := (*byte)(unsafe.Pointer(&buff[0]))
-		if setupDiGetDeviceRegistryProperty(device.set, &device.data, spdrpFriendlyName /* spdrpDeviceDesc */, nil, buffP, n, &n) {
+		if setupDiGetDeviceRegistryProperty(device.set, device.data, windows.SPDRP_FRIENDLYNAME, nil, buffP, n, &n) {
 			details.Product = syscall.UTF16ToString(buff[:])
 		}
 	}
 
+	if details.IsUSB {
+		if hub, port, err := findUsbHubAndPortConnectedToDevice(device); err == nil {
+			defer hub.Close()
+
+			if usbDesc, err := hub.GetDeviceDescriptorForPort(port); err == nil {
+				if usbDesc.IManufacturer != 0 {
+					details.Manufacturer, _ = hub.GetStringDescriptorForPort(port, usbDesc.IManufacturer, langIDEnglishUS)
+				}
+				if usbDesc.IProduct != 0 {
+					details.Product, _ = hub.GetStringDescriptorForPort(port, usbDesc.IProduct, langIDEnglishUS)
+				}
+			}
+
+			configDesc, err := hub.GetConfigDescriptorForPort(port)
+			if err == nil && configDesc.IConfiguration != 0 {
+				details.Configuration, _ = hub.GetStringDescriptorForPort(port, configDesc.IConfiguration, langIDEnglishUS)
+			}
+		}
+	}
+
 	return nil
+}
+
+// ---- USB hub IOCTL path for iManufacturer/iProduct/iConfiguration retrieval ----
+//
+// Mirrors the approach used by USBView (Windows-driver-samples/usb/usbview/enum.c):
+//   1. Enumerate all USB hub device interfaces.
+//   2. For each hub, iterate its ports and match by driver key name.
+//   3. On match, read the USB Device/Configuration Descriptor string indexes.
+//   4. Fetch String Descriptors at those indexes (language 0x0409, English).
+
+// GUID_DEVINTERFACE_USB_HUB = {f18a0e88-c30c-11d0-8815-00a0c906bed8}
+var guidDevInterfaceUSBHub, _ = windows.GUIDFromString("{f18a0e88-c30c-11d0-8815-00a0c906bed8}")
+
+const (
+	// CTL_CODE(FILE_DEVICE_USB=0x22, fn, METHOD_BUFFERED=0, FILE_ANY_ACCESS=0)
+	ioctlUsbGetNodeInformation              = 0x220404 // fn=0x101
+	ioctlUsbGetNodeConnectionDriverkeyName  = 0x220420 // fn=0x108
+	ioctlUsbGetDescriptorFromNodeConnection = 0x220410 // fn=0x104
+
+	usbDeviceDescriptorType        = 0x01
+	usbConfigurationDescriptorType = 0x02
+	usbStringDescriptorType        = 0x03
+	maximumUsbStringLength         = 255
+	langIDEnglishUS                = 0x0409
+)
+
+// usbDescriptorRequest corresponds to USB_DESCRIPTOR_REQUEST.
+// SetupPacket fields follow ConnectionIndex directly (no padding in the C struct).
+type usbDescriptorRequest struct {
+	ConnectionIndex uint32
+	BmRequest       uint8
+	BRequest        uint8
+	WValue          uint16
+	WIndex          uint16
+	WLength         uint16
+}
+
+// usbConfigurationDescriptor is the 9-byte USB Configuration Descriptor header.
+type usbConfigurationDescriptor struct {
+	BLength             uint8
+	BDescriptorType     uint8
+	WTotalLength        uint16
+	BNumInterfaces      uint8
+	BConfigurationValue uint8
+	IConfiguration      uint8
+	BmAttributes        uint8
+	MaxPower            uint8
+}
+
+// usbDeviceDescriptor is the 18-byte USB Device Descriptor.
+type usbDeviceDescriptor struct {
+	BLength            uint8
+	BDescriptorType    uint8
+	BcdUSB             uint16
+	BDeviceClass       uint8
+	BDeviceSubClass    uint8
+	BDeviceProtocol    uint8
+	BMaxPacketSize0    uint8
+	IdVendor           uint16
+	IdProduct          uint16
+	BcdDevice          uint16
+	IManufacturer      uint8
+	IProduct           uint8
+	ISerialNumber      uint8
+	BNumConfigurations uint8
+}
+
+// usbStringDescriptorHeader is the 2-byte prefix of a USB String Descriptor.
+type usbStringDescriptorHeader struct {
+	BLength         uint8
+	BDescriptorType uint8
+}
+
+// cmDrpDriver is the CM_DRP_DRIVER property code (1-based, unlike SPDRP which is 0-based).
+const cmDrpDriver = 0xA
+
+// devInstanceGetDriverKey retrieves the SPDRP_DRIVER equivalent for a raw windows.DEVINST
+// using CM_Get_DevNode_Registry_PropertyW.
+func devInstanceGetDriverKey(inst windows.DEVINST) string {
+	var size uint32
+	cmGetDevNodeRegistryProperty(inst, cmDrpDriver, nil, nil, &size, 0)
+	if size == 0 {
+		return ""
+	}
+	buf := make([]byte, size)
+	if err := cmConvertError(cmGetDevNodeRegistryProperty(inst, cmDrpDriver, nil, &buf[0], &size, 0)); err != nil {
+		return ""
+	}
+	nChars := size / 2
+	if nChars == 0 {
+		return ""
+	}
+	return windows.UTF16ToString(unsafe.Slice((*uint16)(unsafe.Pointer(&buf[0])), nChars))
+}
+
+// findUSBPortDriverKey walks up the devnode tree from inst to find the device
+// directly attached to a USB hub port (instance ID starts with "USB\") and
+// returns its driver key. This is the key that IOCTL_USB_GET_NODE_CONNECTION_DRIVERKEY_NAME
+// returns. For single-function USB serial devices the COM port IS that device;
+// for composite USB devices the COM port is a child and we need the parent.
+func findUSBPortDriverKey(inst windows.DEVINST) (string, error) {
+	for range 5 {
+		id, err := getDeviceID(inst)
+		if err != nil {
+			return "", err
+		}
+		uid := strings.ToUpper(id)
+		// Skip composite device interfaces (e.g. USB\VID_...&MI_00\...).
+		// The device directly on the hub port has no &MI_ in its instance ID.
+		if strings.HasPrefix(uid, "USB\\") && !strings.Contains(uid, "&MI_") {
+			if dk := devInstanceGetDriverKey(inst); dk != "" {
+				return dk, nil
+			}
+		}
+		parent, err := getParent(inst)
+		if err != nil {
+			return "", err
+		}
+		inst = parent
+	}
+	return "", fmt.Errorf("USB port driver key not found in devnode tree")
+}
+
+// enumerateUSBHubs enumerate all USB hub device interface paths.
+func enumerateUSBHubs() ([]string, error) {
+	// Passing "" as deviceID asks for all interfaces of this class.
+	return windows.CM_Get_Device_Interface_List("", &guidDevInterfaceUSBHub, windows.CM_GET_DEVICE_INTERFACE_LIST_PRESENT)
+}
+
+type usbHub windows.Handle
+
+func openUsbHub(hubPath string) (usbHub, error) {
+	hubPathPtr, err := syscall.UTF16PtrFromString(hubPath)
+	if err != nil {
+		return 0, err
+	}
+	hHub, err := windows.CreateFile(
+		hubPathPtr,
+		windows.GENERIC_READ|windows.GENERIC_WRITE,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE,
+		nil,
+		windows.OPEN_EXISTING,
+		0,
+		0,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return usbHub(hHub), nil
+}
+
+func (hub usbHub) Close() error {
+	return windows.CloseHandle(windows.Handle(hub))
+}
+
+func usbHubDeviceIoControl[T any](hub usbHub, ioctl uint32, buffer *T) (bytesReturned uint32, err error) {
+	err = windows.DeviceIoControl(
+		windows.Handle(hub),
+		ioctl,
+		(*byte)(unsafe.Pointer(buffer)), uint32(unsafe.Sizeof(*buffer)),
+		(*byte)(unsafe.Pointer(buffer)), uint32(unsafe.Sizeof(*buffer)),
+		&bytesReturned,
+		nil,
+	)
+	return bytesReturned, err
+}
+
+func findUsbHubAndPortConnectedToDevice(device *deviceInfo) (usbHub, uint32, error) {
+	// Find the driver key of the USB device directly attached to the hub port.
+	// For composite USB devices the COM port is a child; we need the parent's key.
+	targetDriverKey, err := findUSBPortDriverKey(device.data.DevInst)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	hubPaths, _ := enumerateUSBHubs()
+	for _, hubPath := range hubPaths {
+		hub, err := openUsbHub(hubPath)
+		if err != nil {
+			continue
+		}
+
+		if port, found := hub.FindPortConnectedToDeviceKey(targetDriverKey); found {
+			return hub, port, nil
+		}
+
+		hub.Close()
+	}
+	return 0, 0, fmt.Errorf("USB hub port connected to device not found")
+}
+
+func (hub usbHub) FindPortConnectedToDeviceKey(targetDriverKey string) (portIndex uint32, found bool) {
+	ports, err := hub.GetNumberOfPorts()
+	if err != nil || ports == 0 {
+		// Fall back to scanning a reasonable maximum.
+		ports = 16
+	}
+	for portIndex := uint32(1); portIndex <= ports; portIndex++ {
+		driverKey, err := hub.GetPortDriverKey(portIndex)
+		if err != nil {
+			continue
+		}
+		if strings.EqualFold(driverKey, targetDriverKey) {
+			return portIndex, true
+		}
+	}
+	return 0, false
+}
+
+func (hub usbHub) GetNumberOfPorts() (uint32, error) {
+	// hubInfo overlaps the beginning of USB_NODE_INFORMATION for hubs
+	// to extract bNumberOfPorts.
+	var hubInfo struct {
+		NodeType         uint32
+		DescriptorLength uint8
+		DescriptorType   uint8
+		NumberOfPorts    uint8
+	}
+
+	// Ask hub for its number of ports via IOCTL_USB_GET_NODE_INFORMATION.
+	_, err := usbHubDeviceIoControl(hub, ioctlUsbGetNodeInformation, &hubInfo)
+	return uint32(hubInfo.NumberOfPorts), err
+}
+
+// GetDeviceDescriptorForPort the USB Device Descriptor for the device at portIndex.
+func (hub usbHub) GetDeviceDescriptorForPort(portIndex uint32) (usbDeviceDescriptor, error) {
+	var buff struct {
+		req  usbDescriptorRequest
+		resp usbDeviceDescriptor
+	}
+	buff.req.ConnectionIndex = portIndex
+	buff.req.WValue = usbDeviceDescriptorType << 8 // descriptor type in high byte, index 0 in low byte
+	buff.req.WLength = uint16(unsafe.Sizeof(buff.resp))
+	nBytes, err := usbHubDeviceIoControl(hub, ioctlUsbGetDescriptorFromNodeConnection, &buff)
+	expectedSize := uint32(unsafe.Sizeof(buff.req) + unsafe.Sizeof(buff.resp)) // cannot use sizeof(buff) because the struct has padding
+	if err != nil || nBytes < expectedSize {
+		return usbDeviceDescriptor{}, fmt.Errorf("device descriptor IOCTL failed: %w", err)
+	}
+
+	resp := buff.resp
+	if resp.BDescriptorType != usbDeviceDescriptorType {
+		return usbDeviceDescriptor{}, fmt.Errorf("unexpected descriptor type %d", resp.BDescriptorType)
+	}
+	return resp, nil
+}
+
+// hubPortDriverKey retrieves the driver key name of the device at portIndex on hHub
+// using IOCTL_USB_GET_NODE_CONNECTION_DRIVERKEY_NAME (mirrors GetDriverKeyName in enum.c).
+func (hub usbHub) GetPortDriverKey(portIndex uint32) (string, error) {
+	// The following structure corresponds to USB_NODE_CONNECTION_DRIVERKEY_NAME.
+	var req struct {
+		ConnectionIndex uint32
+		ActualLength    uint32
+		DriverKeyName   [1024]uint16 // assume max length of 1024 UTF-16 chars (2048 bytes), which is more than enough for a registry key path
+	}
+	req.ConnectionIndex = portIndex
+	_, err := usbHubDeviceIoControl(hub, ioctlUsbGetNodeConnectionDriverkeyName, &req)
+	if err != nil || req.ActualLength >= uint32(unsafe.Sizeof(req)) {
+		return "", fmt.Errorf("reading driver key")
+	}
+	r := windows.UTF16PtrToString(&req.DriverKeyName[0])
+	return r, nil
+}
+
+// hubConfigDescriptorIConfiguration retrieves the iConfiguration index byte from the
+// USB Configuration Descriptor for the device at portIndex (mirrors GetConfigDescriptor).
+func (hub usbHub) GetConfigDescriptorForPort(portIndex uint32) (usbConfigurationDescriptor, error) {
+	var buff struct {
+		req  usbDescriptorRequest
+		resp usbConfigurationDescriptor
+	}
+	buff.req.ConnectionIndex = portIndex
+	buff.req.WValue = usbConfigurationDescriptorType << 8 // descriptor type in high byte, index 0 in low byte
+	buff.req.WLength = uint16(unsafe.Sizeof(buff.resp))
+	nBytes, err := usbHubDeviceIoControl(hub, ioctlUsbGetDescriptorFromNodeConnection, &buff)
+	if err != nil {
+		return usbConfigurationDescriptor{}, fmt.Errorf("config descriptor IOCTL failed: %w", err)
+	}
+	expectedSize := uint32(unsafe.Sizeof(buff.req) + unsafe.Sizeof(buff.resp)) // cannot use sizeof(buff) because the struct has padding
+	if nBytes < expectedSize {
+		return usbConfigurationDescriptor{}, fmt.Errorf("config descriptor IOCTL returned insufficient data")
+	}
+
+	resp := buff.resp
+	if resp.BDescriptorType != usbConfigurationDescriptorType {
+		return usbConfigurationDescriptor{}, fmt.Errorf("unexpected descriptor type %d", resp.BDescriptorType)
+	}
+	return resp, nil
+}
+
+// hubStringDescriptor fetches the USB String Descriptor at descriptorIndex / languageID
+// and returns the decoded UTF-16 string (mirrors GetStringDescriptor in enum.c).
+func (hub usbHub) GetStringDescriptorForPort(portIndex uint32, descriptorIndex uint8, languageID uint16) (string, error) {
+	var buff struct {
+		req  usbDescriptorRequest
+		resp struct {
+			usbStringDescriptorHeader
+			data [maximumUsbStringLength]uint16
+		}
+	}
+	buff.req.ConnectionIndex = portIndex
+	buff.req.WValue = (usbStringDescriptorType << 8) | uint16(descriptorIndex)
+	buff.req.WIndex = languageID
+	buff.req.WLength = uint16(maximumUsbStringLength)
+	nBytes, err := usbHubDeviceIoControl(hub, ioctlUsbGetDescriptorFromNodeConnection, &buff)
+	if err != nil {
+		return "", fmt.Errorf("string descriptor IOCTL failed: %w", err)
+	}
+	if nBytes < uint32(unsafe.Sizeof(buff.req))+2 {
+		return "", fmt.Errorf("string descriptor IOCTL returned insufficient data")
+	}
+
+	resp := buff.resp
+	if resp.BDescriptorType != usbStringDescriptorType {
+		return "", fmt.Errorf("unexpected descriptor type %d", resp.BDescriptorType)
+	}
+	strLen := uint32(resp.BLength)
+	if strLen < 2 || strLen%2 != 0 {
+		return "", fmt.Errorf("invalid string descriptor length: %d bytes", strLen)
+	}
+	numChars := (strLen - 2) / 2
+	if numChars == 0 {
+		return "", nil
+	}
+	return windows.UTF16ToString(resp.data[:numChars]), nil
 }

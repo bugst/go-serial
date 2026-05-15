@@ -76,21 +76,26 @@ func parseUSBSysFS(usbDevicePath string, details *PortDetails) error {
 	if err != nil {
 		return err
 	}
-	//manufacturer, err := readLine(filepath.Join(usbDevicePath, "manufacturer"))
-	//if err != nil {
-	//	return err
-	//}
-	//product, err := readLine(filepath.Join(usbDevicePath, "product"))
-	//if err != nil {
-	//	return err
-	//}
+
+	configuration, _ := readLine(filepath.Join(usbDevicePath, "configuration"))
+	// It's not an error if the configuration file is not present, so we ignore it.
+
+	manufacturer, err := readLine(filepath.Join(usbDevicePath, "manufacturer"))
+	if err != nil {
+		return err
+	}
+	product, err := readLine(filepath.Join(usbDevicePath, "product"))
+	if err != nil {
+		return err
+	}
 
 	details.IsUSB = true
 	details.VID = vid
 	details.PID = pid
 	details.SerialNumber = serial
-	//details.Manufacturer = manufacturer
-	//details.Product = product
+	details.Configuration = configuration
+	details.Manufacturer = manufacturer
+	details.Product = product
 	return nil
 }
 
