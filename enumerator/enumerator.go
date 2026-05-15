@@ -11,18 +11,21 @@ package enumerator
 // PortDetails contains detailed information about USB serial port.
 // Use GetDetailedPortsList function to retrieve it.
 type PortDetails struct {
-	Name          string
-	IsUSB         bool
-	VID           string
-	PID           string
-	SerialNumber  string
+	// Name is the port address, like COM1 on Windows or /dev/ttyUSB0 on Linux.
+	Name string
+	// IsUSB is true if the port is a USB serial port, false otherwise.
+	IsUSB bool
+	// VID is the USB Vendor ID, when available.
+	VID string
+	// PID is the USB Product ID, when available.
+	PID string
+	// SerialNumber is the USB serial number, when available.
+	SerialNumber string
+	// Configuration is the USB configuration string, when available.
 	Configuration string
-
 	// Manufacturer is the USB iManufacturer string, when available.
 	Manufacturer string
-
-	// Product is an OS-dependent string that describes the serial port, it may
-	// be not always available and it may be different across OS.
+	// Product is the USB iProduct string, when available.
 	Product string
 }
 
