@@ -92,9 +92,18 @@ func extractPortInfo(service io_registry_entry_t) (*PortDetails, error) {
 	usbDevice := service
 	var searchErr error
 	for !validUSBDeviceClass[usbDevice.GetClass()] {
-		if usbDevice, searchErr = usbDevice.GetParent("IOService"); searchErr != nil {
+		parent, err := usbDevice.GetParent("IOService")
+		if err != nil {
+			searchErr = err
 			break
 		}
+		if usbDevice != service {
+			usbDevice.Release()
+		}
+		usbDevice = parent
+	}
+	if usbDevice != service {
+		defer usbDevice.Release()
 	}
 	if searchErr == nil {
 		// It's an IOUSBDevice
