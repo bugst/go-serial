@@ -13,133 +13,33 @@ package enumerator
 // #include <CoreFoundation/CoreFoundation.h>
 // #include <stdlib.h>
 //
-// static char *copyUSBConfigurationString(io_service_t service) {
-// 	IOCFPlugInInterface **plugin = NULL;
-// 	IOUSBDeviceInterface **device = NULL;
-// 	IOUSBConfigurationDescriptorPtr configDesc = NULL;
-// 	SInt32 score = 0;
-// 	HRESULT result = S_OK;
-// 	kern_return_t kr;
-// 	UInt8 currentConfig = 0;
-// 	UInt8 numConfigs = 0;
-// 	UInt8 stringIndex = 0;
-// 	UInt8 index;
-// 	UInt16 langID = 0x0409;
-// 	IOUSBDevRequest request;
-// 	UInt8 buffer[1024];
-// 	UInt16 descriptorLength;
-// 	CFStringRef configuration = NULL;
-// 	CFIndex outputSize;
-// 	char *output = NULL;
-// 	UInt8 isOpen = 0;
+// HRESULT callIOCFPlugin_QueryInterface(IOCFPlugInInterface **plugin, REFIID iid, LPVOID *ppv) {
+//   return (*plugin)->QueryInterface(plugin, iid, ppv);
+// }
+// HRESULT callIOCFPlugin_Release(IOCFPlugInInterface **plugin) {
+//   return (*plugin)->Release(plugin);
+// }
 //
-// 	kr = IOCreatePlugInInterfaceForService(service,
-// 		kIOUSBDeviceUserClientTypeID,
-// 		kIOCFPlugInInterfaceID,
-// 		&plugin,
-// 		&score);
-// 	if (kr != kIOReturnSuccess || plugin == NULL) {
-// 		goto cleanup;
-// 	}
-//
-// 	result = (*plugin)->QueryInterface(plugin,
-// 		CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID),
-// 		(LPVOID *)&device);
-// 	(*plugin)->Release(plugin);
-// 	plugin = NULL;
-// 	if (result != S_OK || device == NULL) {
-// 		goto cleanup;
-// 	}
-//
-// 	kr = (*device)->USBDeviceOpen(device);
-// 	if (kr != kIOReturnSuccess) {
-// 		goto cleanup;
-// 	}
-// 	isOpen = 1;
-//
-// 	kr = (*device)->GetConfiguration(device, &currentConfig);
-// 	if (kr != kIOReturnSuccess || currentConfig == 0) {
-// 		goto cleanup;
-// 	}
-//
-// 	kr = (*device)->GetNumberOfConfigurations(device, &numConfigs);
-// 	if (kr != kIOReturnSuccess) {
-// 		goto cleanup;
-// 	}
-// 	for (index = 0; index < numConfigs; index++) {
-// 		kr = (*device)->GetConfigurationDescriptorPtr(device, index, &configDesc);
-// 		if (kr == kIOReturnSuccess && configDesc != NULL && configDesc->bConfigurationValue == currentConfig) {
-// 			stringIndex = configDesc->iConfiguration;
-// 			break;
-// 		}
-// 	}
-// 	if (stringIndex == 0) {
-// 		goto cleanup;
-// 	}
-//
-// 	request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
-// 	request.bRequest = kUSBRqGetDescriptor;
-// 	request.wValue = (kUSBStringDesc << 8);
-// 	request.wIndex = 0;
-// 	request.wLength = sizeof(buffer);
-// 	request.pData = buffer;
-// 	kr = (*device)->DeviceRequest(device, &request);
-// 	if (kr == kIOReturnSuccess && request.wLenDone >= 4) {
-// 		langID = (UInt16)buffer[2] | ((UInt16)buffer[3] << 8);
-// 	}
-//
-// 	request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
-// 	request.bRequest = kUSBRqGetDescriptor;
-// 	request.wValue = ((UInt16)kUSBStringDesc << 8) | stringIndex;
-// 	request.wIndex = langID;
-// 	request.wLength = sizeof(buffer);
-// 	request.pData = buffer;
-// 	kr = (*device)->DeviceRequest(device, &request);
-// 	if (kr != kIOReturnSuccess || request.wLenDone < 2) {
-// 		goto cleanup;
-// 	}
-//
-// 	descriptorLength = buffer[0];
-// 	if (descriptorLength > request.wLenDone) {
-// 		descriptorLength = request.wLenDone;
-// 	}
-// 	if (descriptorLength <= 2) {
-// 		goto cleanup;
-// 	}
-//
-// 	configuration = CFStringCreateWithBytes(kCFAllocatorDefault,
-// 		buffer + 2,
-// 		descriptorLength - 2,
-// 		kCFStringEncodingUTF16LE,
-// 		false);
-// 	if (configuration == NULL) {
-// 		goto cleanup;
-// 	}
-//
-// 	outputSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(configuration), kCFStringEncodingUTF8) + 1;
-// 	output = (char *)malloc((size_t)outputSize);
-// 	if (output == NULL) {
-// 		goto cleanup;
-// 	}
-// 	if (!CFStringGetCString(configuration, output, outputSize, kCFStringEncodingUTF8)) {
-// 		free(output);
-// 		output = NULL;
-// 	}
-//
-// cleanup:
-// 	if (configuration != NULL) {
-// 		CFRelease(configuration);
-// 	}
-// 	if (device != NULL && isOpen) {
-// 		(*device)->USBDeviceClose(device);
-// 	}
-// 	if (device != NULL) {
-// 		(*device)->Release(device);
-// 	}
-// 	if (plugin != NULL) {
-// 		(*plugin)->Release(plugin);
-// 	}
-// 	return output;
+// IOReturn callIOUSBDevice_USBDeviceOpen(IOUSBDeviceInterface **device) {
+//   return (*device)->USBDeviceOpen(device);
+// }
+// IOReturn callIOUSBDevice_USBDeviceClose(IOUSBDeviceInterface **device) {
+//   return (*device)->USBDeviceClose(device);
+// }
+// ULONG callIOUSBDdevice_Release(IOUSBDeviceInterface **device) {
+//   return (*device)->Release(device);
+// }
+// IOReturn callIOUSBDevice_GetConfiguration(IOUSBDeviceInterface **device, UInt8 *config) {
+//   return (*device)->GetConfiguration(device, config);
+// }
+// IOReturn callIOUSBDevice_GetNumberOfConfigurations(IOUSBDeviceInterface **device, UInt8 *numConfigs) {
+//   return (*device)->GetNumberOfConfigurations(device, numConfigs);
+// }
+// IOReturn callIOUSBDevice_GetConfigurationDescriptorPtr(IOUSBDeviceInterface **device, UInt8 index, IOUSBConfigurationDescriptorPtr *configDesc) {
+//   return (*device)->GetConfigurationDescriptorPtr(device, index, configDesc);
+// }
+// IOReturn callIOUSBDevice_DeviceRequest(IOUSBDeviceInterface **device, IOUSBDevRequest *request) {
+//   return (*device)->DeviceRequest(device, request);
 // }
 import "C"
 import (
@@ -271,8 +171,33 @@ type cfStringRef C.CFStringRef
 func cfStringCreateWithString(s string) cfStringRef {
 	c := C.CString(s)
 	defer C.free(unsafe.Pointer(c))
-	return cfStringRef(C.CFStringCreateWithCString(
-		C.kCFAllocatorDefault, c, C.kCFStringEncodingMacRoman))
+	return cfStringRef(C.CFStringCreateWithCString(C.kCFAllocatorDefault, c, C.kCFStringEncodingMacRoman))
+}
+
+func cfStringCreateWithBytes(data unsafe.Pointer, len uint32, encoding C.CFStringEncoding) (cfStringRef, bool) {
+	str := C.CFStringCreateWithBytes(C.kCFAllocatorDefault, (*C.uint8_t)(data), C.CFIndex(len), encoding, C.FALSE)
+	return cfStringRef(str), str != 0
+}
+
+func (ref cfStringRef) GetLength() uint32 {
+	return uint32(C.CFStringGetLength(C.CFStringRef(ref)))
+}
+
+func (ref cfStringRef) GetMaximumSizeForEncoding(encoding C.CFStringEncoding) uint32 {
+	return uint32(C.CFStringGetMaximumSizeForEncoding(C.CFIndex(ref.GetLength()), encoding))
+}
+
+func (ref cfStringRef) GetGoString() (string, bool) {
+	maxSize := ref.GetMaximumSizeForEncoding(C.kCFStringEncodingUTF8) + 1
+	buff := C.malloc(C.size_t(maxSize))
+	if buff == nil {
+		return "", false
+	}
+	defer C.free(buff)
+	if C.CFStringGetCString(C.CFStringRef(ref), (*C.char)(buff), C.CFIndex(maxSize), C.kCFStringEncodingUTF8) == C.false {
+		return "", false
+	}
+	return C.GoString((*C.char)(buff)), true
 }
 
 func (ref cfStringRef) Release() {
@@ -332,12 +257,11 @@ func (me *io_registry_entry_t) GetStringProperty(key string) (string, error) {
 }
 
 func (me *io_registry_entry_t) GetUSBConfigurationString() (string, error) {
-	configuration := C.copyUSBConfigurationString(C.io_service_t(*me))
-	if configuration == nil {
-		return "", errors.New("USB configuration string not available")
+	configuration, err := RetrieveUSBConfigurationString(io_service_t(*me))
+	if err != nil {
+		return "", fmt.Errorf("USB configuration string not available: %w", err)
 	}
-	defer C.free(unsafe.Pointer(configuration))
-	return C.GoString(configuration), nil
+	return configuration, nil
 }
 
 func (me *io_registry_entry_t) GetIntProperty(key string, intType C.CFNumberType) (int, error) {
@@ -401,4 +325,195 @@ func (me *io_object_t) GetClass() string {
 	class := make([]C.char, 1024)
 	C.IOObjectGetClass(C.io_object_t(*me), &class[0])
 	return C.GoString(&class[0])
+}
+
+// io_service_t
+
+type io_service_t C.io_service_t
+
+func (me *io_service_t) IOCreatePlugInInterfaceForService() (plugin *IOCFPlugIn, score int32, err error) {
+	res := IOCFPlugIn{}
+	var s C.SInt32
+	kr := C.IOCreatePlugInInterfaceForService(C.io_service_t(*me), C.kIOUSBDeviceUserClientTypeID, C.kIOCFPlugInInterfaceID, &res.h, &s)
+	if kr != C.kIOReturnSuccess || res.h == nil {
+		return nil, 0, fmt.Errorf("IOCreatePlugInInterfaceForService failed (code %d)", kr)
+	}
+	return &res, int32(s), nil
+}
+
+// IOCFPlugInInterface
+
+type IOCFPlugIn struct {
+	h **C.IOCFPlugInInterface
+}
+
+func (me *IOCFPlugIn) QueryIOUSBDeviceInterface() (*IOUSBDevice, error) {
+	var device **C.IOUSBDeviceInterface
+	result := C.callIOCFPlugin_QueryInterface(me.h, C.CFUUIDGetUUIDBytes(C.kIOUSBDeviceInterfaceID), (*C.LPVOID)(unsafe.Pointer(&device)))
+	if result != C.S_OK {
+		return nil, fmt.Errorf("QueryInterface failed (code %d)", result)
+	}
+	return &IOUSBDevice{h: device}, nil
+}
+
+func (me *IOCFPlugIn) Release() {
+	C.callIOCFPlugin_Release(me.h)
+}
+
+// IOUSBDeviceInterface
+
+type IOUSBDevice struct {
+	h **C.IOUSBDeviceInterface
+}
+
+func (me *IOUSBDevice) USBDeviceOpen() error {
+	kr := C.callIOUSBDevice_USBDeviceOpen(me.h)
+	if kr != C.kIOReturnSuccess {
+		return fmt.Errorf("USBDeviceOpen failed (code %d)", kr)
+	}
+	return nil
+}
+
+func (me *IOUSBDevice) USBDeviceClose() error {
+	kr := C.callIOUSBDevice_USBDeviceClose(me.h)
+	if kr != C.kIOReturnSuccess {
+		return fmt.Errorf("USBDeviceClose failed (code %d)", kr)
+	}
+	return nil
+}
+
+func (me *IOUSBDevice) Release() {
+	C.callIOUSBDdevice_Release(me.h)
+}
+
+func (me *IOUSBDevice) GetConfiguration() (uint8, error) {
+	var config C.UInt8
+	kr := C.callIOUSBDevice_GetConfiguration(me.h, &config)
+	if kr != C.kIOReturnSuccess {
+		return 0, fmt.Errorf("GetConfiguration failed (code %d)", kr)
+	}
+	return uint8(config), nil
+}
+
+func (me *IOUSBDevice) GetNumberOfConfigurations() (uint8, error) {
+	var numConfigs C.UInt8
+	kr := C.callIOUSBDevice_GetNumberOfConfigurations(me.h, &numConfigs)
+	if kr != C.kIOReturnSuccess {
+		return 0, fmt.Errorf("GetNumberOfConfigurations failed (code %d)", kr)
+	}
+	return uint8(numConfigs), nil
+}
+
+func (me *IOUSBDevice) GetConfigurationDescriptorPtr(index uint8) (C.IOUSBConfigurationDescriptorPtr, error) {
+	var configDesc C.IOUSBConfigurationDescriptorPtr
+	kr := C.callIOUSBDevice_GetConfigurationDescriptorPtr(me.h, C.UInt8(index), &configDesc)
+	if kr != C.kIOReturnSuccess {
+		return nil, fmt.Errorf("GetConfigurationDescriptorPtr failed (code %d)", kr)
+	}
+	return configDesc, nil
+}
+
+func (me *IOUSBDevice) DeviceRequest(request *C.IOUSBDevRequest) error {
+	kr := C.callIOUSBDevice_DeviceRequest(me.h, request)
+	if kr != C.kIOReturnSuccess {
+		return fmt.Errorf("DeviceRequest failed (code %d)", kr)
+	}
+	return nil
+}
+
+func RetrieveUSBConfigurationString(service io_service_t) (string, error) {
+	plugin, _, err := service.IOCreatePlugInInterfaceForService()
+	if err != nil {
+		return "", err
+	}
+	defer plugin.Release()
+
+	device, err := plugin.QueryIOUSBDeviceInterface()
+	if err != nil {
+		return "", fmt.Errorf("QueryInterface for IOUSBDeviceInterface failed: %w", err)
+	}
+	if device == nil {
+		return "", errors.New("IOUSBDeviceInterface not found")
+	}
+	defer device.Release()
+
+	if err := device.USBDeviceOpen(); err != nil {
+		return "", fmt.Errorf("USBDeviceOpen failed: %w", err)
+	}
+	defer device.USBDeviceClose()
+
+	currentConfig, err := device.GetConfiguration()
+	if err != nil || currentConfig == 0 {
+		return "", fmt.Errorf("GetConfiguration failed or returned 0: %w", err)
+	}
+
+	numConfigs, err := device.GetNumberOfConfigurations()
+	if err != nil {
+		return "", fmt.Errorf("GetNumberOfConfigurations failed: %w", err)
+	}
+
+	var stringIndex uint8
+	for index := range numConfigs {
+		configDesc, err := device.GetConfigurationDescriptorPtr(index)
+		if err == nil && configDesc != nil && uint8(configDesc.bConfigurationValue) == currentConfig {
+			stringIndex = uint8(configDesc.iConfiguration)
+			break
+		}
+	}
+	if stringIndex == 0 {
+		return "", errors.New("configuration string index not found")
+	}
+
+	pData := C.malloc(1024)
+	if pData == nil {
+		return "", errors.New("failed to allocate memory for USB request")
+	}
+	buffer := unsafe.Slice((*uint8)(pData), 1024)
+	defer C.free(pData)
+	request1 := C.IOUSBDevRequest{
+		bmRequestType: (C.kUSBIn << 7) | (C.kUSBStandard << 5) | C.kUSBDevice,
+		bRequest:      C.kUSBRqGetDescriptor,
+		wValue:        C.UInt16(C.kUSBStringDesc << 8),
+		wIndex:        0,
+		wLength:       1024,
+		pData:         pData,
+	}
+	if err := device.DeviceRequest(&request1); err != nil {
+		return "", fmt.Errorf("DeviceRequest failed: %w", err)
+	}
+	var langID uint16 = 0x0409
+	if request1.wLenDone >= 4 {
+		langID = uint16(buffer[2]) | (uint16(buffer[3]) << 8)
+	}
+
+	request2 := C.IOUSBDevRequest{
+		bmRequestType: (C.kUSBIn << 7) | (C.kUSBStandard << 5) | C.kUSBDevice,
+		bRequest:      C.kUSBRqGetDescriptor,
+		wValue:        C.UInt16(C.kUSBStringDesc<<8) | C.UInt16(stringIndex),
+		wIndex:        C.UInt16(langID),
+		wLength:       1024,
+		pData:         pData,
+	}
+	if err := device.DeviceRequest(&request2); err != nil {
+		return "", fmt.Errorf("DeviceRequest failed: %w", err)
+	}
+	if request2.wLenDone < 2 {
+		return "", errors.New("invalid response length for configuration string")
+	}
+
+	descriptorLength := min(uint32(buffer[0]), uint32(request2.wLenDone))
+	if descriptorLength <= 2 {
+		return "", errors.New("descriptor length too short for configuration string")
+	}
+
+	cfConfiguration, ok := cfStringCreateWithBytes(unsafe.Add(pData, 2), descriptorLength-2, C.kCFStringEncodingUTF16LE)
+	if !ok {
+		return "", errors.New("failed to create CFString from bytes")
+	}
+	defer cfConfiguration.Release()
+	configuration, ok := cfConfiguration.GetGoString()
+	if !ok {
+		return "", errors.New("failed to convert CFString to Go string")
+	}
+	return configuration, nil
 }
