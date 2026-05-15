@@ -56,9 +56,13 @@ func nativeGetDetailedPortsList() ([]*PortDetails, error) {
 	if err != nil {
 		return nil, &PortEnumerationError{causedBy: err}
 	}
-	for _, service := range services {
-		defer service.Release()
+	defer func() {
+		for _, service := range services {
+			service.Release()
+		}
+	}()
 
+	for _, service := range services {
 		port, err := extractPortInfo(io_registry_entry_t(service))
 		if err != nil {
 			return nil, &PortEnumerationError{causedBy: err}
