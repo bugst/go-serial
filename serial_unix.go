@@ -109,7 +109,26 @@ func (port *unixPort) Read(p []byte) (int, error) {
 	}
 }
 
+// withGuard runs op while the port is held open, mirroring the guard used by
+// Read: it takes the close-lock read side and verifies the port is still open
+// before op touches the file descriptor. Without it, a method called after (or
+// concurrently with) Close would operate on a closed fd whose number the OS may
+// already have reassigned to another file. Returns PortClosed when closed.
+func (port *unixPort) withGuard(op func() error) error {
+	port.closeLock.RLock()
+	defer port.closeLock.RUnlock()
+	if atomic.LoadUint32(&port.opened) != 1 {
+		return &PortError{code: PortClosed}
+	}
+	return op()
+}
+
 func (port *unixPort) Write(p []byte) (n int, err error) {
+	port.closeLock.RLock()
+	defer port.closeLock.RUnlock()
+	if atomic.LoadUint32(&port.opened) != 1 {
+		return 0, &PortError{code: PortClosed}
+	}
 	n, err = unix.Write(port.handle, p)
 	if n < 0 { // Do not return -1 unix errors
 		n = 0
@@ -118,76 +137,84 @@ func (port *unixPort) Write(p []byte) (n int, err error) {
 }
 
 func (port *unixPort) Break(t time.Duration) error {
-	if err := unix.IoctlSetInt(port.handle, ioctlTiocsbrk, 0); err != nil {
-		return err
-	}
+	return port.withGuard(func() error {
+		if err := unix.IoctlSetInt(port.handle, ioctlTiocsbrk, 0); err != nil {
+			return err
+		}
 
-	time.Sleep(t)
+		time.Sleep(t)
 
-	if err := unix.IoctlSetInt(port.handle, ioctlTioccbrk, 0); err != nil {
-		return err
-	}
+		if err := unix.IoctlSetInt(port.handle, ioctlTioccbrk, 0); err != nil {
+			return err
+		}
 
-	return nil
+		return nil
+	})
 }
 
 func (port *unixPort) SetMode(mode *Mode) error {
-	settings, err := port.getTermSettings()
-	if err != nil {
-		return err
-	}
-	if err := setTermSettingsParity(mode.Parity, settings); err != nil {
-		return err
-	}
-	if err := setTermSettingsDataBits(mode.DataBits, settings); err != nil {
-		return err
-	}
-	if err := setTermSettingsStopBits(mode.StopBits, settings); err != nil {
-		return err
-	}
-	requireSpecialBaudrate := false
-	if err, special := setTermSettingsBaudrate(mode.BaudRate, settings); err != nil {
-		return err
-	} else if special {
-		requireSpecialBaudrate = true
-	}
-	if err := port.setTermSettings(settings); err != nil {
-		return err
-	}
-	if requireSpecialBaudrate {
-		// MacOSX require this one to be the last operation otherwise an
-		// 'Invalid serial port' error is produced.
-		if err := port.setSpecialBaudrate(uint32(mode.BaudRate)); err != nil {
+	return port.withGuard(func() error {
+		settings, err := port.getTermSettings()
+		if err != nil {
 			return err
 		}
-	}
-	return nil
+		if err := setTermSettingsParity(mode.Parity, settings); err != nil {
+			return err
+		}
+		if err := setTermSettingsDataBits(mode.DataBits, settings); err != nil {
+			return err
+		}
+		if err := setTermSettingsStopBits(mode.StopBits, settings); err != nil {
+			return err
+		}
+		requireSpecialBaudrate := false
+		if err, special := setTermSettingsBaudrate(mode.BaudRate, settings); err != nil {
+			return err
+		} else if special {
+			requireSpecialBaudrate = true
+		}
+		if err := port.setTermSettings(settings); err != nil {
+			return err
+		}
+		if requireSpecialBaudrate {
+			// MacOSX require this one to be the last operation otherwise an
+			// 'Invalid serial port' error is produced.
+			if err := port.setSpecialBaudrate(uint32(mode.BaudRate)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (port *unixPort) SetDTR(dtr bool) error {
-	status, err := port.getModemBitsStatus()
-	if err != nil {
-		return err
-	}
-	if dtr {
-		status |= unix.TIOCM_DTR
-	} else {
-		status &^= unix.TIOCM_DTR
-	}
-	return port.setModemBitsStatus(status)
+	return port.withGuard(func() error {
+		status, err := port.getModemBitsStatus()
+		if err != nil {
+			return err
+		}
+		if dtr {
+			status |= unix.TIOCM_DTR
+		} else {
+			status &^= unix.TIOCM_DTR
+		}
+		return port.setModemBitsStatus(status)
+	})
 }
 
 func (port *unixPort) SetRTS(rts bool) error {
-	status, err := port.getModemBitsStatus()
-	if err != nil {
-		return err
-	}
-	if rts {
-		status |= unix.TIOCM_RTS
-	} else {
-		status &^= unix.TIOCM_RTS
-	}
-	return port.setModemBitsStatus(status)
+	return port.withGuard(func() error {
+		status, err := port.getModemBitsStatus()
+		if err != nil {
+			return err
+		}
+		if rts {
+			status |= unix.TIOCM_RTS
+		} else {
+			status &^= unix.TIOCM_RTS
+		}
+		return port.setModemBitsStatus(status)
+	})
 }
 
 func (port *unixPort) SetReadTimeout(timeout time.Duration) error {
@@ -199,16 +226,21 @@ func (port *unixPort) SetReadTimeout(timeout time.Duration) error {
 }
 
 func (port *unixPort) GetModemStatusBits() (*ModemStatusBits, error) {
-	status, err := port.getModemBitsStatus()
-	if err != nil {
-		return nil, err
-	}
-	return &ModemStatusBits{
-		CTS: (status & unix.TIOCM_CTS) != 0,
-		DCD: (status & unix.TIOCM_CD) != 0,
-		DSR: (status & unix.TIOCM_DSR) != 0,
-		RI:  (status & unix.TIOCM_RI) != 0,
-	}, nil
+	var bits *ModemStatusBits
+	err := port.withGuard(func() error {
+		status, err := port.getModemBitsStatus()
+		if err != nil {
+			return err
+		}
+		bits = &ModemStatusBits{
+			CTS: (status & unix.TIOCM_CTS) != 0,
+			DCD: (status & unix.TIOCM_CD) != 0,
+			DSR: (status & unix.TIOCM_DSR) != 0,
+			RI:  (status & unix.TIOCM_RI) != 0,
+		}
+		return nil
+	})
+	return bits, err
 }
 
 func nativeOpen(portName string, mode *Mode) (*unixPort, error) {

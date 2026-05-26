@@ -38,9 +38,13 @@ func (port *unixPort) setSpecialBaudrate(speed uint32) error {
 }
 
 func (port *unixPort) ResetInputBuffer() error {
-	return unix.IoctlSetPointerInt(port.handle, ioctlTcflsh, unix.TCIFLUSH)
+	return port.withGuard(func() error {
+		return unix.IoctlSetPointerInt(port.handle, ioctlTcflsh, unix.TCIFLUSH)
+	})
 }
 
 func (port *unixPort) ResetOutputBuffer() error {
-	return unix.IoctlSetPointerInt(port.handle, ioctlTcflsh, unix.TCOFLUSH)
+	return port.withGuard(func() error {
+		return unix.IoctlSetPointerInt(port.handle, ioctlTcflsh, unix.TCOFLUSH)
+	})
 }
