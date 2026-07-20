@@ -150,6 +150,9 @@ func (port *unixPort) SetMode(mode *Mode) error {
 		return err
 	} else if special {
 		requireSpecialBaudrate = true
+		// fall back to a standard speed for setTermSettings.
+		settings.Ispeed = unix.B9600
+		settings.Ospeed = unix.B9600
 	}
 	if err := port.setTermSettings(settings); err != nil {
 		return err
@@ -233,6 +236,13 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	if err != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort, causedBy: fmt.Errorf("error getting term settings: %w", err)}
+	}
+
+	if _, nonstandard := setTermSettingsBaudrate(mode.BaudRate, settings); nonstandard {
+		// the OS cached a non-standard baudrate. fall back to a standard speed for setTermSettings.
+		// the non-standard baudrate in mode.BaudRate will be set afterwards.
+		settings.Ispeed = unix.B9600
+		settings.Ospeed = unix.B9600
 	}
 
 	// Set raw mode
