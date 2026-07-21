@@ -440,6 +440,45 @@ func (me *IOUSBDevice) DeviceRequest(request *C.IOUSBDevRequest) error {
 	return nil
 }
 
+func getUSBStringDescriptor(device *IOUSBDevice, descriptorIndex uint8, langID uint16, pData unsafe.Pointer, buffer []uint8) (uint32, error) {
+	if len(buffer) < 2 {
+		return 0, errors.New("buffer too small for USB string descriptor")
+	}
+
+	request := C.IOUSBDevRequest{
+		bmRequestType: (C.kUSBIn << 7) | (C.kUSBStandard << 5) | C.kUSBDevice,
+		bRequest:      C.kUSBRqGetDescriptor,
+		wValue:        C.UInt16(C.kUSBStringDesc<<8) | C.UInt16(descriptorIndex),
+		wIndex:        C.UInt16(langID),
+		wLength:       C.UInt16(len(buffer)),
+		pData:         pData,
+	}
+	if err := device.DeviceRequest(&request); err != nil {
+		return 0, err
+	}
+	if request.wLenDone < 2 {
+		return 0, errors.New("invalid response length for USB string descriptor")
+	}
+	if buffer[1] != uint8(C.kUSBStringDesc) {
+		return 0, fmt.Errorf("unexpected descriptor type %d", buffer[1])
+	}
+
+	descriptorLength := min(uint32(buffer[0]), uint32(request.wLenDone))
+	if descriptorLength < 2 {
+		return 0, errors.New("descriptor length too short")
+	}
+	return descriptorLength, nil
+}
+
+func appendUniqueLangID(ids []uint16, id uint16) []uint16 {
+	for _, existing := range ids {
+		if existing == id {
+			return ids
+		}
+	}
+	return append(ids, id)
+}
+
 func RetrieveUSBConfigurationString(service io_service_t) (string, error) {
 	plugin, _, err := service.IOCreatePlugInInterfaceForService()
 	if err != nil {
@@ -462,8 +501,8 @@ func RetrieveUSBConfigurationString(service io_service_t) (string, error) {
 	defer device.USBDeviceClose()
 
 	currentConfig, err := device.GetConfiguration()
-	if err != nil || currentConfig == 0 {
-		return "", fmt.Errorf("GetConfiguration failed or returned 0: %w", err)
+	if err != nil {
+		return "", fmt.Errorf("GetConfiguration failed: %w", err)
 	}
 
 	numConfigs, err := device.GetNumberOfConfigurations()
@@ -472,67 +511,84 @@ func RetrieveUSBConfigurationString(service io_service_t) (string, error) {
 	}
 
 	var stringIndex uint8
-	for index := range numConfigs {
+	var fallbackIndex uint8
+	for index := uint8(0); index < numConfigs; index++ {
 		configDesc, err := device.GetConfigurationDescriptorPtr(index)
-		if err == nil && configDesc != nil && uint8(configDesc.bConfigurationValue) == currentConfig {
-			stringIndex = uint8(configDesc.iConfiguration)
-			break
+		if err != nil || configDesc == nil {
+			continue
+		}
+
+		idx := uint8(configDesc.iConfiguration)
+		if idx != 0 && fallbackIndex == 0 {
+			fallbackIndex = idx
+		}
+
+		// Some devices expose multiple descriptors (e.g. HS/FS variants) with
+		// the same bConfigurationValue. Prefer the first non-zero index that
+		// matches the active configuration and stop to avoid overwriting it.
+		if currentConfig != 0 && uint8(configDesc.bConfigurationValue) == currentConfig {
+			if idx != 0 {
+				stringIndex = idx
+				break
+			}
+			if stringIndex == 0 {
+				stringIndex = idx
+			}
 		}
 	}
+
+	if stringIndex == 0 {
+		stringIndex = fallbackIndex
+	}
+
 	if stringIndex == 0 {
 		return "", errors.New("configuration string index not found")
 	}
 
-	pData := C.malloc(1024)
+	const maxUSBStringLength = 255
+	pData := C.malloc(maxUSBStringLength)
 	if pData == nil {
 		return "", errors.New("failed to allocate memory for USB request")
 	}
-	buffer := unsafe.Slice((*uint8)(pData), 1024)
+	buffer := unsafe.Slice((*uint8)(pData), maxUSBStringLength)
 	defer C.free(pData)
-	request1 := C.IOUSBDevRequest{
-		bmRequestType: (C.kUSBIn << 7) | (C.kUSBStandard << 5) | C.kUSBDevice,
-		bRequest:      C.kUSBRqGetDescriptor,
-		wValue:        C.UInt16(C.kUSBStringDesc << 8),
-		wIndex:        0,
-		wLength:       1024,
-		pData:         pData,
-	}
-	if err := device.DeviceRequest(&request1); err != nil {
-		return "", fmt.Errorf("DeviceRequest failed: %w", err)
-	}
-	var langID uint16 = 0x0409
-	if request1.wLenDone >= 4 {
-		langID = uint16(buffer[2]) | (uint16(buffer[3]) << 8)
+
+	langIDs := []uint16{0x0409}
+	if descriptorLength, err := getUSBStringDescriptor(device, 0, 0, pData, buffer); err == nil && descriptorLength >= 4 {
+		for i := uint32(2); i+1 < descriptorLength; i += 2 {
+			langID := uint16(buffer[i]) | (uint16(buffer[i+1]) << 8)
+			langIDs = appendUniqueLangID(langIDs, langID)
+		}
 	}
 
-	request2 := C.IOUSBDevRequest{
-		bmRequestType: (C.kUSBIn << 7) | (C.kUSBStandard << 5) | C.kUSBDevice,
-		bRequest:      C.kUSBRqGetDescriptor,
-		wValue:        C.UInt16(C.kUSBStringDesc<<8) | C.UInt16(stringIndex),
-		wIndex:        C.UInt16(langID),
-		wLength:       1024,
-		pData:         pData,
-	}
-	if err := device.DeviceRequest(&request2); err != nil {
-		return "", fmt.Errorf("DeviceRequest failed: %w", err)
-	}
-	if request2.wLenDone < 2 {
-		return "", errors.New("invalid response length for configuration string")
+	var lastErr error
+	for _, langID := range langIDs {
+		descriptorLength, err := getUSBStringDescriptor(device, stringIndex, langID, pData, buffer)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if descriptorLength <= 2 {
+			lastErr = errors.New("descriptor length too short for configuration string")
+			continue
+		}
+
+		cfConfiguration, ok := cfStringCreateWithBytes(unsafe.Add(pData, 2), descriptorLength-2, C.kCFStringEncodingUTF16LE)
+		if !ok {
+			lastErr = errors.New("failed to create CFString from bytes")
+			continue
+		}
+		defer cfConfiguration.Release()
+		configuration, ok := cfConfiguration.GetGoString()
+		if !ok {
+			lastErr = errors.New("failed to convert CFString to Go string")
+			continue
+		}
+		return configuration, nil
 	}
 
-	descriptorLength := min(uint32(buffer[0]), uint32(request2.wLenDone))
-	if descriptorLength <= 2 {
-		return "", errors.New("descriptor length too short for configuration string")
+	if lastErr != nil {
+		return "", fmt.Errorf("configuration string retrieval failed for all LANGIDs: %w", lastErr)
 	}
-
-	cfConfiguration, ok := cfStringCreateWithBytes(unsafe.Add(pData, 2), descriptorLength-2, C.kCFStringEncodingUTF16LE)
-	if !ok {
-		return "", errors.New("failed to create CFString from bytes")
-	}
-	defer cfConfiguration.Release()
-	configuration, ok := cfConfiguration.GetGoString()
-	if !ok {
-		return "", errors.New("failed to convert CFString to Go string")
-	}
-	return configuration, nil
+	return "", errors.New("configuration string retrieval failed")
 }
