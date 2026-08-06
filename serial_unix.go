@@ -238,8 +238,8 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	// Set raw mode
 	setRawMode(settings)
 
-	// Explicitly disable RTS/CTS flow control
-	setTermSettingsCtsRts(false, settings)
+	// Explicitly enable/disable RTS/CTS flow control
+	setTermSettingsCtsRts(mode.RTSCTSFlowControl, settings)
 
 	if err = port.setTermSettings(settings); err != nil {
 		port.Close()

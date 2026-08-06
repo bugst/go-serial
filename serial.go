@@ -101,6 +101,7 @@ type Mode struct {
 	Parity            Parity           // Parity (see Parity type for more info)
 	StopBits          StopBits         // Stop bits (see StopBits type for more info)
 	InitialStatusBits *ModemOutputBits // Initial output modem bits status (if nil defaults to DTR=true and RTS=true)
+	RTSCTSFlowControl bool             // Enable RTS/CTS hardware flow control
 }
 
 // Parity describes a serial port parity setting
