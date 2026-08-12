@@ -12,6 +12,7 @@ package serial
 import (
 	"context"
 	"os/exec"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -73,4 +74,47 @@ func TestDoubleCloseIsNoop(t *testing.T) {
 	if err := port.Close(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+}
+
+func TestAccessModeDefault(t *testing.T) {
+	AccessModeExclusive(t, &Mode{})
+}
+
+func TestAccessModeExclusive(t *testing.T) {
+	mode := &Mode{
+		AccessMode: Exclusive,
+	}
+
+	AccessModeExclusive(t, mode)
+}
+
+func AccessModeExclusive(t *testing.T, mode *Mode) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := startSocatAndWaitForPort(t, ctx)
+	go cmd.Wait()
+
+	port, err := Open("/tmp/faketty", mode)
+	require.NoError(t, err)
+	_, err2 := Open("/tmp/faketty", mode)
+	require.Error(t, err2, syscall.ENOENT)
+	require.NoError(t, port.Close())
+}
+
+func TestAccessModeShared(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := startSocatAndWaitForPort(t, ctx)
+	go cmd.Wait()
+
+	mode := &Mode{
+		AccessMode: Shared,
+	}
+
+	port, err := Open("/tmp/faketty", mode)
+	require.NoError(t, err)
+	port2, err2 := Open("/tmp/faketty", mode)
+	require.NoError(t, err2)
+	require.NoError(t, port.Close())
+	require.NoError(t, port2.Close())
 }
