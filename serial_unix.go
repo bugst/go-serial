@@ -35,7 +35,7 @@ func (port *unixPort) Close() error {
 	}
 
 	// Close port
-	port.releaseExclusiveAccess()
+	_ = port.releaseExclusiveAccess()
 	if err := unix.Close(port.handle); err != nil {
 		return err
 	}
@@ -277,7 +277,11 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 
 	unix.SetNonblock(h, false)
 
-	port.acquireExclusiveAccess()
+	err = port.acquireExclusiveAccess()
+	if err != nil {
+		port.Close()
+		return nil, err
+	}
 
 	// This pipe is used as a signal to cancel blocking Read
 	if pipe, err := unixutils.NewPipe(); err != nil {
