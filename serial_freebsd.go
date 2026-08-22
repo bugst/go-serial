@@ -14,7 +14,7 @@ import (
 
 const devFolder = "/dev"
 
-var osPortFilter = regexp.MustCompile("^(cu|tty)\\..*")
+var osPortFilter = regexp.MustCompile(`^(cua[uU]|tty[uU])[0-9]+$`)
 
 // termios manipulation functions
 
