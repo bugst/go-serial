@@ -19,8 +19,10 @@ package serial
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -30,9 +32,26 @@ import (
 
 type windowsPort struct {
 	mu         sync.Mutex
+	closeMu    sync.Mutex
 	handle     windows.Handle
+	liveHandle atomic.Uintptr
+	closing    atomic.Bool
 	hasTimeout bool
+	pendingIO  sync.WaitGroup
+	closeDone  chan struct{}
+	closeErr   error
 }
+
+var (
+	waitForOverlappedResult = windows.GetOverlappedResult
+	waitForOverlappedEvent  = windows.WaitForSingleObject
+	cancelPendingIO         = windows.CancelIoEx
+	closeWindowsHandle      = windows.CloseHandle
+	readWindowsFile         = windows.ReadFile
+	writeWindowsFile        = windows.WriteFile
+	closeIssueLockTimeout   = 2 * time.Second
+	closeIssueRetryDelay    = time.Millisecond
+)
 
 func nativeGetPortsList() ([]string, error) {
 	key, err := registry.OpenKey(windows.HKEY_LOCAL_MACHINE, `HARDWARE\DEVICEMAP\SERIALCOMM\`, windows.KEY_READ)
@@ -65,15 +84,110 @@ func nativeGetPortsList() ([]string, error) {
 }
 
 func (port *windowsPort) Close() error {
-	port.mu.Lock()
-	defer func() {
-		port.handle = 0
+	// Only one closer may use the lock-free published handle. Without this
+	// independent serialization, a second Close could load the handle just
+	// before the first CloseHandle and then call CancelIoEx after Windows reused
+	// that numeric value for an unrelated object.
+	port.closeMu.Lock()
+	defer port.closeMu.Unlock()
+
+	port.closing.Store(true)
+	deadline := time.Now().Add(closeIssueLockTimeout)
+	var handle windows.Handle
+	for {
+		handle = windows.Handle(port.liveHandle.Load())
+		if handle == 0 {
+			port.mu.Lock()
+			return port.waitForConcurrentCloseLocked()
+		}
+
+		// A broken USB serial driver may block inside the nominally-overlapped
+		// ReadFile/WriteFile call while that caller owns mu. Cancellation must not
+		// need the same lock or Close can never reach CloseHandle. The published
+		// handle remains open and therefore cannot be reused while this loop asks
+		// Windows to cancel and waits to acquire the issuance lock. Retrying also
+		// closes the narrow window where an operation registered but had not yet
+		// entered the kernel when the first CancelIoEx observed ERROR_NOT_FOUND.
+		if err := cancelWindowsIO(handle); err != nil {
+			return err
+		}
+		if port.mu.TryLock() {
+			if port.handle == 0 {
+				return port.waitForConcurrentCloseLocked()
+			}
+			if port.handle != handle {
+				port.mu.Unlock()
+				continue
+			}
+			break
+		}
+		if !time.Now().Before(deadline) {
+			return fmt.Errorf(
+				"cancel blocked serial I/O before close: timed out after %s",
+				closeIssueLockTimeout,
+			)
+		}
+		time.Sleep(closeIssueRetryDelay)
+	}
+
+	// Closing a handle does not reliably cancel an overlapped ReadFile on all
+	// serial drivers. In particular, GetOverlappedResult may remain blocked and
+	// keep the COM handle alive after Close returns to its caller. Cancel every
+	// operation issued by this process before closing so readers and writers on
+	// other Go-managed OS threads observe ERROR_OPERATION_ABORTED.
+	if cancelErr := cancelWindowsIO(handle); cancelErr != nil {
+		// CancelIoEx does not guarantee that a failed cancellation completed any
+		// outstanding operation. Keep the handle, OVERLAPPED values, and caller
+		// buffers owned by the port and return promptly. A later Close retries the
+		// cancellation. Closing the handle or returning while a background reaper
+		// owns those caller buffers would violate the Windows overlapped-I/O
+		// lifetime contract.
 		port.mu.Unlock()
-	}()
-	if port.handle == 0 {
+		return cancelErr
+	}
+	port.handle = 0
+	port.liveHandle.Store(0)
+	port.closeDone = make(chan struct{})
+	port.mu.Unlock()
+
+	// CancelIoEx only requests cancellation. Some USB serial drivers do not
+	// complete their pending OVERLAPPED operation until the file handle itself
+	// is closed, so release the handle before joining the waiters. Read/Write keep
+	// their OVERLAPPED values and caller buffers alive until pendingIO reaches
+	// zero, preserving the Windows lifetime contract while allowing those drivers
+	// to finish cancellation.
+	closeErr := closeWindowsHandle(handle)
+	port.pendingIO.Wait()
+
+	port.mu.Lock()
+	port.closeErr = closeErr
+	close(port.closeDone)
+	port.mu.Unlock()
+	return closeErr
+}
+
+func (port *windowsPort) waitForConcurrentCloseLocked() error {
+	done := port.closeDone
+	err := port.closeErr
+	port.mu.Unlock()
+	if done == nil {
+		return err
+	}
+	<-done
+	port.mu.Lock()
+	err = port.closeErr
+	port.mu.Unlock()
+	return err
+}
+
+func cancelWindowsIO(handle windows.Handle) error {
+	err := cancelPendingIO(handle, nil)
+	if errors.Is(err, windows.ERROR_NOT_FOUND) {
+		// No operation was pending. This is the normal idle-close case and can
+		// also occur in the pre-issuance window; Close retries before taking mu.
 		return nil
 	}
-	return windows.CloseHandle(port.handle)
+	return err
 }
 
 func (port *windowsPort) Read(p []byte) (int, error) {
@@ -85,16 +199,29 @@ func (port *windowsPort) Read(p []byte) (int, error) {
 	defer windows.CloseHandle(ev.HEvent)
 
 	for {
-		err = windows.ReadFile(port.handle, p, &readed, ev)
-		if err == windows.ERROR_IO_PENDING {
-			err = windows.GetOverlappedResult(port.handle, ev, &readed, true)
+		port.mu.Lock()
+		if port.handle == 0 || port.closing.Load() {
+			port.mu.Unlock()
+			return 0, &PortError{code: PortClosed}
 		}
+		handle := port.handle
+		port.pendingIO.Add(1)
+		// Keep mu through documented-overlapped issuance so Close cannot observe
+		// ERROR_NOT_FOUND, close the handle, and let its numeric value be reused
+		// before this syscall starts. The potentially blocking completion wait is
+		// event-based below and runs without mu.
+		err = readWindowsFile(handle, p, &readed, ev)
+		port.mu.Unlock()
+		if err == windows.ERROR_IO_PENDING {
+			err = port.waitOverlapped(handle, ev, &readed)
+		}
+		port.pendingIO.Done()
 		switch err {
 		case nil:
 			// operation completed successfully
 		case windows.ERROR_OPERATION_ABORTED:
 			// port may have been closed
-			return int(readed), &PortError{code: PortClosed, causedBy: err}
+			return int(readed), windowsIOError(err)
 		default:
 			// error happened
 			return int(readed), err
@@ -120,12 +247,53 @@ func (port *windowsPort) Write(p []byte) (int, error) {
 		return 0, err
 	}
 	defer windows.CloseHandle(ev.HEvent)
-	err = windows.WriteFile(port.handle, p, &writed, ev)
+	port.mu.Lock()
+	if port.handle == 0 || port.closing.Load() {
+		port.mu.Unlock()
+		return 0, &PortError{code: PortClosed}
+	}
+	handle := port.handle
+	port.pendingIO.Add(1)
+	err = writeWindowsFile(handle, p, &writed, ev)
+	port.mu.Unlock()
 	if err == windows.ERROR_IO_PENDING {
 		// wait for write to complete
-		err = windows.GetOverlappedResult(port.handle, ev, &writed, true)
+		err = port.waitOverlapped(handle, ev, &writed)
 	}
-	return int(writed), err
+	port.pendingIO.Done()
+	return int(writed), windowsIOError(err)
+}
+
+func (port *windowsPort) waitOverlapped(
+	handle windows.Handle,
+	overlapped *windows.Overlapped,
+	transferred *uint32,
+) error {
+	result, err := waitForOverlappedEvent(overlapped.HEvent, windows.INFINITE)
+	if err != nil {
+		return err
+	}
+	if result != windows.WAIT_OBJECT_0 {
+		return fmt.Errorf("wait for overlapped serial operation returned 0x%X", result)
+	}
+
+	// CloseHandle may have completed cancellation and made the captured numeric
+	// handle available for reuse. Never call a post-close API with that value.
+	// The per-operation event is the lifetime authority; after it signals, only
+	// query the result while mu proves this is still the live port handle.
+	port.mu.Lock()
+	defer port.mu.Unlock()
+	if port.handle != handle {
+		return windows.ERROR_OPERATION_ABORTED
+	}
+	return waitForOverlappedResult(handle, overlapped, transferred, false)
+}
+
+func windowsIOError(err error) error {
+	if errors.Is(err, windows.ERROR_OPERATION_ABORTED) {
+		return &PortError{code: PortClosed, causedBy: err}
+	}
+	return err
 }
 
 func (port *windowsPort) Drain() (err error) {
@@ -388,6 +556,7 @@ func nativeOpen(portName string, mode *Mode) (*windowsPort, error) {
 	port := &windowsPort{
 		handle: handle,
 	}
+	port.liveHandle.Store(uintptr(handle))
 
 	// Set port parameters
 	params := &windows.DCB{}
